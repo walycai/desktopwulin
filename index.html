@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面武林 · 家园摆放原型</title>
+<link rel="stylesheet" href="src/style.css?v=0617a">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">桌面武林 <span class="ver">家园原型 v0.1</span></div>
+    <div class="stats">
+      <span class="stat" title="气血">❤ <b id="hpVal">100</b>/<b id="hpMax">100</b></span>
+      <span class="stat" title="内功">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
+      <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
+    </div>
+    <div class="topbtns">
+      <button id="dbgPoison" class="tb" title="调试：施加中毒">中毒</button>
+      <button id="dbgWeak" class="tb" title="调试：施加虚弱">虚弱</button>
+      <button id="dbgHurt" class="tb" title="调试：扣血">受伤</button>
+      <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- 房间：精细网格地板 + 后墙(壁挂) -->
+    <div id="roomWrap" class="room-wrap">
+      <div id="room" class="room">
+        <div id="wall" class="wall"></div>
+        <div id="floor" class="floor"></div>
+        <div id="ghost" class="ghost hidden"></div>
+        <div id="player" class="player" title="侠客（点床/打坐台试功能）">🧍</div>
+      </div>
+    </div>
+
+    <!-- 仓库包 -->
+    <aside class="bag">
+      <h3>仓库包</h3>
+      <div class="cats" id="cats"></div>
+      <div class="items" id="items"></div>
+      <div class="bag-tip" id="bagTip">点选物品 → 在房间里点击格子摆放。已摆放的可拖动/右键收回；按 R 旋转。</div>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="src/game.js?v=0617a"></script>
+</body>
+</html>
