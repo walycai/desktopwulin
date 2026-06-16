@@ -534,6 +534,7 @@
       if (dollSel === it) d.style.boxShadow = "0 0 0 2px #ffd98a";
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = (dollSel === it ? null : it); renderDoll(); };
+      d.ondblclick = function () { equipItem(it, targetSlotFor(it)); };
       wh.appendChild(d);
     });
     // 属性 + 选中装备对比(穿上后 +/- 变化)
