@@ -592,6 +592,8 @@
     $("dollBtn").onclick = openDoll;
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
     $("sortieBtn").onclick = sortie;
+    $("meditateBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
+    $("sleepBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
     $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
     $("combatModal").addEventListener("click", function (e) { if (e.target === $("combatModal")) $("combatModal").classList.add("hidden"); });
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
