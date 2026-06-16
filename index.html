@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617b">
+<link rel="stylesheet" href="src/style.css?v=0617c">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">桌面武林 <span class="ver">家园原型 v0.1</span></div>
+    <div class="brand">桌面武林 <span class="ver">家园原型 v0.3 等距</span></div>
     <div class="stats">
       <span class="stat" title="气血">❤ <b id="hpVal">100</b>/<b id="hpMax">100</b></span>
       <span class="stat" title="内功">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
@@ -23,30 +23,19 @@
   </header>
 
   <div class="layout">
-    <!-- 房间：精细网格地板 + 后墙(壁挂)，外围庭院美化 -->
     <div id="roomWrap" class="room-wrap">
-      <div class="yard">
-        <div class="yard-row">🌳　🌲　🏵️　🌳　🌸　🌲　🌳　🌲　🌸　🌳　🌲</div>
-        <div id="room" class="room">
-          <div id="wall" class="wall"></div>
-          <div id="floor" class="floor"></div>
-          <div id="ghost" class="ghost hidden"></div>
-          <div id="player" class="player" title="侠客（点床/打坐台试功能）">🧍</div>
-        </div>
-        <div class="yard-row">🌿　🌷　🌼　🌿　🪨　🌿　🌷　🌼　🌿　🌳　🌿</div>
-      </div>
+      <canvas id="canvas"></canvas>
     </div>
 
-    <!-- 仓库包 -->
     <aside class="bag">
       <h3>仓库包 <button id="recallAll" class="tb recall">收回全部</button></h3>
       <div class="cats" id="cats"></div>
       <div class="items" id="items"></div>
-      <div class="bag-tip" id="bagTip">点选物品 → 在房间里点击格子摆放。已摆放的可拖动/右键收回；按 R 旋转。</div>
+      <div class="bag-tip" id="bagTip">点选物品 → 在房间里点击格子摆放（等距视角）。已摆放可拖动；右键收回；按 R 旋转。点床/打坐台主角会走过去。</div>
     </aside>
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/game.js?v=0617b"></script>
+  <script src="src/game.js?v=0617c"></script>
 </body>
 </html>
