@@ -8,10 +8,11 @@
 (function () {
   "use strict";
 
-  var CELL = 20;            // 精细网格，每格 20px
-  var GW = 50, GH = 34;     // 地板 50x34 格 = 1000x680
-  var WALL_ROWS = 7;        // 后墙高度(格)，用于壁挂
-  var SAVE_KEY = "wulin_home_v1";
+  var CELL = 20;            // 精细网格，每格 20px（1 大格 = 4 小格）
+  var GW = 66, GH = 48;     // 地板加大 66x48 格
+  var WALL_ROWS = 16;       // 后墙高度=4 大格(16 小格)，壁挂有高低
+  var PLAYER_CELLS = 4;     // 侠客碰撞体积 4x4 小格
+  var SAVE_KEY = "wulin_home_v2";
 
   // ---- 物品目录（30 件；w/h 为占格数；fixed 不可拖；func 功能件）----
   var CATALOG = [
@@ -130,8 +131,19 @@
     var x = Math.floor((e.clientX - fr.left) / CELL), y = Math.floor((e.clientY - fr.top) / CELL);
     return { x: x, y: y, onFloor: e.clientY >= fr.top };
   }
-  function canPlaceFloor(cx, cy, fw, fh, ignoreUid) {
+  function playerBox() {
+    var fcx = Math.floor(player.x / CELL), fcy = Math.floor(player.y / CELL);
+    var n = PLAYER_CELLS;
+    return { x0: fcx - n / 2, y0: fcy - n + 1, x1: fcx + n / 2 - 1, y1: fcy };
+  }
+  function overlapsPlayer(cx, cy, fw, fh) {
+    var b = playerBox();
+    return !(cx + fw - 1 < b.x0 || cx > b.x1 || cy + fh - 1 < b.y0 || cy > b.y1);
+  }
+  function canPlaceFloor(cx, cy, fw, fh, ignoreUid, isDecor) {
     if (cx < 0 || cy < 0 || cx + fw > GW || cy + fh > GH) return false;
+    if (isDecor) return true; // 摆件可叠放在桌上或地上，仅校验边界
+    if (overlapsPlayer(cx, cy, fw, fh)) return false; // 侠客 4x4 碰撞体积
     for (var y = cy; y < cy + fh; y++) for (var x = cx; x < cx + fw; x++) if (occ[y][x] && occ[y][x] !== ignoreUid) return false;
     return true;
   }
@@ -147,17 +159,17 @@
     var fp = footprint(c, ghostRot);
     if (c.wall) {
       var wr = $("wall").getBoundingClientRect();
-      var cx = Math.floor((e.clientX - wr.left) / CELL);
-      cx = Math.max(0, Math.min(GW - fp.w, cx));
+      var cx = Math.max(0, Math.min(GW - fp.w, Math.floor((e.clientX - wr.left) / CELL)));
+      var ry = Math.max(0, Math.min(WALL_ROWS - fp.h, Math.floor((e.clientY - wr.top) / CELL))); // 壁挂高低
       var ok = canPlaceWall(cx, fp.w);
       g.className = "ghost " + (ok ? "ok" : "bad");
-      g.style.left = cx * CELL + "px"; g.style.top = (Math.max(0, Math.min(WALL_ROWS - fp.h, 1))) * CELL + "px";
+      g.style.left = cx * CELL + "px"; g.style.top = ry * CELL + "px";
       g.style.width = fp.w * CELL + "px"; g.style.height = fp.h * CELL + "px";
       g.innerHTML = c.glyph;
     } else {
       var cell = cellFromEvent(e);
       if (!cell.onFloor) { g.classList.add("hidden"); return; }
-      var ok2 = canPlaceFloor(cell.x, cell.y, fp.w, fp.h);
+      var ok2 = canPlaceFloor(cell.x, cell.y, fp.w, fp.h, null, c.cat === "decor");
       g.className = "ghost " + (ok2 ? "ok" : "bad");
       g.style.left = cell.x * CELL + "px"; g.style.top = (FLOOR_TOP() + cell.y * CELL) + "px";
       g.style.width = fp.w * CELL + "px"; g.style.height = fp.h * CELL + "px";
@@ -171,11 +183,12 @@
     if (c.wall) {
       var wr = $("wall").getBoundingClientRect();
       var cx = Math.max(0, Math.min(GW - fp.w, Math.floor((e.clientX - wr.left) / CELL)));
+      var ry = Math.max(0, Math.min(WALL_ROWS - fp.h, Math.floor((e.clientY - wr.top) / CELL)));
       if (!canPlaceWall(cx, fp.w)) { toast("这里放不下"); return; }
-      addPlaced(c, cx, 1, ghostRot, true);
+      addPlaced(c, cx, ry, ghostRot, true);
     } else {
       var cell = cellFromEvent(e); if (!cell.onFloor) return;
-      if (!canPlaceFloor(cell.x, cell.y, fp.w, fp.h)) { toast("这里放不下"); return; }
+      if (!canPlaceFloor(cell.x, cell.y, fp.w, fp.h, null, c.cat === "decor")) { toast("这里放不下"); return; }
       addPlaced(c, cell.x, cell.y, ghostRot, false);
     }
     bag[c.id]--; if (bag[c.id] <= 0) { selId = null; $("ghost").classList.add("hidden"); }
@@ -183,17 +196,18 @@
   }
   function addPlaced(c, cx, cy, rot, wall) {
     var fp = footprint(c, rot);
-    var p = { uid: uidSeq++, id: c.id, cx: cx, cy: cy, w: fp.w, h: fp.h, rot: rot, wall: wall };
+    var p = { uid: uidSeq++, id: c.id, cx: cx, cy: cy, w: fp.w, h: fp.h, rot: rot, wall: wall, decor: (c.cat === "decor" && !wall) };
     placed.push(p);
-    if (wall) { for (var x = cx; x < cx + fp.w; x++) wallOcc[x] = p.uid; }
-    else { for (var y = cy; y < cy + fp.h; y++) for (var xx = cx; xx < cx + fp.w; xx++) occ[y][xx] = p.uid; }
+    fillCells(p);
     renderPlaced(p);
   }
   function freeCells(p) {
+    if (p.decor) return;
     if (p.wall) { for (var x = p.cx; x < p.cx + p.w; x++) if (wallOcc[x] === p.uid) wallOcc[x] = 0; }
     else { for (var y = p.cy; y < p.cy + p.h; y++) for (var xx = p.cx; xx < p.cx + p.w; xx++) if (occ[y][xx] === p.uid) occ[y][xx] = 0; }
   }
   function fillCells(p) {
+    if (p.decor) return;
     if (p.wall) { for (var x = p.cx; x < p.cx + p.w; x++) wallOcc[x] = p.uid; }
     else { for (var y = p.cy; y < p.cy + p.h; y++) for (var xx = p.cx; xx < p.cx + p.w; xx++) occ[y][xx] = p.uid; }
   }
@@ -205,6 +219,7 @@
     el.style.width = p.w * CELL + "px"; el.style.height = p.h * CELL + "px";
     el.style.left = p.cx * CELL + "px";
     el.style.top = (p.wall ? p.cy * CELL : FLOOR_TOP() + p.cy * CELL) + "px";
+    el.style.zIndex = p.decor ? 30 : (p.wall ? 8 : 10);
     el.innerHTML = itemImgHTML(c, p.w * CELL, p.h * CELL);
     el.title = c.name + (c.func === "bed" ? "（点击去睡觉）" : c.func === "meditate" ? "（点击去打坐）" : "");
     if (!el._bound) { bindPlaced(p, el); el._bound = true; }
@@ -240,7 +255,7 @@
         if (p.wall) { var nx = Math.max(0, Math.min(GW - p.w, down.ox + dx)); if (canPlaceWall(nx, p.w, p.uid)) p.cx = nx; }
         else {
           var nx2 = Math.max(0, Math.min(GW - p.w, down.ox + dx)), ny2 = Math.max(0, Math.min(GH - p.h, down.oy + dy));
-          if (canPlaceFloor(nx2, ny2, p.w, p.h, p.uid)) { p.cx = nx2; p.cy = ny2; } else toast("那里放不下");
+          if (canPlaceFloor(nx2, ny2, p.w, p.h, p.uid, p.decor)) { p.cx = nx2; p.cy = ny2; } else toast("那里放不下");
         }
         fillCells(p); renderPlaced(p); save();
       }
@@ -257,42 +272,91 @@
   function removePlaced(p) {
     freeCells(p); if (p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
     placed = placed.filter(function (q) { return q !== p; });
-    bag[p.id]++; if (player.actUid === p.uid) { player.state = "wander"; player.actUid = 0; $("player").classList.remove("acting"); }
+    bag[p.id]++; if (player.actUid === p.uid) backToWander();
     renderItems(); save();
   }
 
-  // ---- 主角：溜达 / 走向目标 / 行为 ----
-  function setPlayerPos(x, y, animate) {
-    player.x = x; player.y = y;
-    var el = $("player");
-    el.style.left = (x - 11) + "px"; el.style.top = (FLOOR_TOP() + y - 22) + "px";
+  // ---- 主角：精灵动画 + 溜达 / 走向目标 / 行为 ----
+  // 精灵表约定：每动作一张 sheet；帧=列(左→右)，方向=行，行序 down/up/left/right；单帧 48×64，脚底中心锚点(24,60)。
+  var SPRITE = {
+    fw: 48, fh: 64, ax: 24, ay: 60,
+    actions: { idle: { frames: 4, fps: 6, dirs: 4 }, walk: { frames: 8, fps: 10, dirs: 4 }, sleep: { frames: 4, fps: 4, dirs: 1 }, meditate: { frames: 4, fps: 6, dirs: 1 } },
+    dirRow: { down: 0, up: 1, left: 2, right: 3 }
+  };
+  var sprite = { ready: false, sheets: {}, action: "idle", dir: "down", fi: 0, timer: null };
+
+  function loadSprites() {
+    var names = Object.keys(SPRITE.actions), loaded = 0;
+    names.forEach(function (a) {
+      var im = new Image();
+      im.onload = function () { sprite.sheets[a] = im; done(); };
+      im.onerror = function () { done(); };
+      im.src = "assets/characters/protagonist/" + a + ".png?_=" + Date.now();
+      function done() { if (++loaded === names.length) finish(); }
+    });
+    function finish() {
+      if (sprite.sheets.idle && sprite.sheets.walk) { sprite.ready = true; $("player").classList.add("sprite"); $("player").textContent = ""; setAnim("idle", "down"); applyPos(); }
+    }
   }
-  function walkTo(x, y, onArrive) {
-    player.target = { x: x, y: y, cb: onArrive };
+  function setAnim(action, dir) {
+    if (!SPRITE.actions[action]) action = "idle";
+    if (SPRITE.actions[action].dirs === 1) dir = "down";
+    if (sprite.action === action && sprite.dir === dir && sprite.timer) return;
+    sprite.action = action; sprite.dir = dir; sprite.fi = 0;
+    if (sprite.timer) { clearInterval(sprite.timer); sprite.timer = null; }
+    if (!sprite.ready) return;
+    var sheet = sprite.sheets[action] || sprite.sheets.idle;
+    $("player").style.backgroundImage = "url(" + sheet.src + ")";
+    var def = SPRITE.actions[action];
+    sprite.timer = setInterval(function () { sprite.fi = (sprite.fi + 1) % def.frames; paintFrame(); }, 1000 / def.fps);
+    paintFrame();
+  }
+  function paintFrame() {
+    if (!sprite.ready) return;
+    var def = SPRITE.actions[sprite.action];
+    var row = def.dirs === 1 ? 0 : (SPRITE.dirRow[sprite.dir] || 0);
+    $("player").style.backgroundPosition = (-sprite.fi * SPRITE.fw) + "px " + (-row * SPRITE.fh) + "px";
+  }
+  function applyPos() {
     var el = $("player");
-    var dist = Math.hypot(x - player.x, y - player.y);
-    el.style.transitionDuration = Math.max(0.2, dist / 120) + "s";
-    player.x = x; player.y = y;
-    el.style.left = (x - 11) + "px"; el.style.top = (FLOOR_TOP() + y - 22) + "px";
+    if (sprite.ready) { el.style.left = (player.x - SPRITE.ax) + "px"; el.style.top = (FLOOR_TOP() + player.y - SPRITE.ay) + "px"; }
+    else { el.style.left = (player.x - 11) + "px"; el.style.top = (FLOOR_TOP() + player.y - 22) + "px"; }
+  }
+  function setPlayerPos(x, y) { player.x = x; player.y = y; applyPos(); if (!sprite.ready) $("player").textContent = "🧍"; }
+  function dirFrom(dx, dy) { return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? "left" : "right") : (dy < 0 ? "up" : "down"); }
+  function walkTo(x, y, onArrive) {
+    var dx = x - player.x, dy = y - player.y, dist = Math.hypot(dx, dy);
+    player.target = { x: x, y: y, cb: onArrive };
+    if (dist > 2) { sprite.dir = dirFrom(dx, dy); setAnim("walk", sprite.dir); if (!sprite.ready) $("player").textContent = "🚶"; }
+    var el = $("player"); el.style.transitionDuration = Math.max(0.2, dist / 120) + "s";
+    player.x = x; player.y = y; applyPos();
     clearTimeout(player._t);
-    player._t = setTimeout(function () { if (player.target && player.target.cb) player.target.cb(); }, Math.max(200, dist / 120 * 1000) + 30);
+    player._t = setTimeout(function () {
+      var cb = player.target && player.target.cb;
+      if (player.state === "wander") { setAnim("idle", sprite.dir); if (!sprite.ready) $("player").textContent = "🧍"; }
+      if (cb) cb();
+    }, Math.max(200, dist / 120 * 1000) + 30);
   }
   function centerOf(p) { return { x: (p.cx + p.w / 2) * CELL, y: (p.cy + p.h / 2) * CELL }; }
   function goAction(p, state) {
-    player.state = "walking"; player.actUid = p.uid;
-    $("player").classList.remove("acting");
-    var ctr = centerOf(p);
-    var ty = Math.min(GH * CELL - 6, ctr.y + p.h * CELL / 2 + 4); // 走到家具前方
+    player.state = "walking"; player.actUid = p.uid; $("player").classList.remove("acting");
+    var ctr = centerOf(p), ty = Math.min(GH * CELL - 6, ctr.y + p.h * CELL / 2 + 4);
     walkTo(ctr.x, ty, function () {
       if (player.actUid !== p.uid) return;
-      player.state = state; $("player").classList.add("acting");
-      $("player").textContent = state === "sleeping" ? "😴" : "🧘";
+      player.state = state;
+      if (state === "sleeping") { setAnim("sleep", "down"); if (!sprite.ready) { $("player").textContent = "😴"; $("player").classList.add("acting"); } }
+      else { setAnim("meditate", "down"); if (!sprite.ready) { $("player").textContent = "🧘"; $("player").classList.add("acting"); } }
       toast(state === "sleeping" ? "侠客躺下休息……" : "侠客盘膝打坐……");
     });
   }
+  function backToWander() {
+    player.state = "wander"; player.actUid = 0; player._busy = false;
+    $("player").classList.remove("acting");
+    setAnim("idle", sprite.dir); if (!sprite.ready) $("player").textContent = "🧍";
+  }
   function wanderTick() {
-    if (player.state === "wander" && (!player.target || !player._busy)) {
-      if (Math.random() < 0.5) {
+    if (player.state === "wander" && !player._busy) {
+      if (Math.random() < 0.6) {
         var x = 40 + Math.random() * (GW * CELL - 80), y = 40 + Math.random() * (GH * CELL - 80);
         player._busy = true;
         walkTo(x, y, function () { player._busy = false; });
@@ -303,10 +367,7 @@
   function bindRoomIdleClick() {
     $("floor").addEventListener("pointerup", function (e) {
       if (selId) { tryPlaceAt(e); return; }
-      if (player.state === "sleeping" || player.state === "meditating") {
-        player.state = "wander"; player.actUid = 0; player._busy = false;
-        $("player").classList.remove("acting"); $("player").textContent = "🧍";
-      }
+      if (player.state === "sleeping" || player.state === "meditating") { backToWander(); }
     });
     $("wall").addEventListener("pointerup", function (e) { if (selId) tryPlaceAt(e); });
   }
@@ -360,12 +421,12 @@
   function init() {
     resetOcc(); layoutRoom(); initBag();
     if (!load()) {
-      // 预置一张普通床+打坐台，便于一眼看到功能
-      addPlaced(byId.bed_basic, 4, 4, 0, false); bag.bed_basic--;
-      addPlaced(byId.meditation_dais, 30, 6, 0, false); bag.meditation_dais--;
+      // 默认房间只放打坐台（床由玩家自行摆放）
+      addPlaced(byId.meditation_dais, Math.floor(GW / 2) - 6, 6, 0, false); bag.meditation_dais--;
     }
     renderCats(); renderItems(); updateStats();
-    setPlayerPos(GW * CELL / 2, GH * CELL * 0.6, false);
+    setPlayerPos(GW * CELL / 2, GH * CELL * 0.6);
+    loadSprites();
     bindRoomIdleClick();
     $("room").addEventListener("pointermove", updateGhost);
     $("room").addEventListener("contextmenu", function (e) { if (selId) { e.preventDefault(); selId = null; $("ghost").classList.add("hidden"); renderItems(); } });
@@ -374,6 +435,10 @@
     $("dbgWeak").onclick = function () { stats.weak = true; updateStats(); toast("陷入虚弱！去睡觉恢复"); };
     $("dbgHurt").onclick = function () { stats.hp = Math.max(0, stats.hp - 30); updateStats(); toast("受伤 -30 气血"); };
     $("resetBtn").onclick = function () { if (confirm("清空房间与存档？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
+    $("recallAll").onclick = function () {
+      placed.slice().forEach(function (p) { if (!byId[p.id].fixed) removePlaced(p); }); // 固定件(打坐台)不收回
+      toast("已收回全部可移动物品到仓库"); renderItems();
+    };
     setInterval(tickStats, 1000);
     setInterval(wanderTick, 2200);
   }

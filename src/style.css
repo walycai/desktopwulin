@@ -25,7 +25,10 @@ body {
 .tb:hover { background: #5d472f; }
 
 .layout { flex: 1 1 auto; display: flex; min-height: 0; }
-.room-wrap { flex: 1 1 auto; overflow: auto; background: #15100b; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.room-wrap { flex: 1 1 auto; overflow: auto; background: #1c2a16; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.yard { background: linear-gradient(160deg,#5a8a4a,#3f6a38); padding: 26px 34px; border-radius: 14px; box-shadow: 0 0 0 4px #36592f, 0 10px 40px rgba(0,0,0,.5); }
+.yard-row { font-size: 26px; text-align: center; letter-spacing: 4px; line-height: 1.2; padding: 6px 0; user-select: none; }
+.bag h3 .recall { float: right; font-size: 11px; padding: 3px 8px; }
 
 .room { position: relative; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
 .wall {
@@ -65,6 +68,8 @@ body {
 .player { position: absolute; z-index: 45; font-size: 22px; transition: left .25s linear, top .25s linear;
   display: flex; align-items: center; justify-content: center; pointer-events: none;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+.player.sprite { width: 48px; height: 64px; font-size: 0; background-repeat: no-repeat;
+  image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
 .player.acting { animation: bob .6s ease-in-out infinite; }
 @keyframes bob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-3px) } }
 
