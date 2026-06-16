@@ -44,7 +44,7 @@
   // 默认掉落配置（占位）
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
   // 稀有度独立加权 roll（脱离模板，D2 风；@莱布尼茨 平衡报告①）
-  var RARITY_WEIGHTS = [["common", 60], ["fine", 30], ["superior", 8], ["epic", 1.8], ["legend", 0.2]];
+  var RARITY_WEIGHTS = [["common", 64], ["fine", 28], ["superior", 7], ["epic", 0.8], ["legend", 0.2]]; // 新手村(莱布尼茨报告②); 超高=绝品+秘传≈1%
 
   // ---- 可复现随机 (mulberry32) ----
   function mulberry32(seed) {
