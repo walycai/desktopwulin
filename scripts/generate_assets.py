@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw
 from pathlib import Path
 import math
+from collections import deque
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
@@ -501,6 +502,67 @@ def refine_priority_assets():
         img.save(out / f"{action}.png")
 
 
+def cut_sample_to_alpha(crop):
+    """Remove connected dark sample-sheet background while preserving object outlines."""
+    crop = crop.convert("RGBA")
+    pix = crop.load()
+    w, h = crop.size
+    samples = []
+    step_x = max(1, w // 20)
+    step_y = max(1, h // 20)
+    for x in range(0, w, step_x):
+        samples.append(pix[x, 0][:3])
+        samples.append(pix[x, h - 1][:3])
+    for y in range(0, h, step_y):
+        samples.append(pix[0, y][:3])
+        samples.append(pix[w - 1, y][:3])
+    avg = tuple(sum(c[i] for c in samples) // len(samples) for i in range(3))
+
+    def is_background(px):
+        r, g, b, _ = px
+        dist = sum((px[i] - avg[i]) ** 2 for i in range(3)) ** 0.5
+        mx, mn = max(r, g, b), min(r, g, b)
+        return (mx < 80 and mx - mn < 35) or dist < 34
+
+    seen = [[False] * w for _ in range(h)]
+    q = deque()
+    for x in range(w):
+        q.append((x, 0))
+        q.append((x, h - 1))
+    for y in range(h):
+        q.append((0, y))
+        q.append((w - 1, y))
+    while q:
+        x, y = q.popleft()
+        if x < 0 or y < 0 or x >= w or y >= h or seen[y][x]:
+            continue
+        seen[y][x] = True
+        if is_background(pix[x, y]):
+            pix[x, y] = (0, 0, 0, 0)
+            q.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    bbox = crop.getbbox()
+    return crop.crop(bbox) if bbox else crop
+
+
+def apply_approved_style_sample():
+    """Cut approved AI style sample into first production assets."""
+    sample = ROOT / "previews/style-sample-gufeng-pixel-v1.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    crops = {
+        "furniture/bed/bed_basic.png": (35, 30, 520, 390),
+        "furniture/table/table_square.png": (565, 120, 940, 430),
+        "furniture/func/meditation_dais.png": (970, 70, 1510, 465),
+        "furniture/decor/decor_screen.png": (35, 500, 575, 995),
+        "furniture/wallhang/wall_scroll_right.png": (615, 485, 990, 1010),
+        "furniture/wallhang/wall_scroll_left.png": (615, 485, 990, 1010),
+        "furniture/decor/decor_vase.png": (1080, 500, 1460, 965),
+    }
+    for rel, box in crops.items():
+        save(cut_sample_to_alpha(src.crop(box)), rel)
+
+
 def main():
     environment_assets()
     furniture()
@@ -508,6 +570,7 @@ def main():
     combat_assets()
     ui_assets()
     refine_priority_assets()
+    apply_approved_style_sample()
 
 
 if __name__ == "__main__":

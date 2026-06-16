@@ -11,7 +11,7 @@
   var GW = 66, GH = 48;         // 地板小格
   var WALL_ROWS = 16, ROW_PX = 11; // 墙高 16 小格档，每档像素
   var WALL_PX = WALL_ROWS * ROW_PX;
-  var MARGIN = 40, HEAD = 120, YARD = 8; // 边距 / 家具顶部留白 / 院景边界格数
+  var MARGIN = 40, HEAD = 120, YARD = 16; // 边距 / 家具顶部留白 / 院景边界格数
   var PLAYER_CELLS = 4;
   var OX = MARGIN + (GH + YARD) * HW;
   var OY = MARGIN + WALL_PX + HEAD;
@@ -19,8 +19,8 @@
 
   // 物品目录（占格 w×h，画面高度另给 zh；fixed 不可拖；func 功能件）
   var CATALOG = [
-    { id: "bed_basic", name: "普通床", cat: "bed", w: 12, h: 24, zh: 26, func: "bed", heal: 4, cure: 0.4, glyph: "🛏", color: "#8a6240" },
-    { id: "bed_advanced", name: "高级床", cat: "bed", w: 16, h: 28, zh: 34, func: "bed", heal: 11, cure: 1.4, glyph: "🛏", color: "#a8743e" },
+    { id: "bed_basic", name: "普通床", cat: "bed", w: 10, h: 18, zh: 24, func: "bed", heal: 4, cure: 0.4, glyph: "🛏", color: "#8a6240" },
+    { id: "bed_advanced", name: "高级床", cat: "bed", w: 12, h: 22, zh: 32, func: "bed", heal: 11, cure: 1.4, glyph: "🛏", color: "#a8743e" },
     { id: "meditation_dais", name: "打坐台", cat: "func", w: 12, h: 12, zh: 16, fixed: true, func: "meditate", neigong: 1.2, glyph: "🧘", color: "#5f7298" },
     { id: "chair_round", name: "圈椅", cat: "chair", w: 5, h: 5, zh: 26, glyph: "🪑", color: "#6a4a30" },
     { id: "chair_bench", name: "长凳", cat: "chair", w: 9, h: 4, zh: 14, glyph: "🪵", color: "#6a4a30" },
@@ -31,7 +31,7 @@
     { id: "table_desk", name: "书案", cat: "table", w: 11, h: 6, zh: 18, glyph: "📜", color: "#6a4a2e" },
     { id: "table_long", name: "条案", cat: "table", w: 13, h: 5, zh: 18, glyph: "▭", color: "#6a4a2e" },
     { id: "wall_landscape", name: "山水画", cat: "wallhang", w: 8, h: 6, wall: true, glyph: "🏞", color: "#8a8a6a" },
-    { id: "wall_scroll", name: "书法卷轴", cat: "wallhang", w: 3, h: 7, wall: true, glyph: "🪧", color: "#bcae86" },
+    { id: "wall_scroll", name: "山水卷轴", cat: "wallhang", w: 5, h: 14, wall: true, glyph: "🪧", color: "#bcae86" },
     { id: "wall_swordrack", name: "宝剑挂架", cat: "wallhang", w: 6, h: 4, wall: true, glyph: "🗡", color: "#9a9aa0" },
     { id: "wall_lantern", name: "灯笼", cat: "wallhang", w: 3, h: 5, wall: true, glyph: "🏮", color: "#b04a3a" },
     { id: "wall_mirror", name: "铜镜", cat: "wallhang", w: 4, h: 5, wall: true, glyph: "🪞", color: "#9a8a5a" },
