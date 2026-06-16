@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617c">
+<link rel="stylesheet" href="src/style.css?v=0617d">
 </head>
 <body>
   <header class="topbar">
@@ -31,11 +31,17 @@
       <h3>仓库包 <button id="recallAll" class="tb recall">收回全部</button></h3>
       <div class="cats" id="cats"></div>
       <div class="items" id="items"></div>
-      <div class="bag-tip" id="bagTip">点选物品 → 在房间里点击格子摆放（等距视角）。已摆放可拖动；右键收回；按 R 旋转。点床/打坐台主角会走过去。</div>
+      <div id="selBar" class="sel-bar hidden">
+        <span id="selName" class="sel-name"></span>
+        <button id="selMove" class="tb">移动</button>
+        <button id="selRotate" class="tb">旋转</button>
+        <button id="selRecall" class="tb">收回</button>
+      </div>
+      <div class="bag-tip" id="bagTip">点选仓库物品 → 房间里点格摆放。<b>长按</b>已摆放物品=移动；或点选它用「移动」键。床/打坐台点一下主角会走过去。</div>
     </aside>
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/game.js?v=0617c"></script>
+  <script src="src/game.js?v=0617d"></script>
 </body>
 </html>

@@ -89,7 +89,11 @@ body {
 .bag-item .ct { font-size: 11px; color: #9a866a; }
 .bag-item.out { opacity: .35; pointer-events: none; }
 
+.sel-bar { display: flex; gap: 6px; align-items: center; padding: 8px 12px; border-top: 1px solid #3a2c1e; background: #2c2016; flex-wrap: wrap; }
+.sel-name { font-size: 12px; color: #ffd98a; margin-right: auto; }
+.sel-bar.moving { background: #3a4a2a; }
 .bag-tip { font-size: 11px; color: #9a866a; padding: 8px 12px; border-top: 1px solid #3a2c1e; line-height: 1.5; }
+.bag-tip b { color: #d8b87a; }
 
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
   background: rgba(20,14,9,.94); color: #ffe6a8; padding: 8px 18px; border-radius: 20px;

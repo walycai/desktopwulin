@@ -62,7 +62,7 @@
   var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
   var images = {}, sprites = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
-  var drag = null;
+  var drag = null, selectedPlaced = null, moveMode = null, longTimer = null;
 
   // ---- 等距投影（小格中心）----
   function v(cx, cy) { return { x: OX + (cx - cy) * HW, y: OY + (cx + cy) * HH }; } // 网格顶点
@@ -83,7 +83,7 @@
     CATALOG.forEach(function (c) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png", c.id, images); if (c.wall) tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_left.png", c.id + "_left", images); });
     ["idle", "walk", "sleep", "meditate"].forEach(function (a) { tryLoad("assets/characters/protagonist/" + a + ".png", a, sprites); });
   }
-  var SPR = { fw: 48, fh: 64, frames: { idle: 4, walk: 8, sleep: 4, meditate: 4 }, fps: { idle: 6, walk: 10, sleep: 4, meditate: 6 }, dirs: { idle: 4, walk: 4, sleep: 1, meditate: 1 }, dirRow: { down: 0, up: 1, left: 2, right: 3 } };
+  var SPR = { fw: 48, fh: 64, frames: { idle: 4, walk: 8, sleep: 4, meditate: 4 }, fps: { idle: 6, walk: 10, sleep: 4, meditate: 6 }, dirs: { idle: 4, walk: 4, sleep: 1, meditate: 1 }, dirRow: { down: 0, left: 1, right: 2, up: 3 } };
 
   // ---- 几何 ----
   function footprint(c, rot) { return rot % 2 ? { w: c.h, h: c.w } : { w: c.w, h: c.h }; }
@@ -91,9 +91,22 @@
   function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); }
   function shade(hex, f) { var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255; r = Math.max(0, Math.min(255, r * f | 0)); g = Math.max(0, Math.min(255, g * f | 0)); b = Math.max(0, Math.min(255, b * f | 0)); return "rgb(" + r + "," + g + "," + b + ")"; }
 
+  function pById(uid) { for (var i = 0; i < placed.length; i++) if (placed[i].uid === uid) return placed[i]; return null; }
+  function decorValid(cx, cy, fw, fh, ignoreUid) {
+    // 摆件：空地随便放；放桌上必须整体落在同一张桌子内(不能半悬空/跨两桌/压在非桌家具上)
+    if (cx < 0 || cy < 0 || cx + fw > GW || cy + fh > GH) return false;
+    var uids = {};
+    for (var y = cy; y < cy + fh; y++) for (var x = cx; x < cx + fw; x++) { var u = occ[y][x]; if (u && u !== ignoreUid) uids[u] = 1; }
+    var keys = Object.keys(uids);
+    if (keys.length === 0) return true;          // 纯空地
+    if (keys.length > 1) return false;           // 跨多个家具
+    var p = pById(+keys[0]); if (!p) return true;
+    if (byId[p.id].cat !== "table") return false; // 只能叠在桌子上
+    return cx >= p.cx && cy >= p.cy && cx + fw <= p.cx + p.w && cy + fh <= p.cy + p.h; // 必须整体在桌面内
+  }
   function canPlaceFloor(cx, cy, fw, fh, ignoreUid, isDecor) {
     if (cx < 0 || cy < 0 || cx + fw > GW || cy + fh > GH) return false;
-    if (isDecor) return true;
+    if (isDecor) return decorValid(cx, cy, fw, fh, ignoreUid);
     if (overlapsPlayer(cx, cy, fw, fh)) return false;
     for (var y = cy; y < cy + fh; y++) for (var x = cx; x < cx + fw; x++) if (occ[y][x] && occ[y][x] !== ignoreUid) return false;
     return true;
@@ -221,7 +234,11 @@
     var drawables = placed.filter(function (p) { return !p.wall; }).map(function (p) { return { p: p, depth: (p.cx + p.w) + (p.cy + p.h), kind: "f" }; });
     drawables.push({ depth: (player.cx + PLAYER_CELLS / 2) + (player.cy + PLAYER_CELLS / 2), kind: "p" });
     drawables.sort(function (a, b) { return a.depth - b.depth; });
-    drawables.forEach(function (d) { if (d.kind === "p") drawPlayer(); else drawFurniture(d.p); });
+    drawables.forEach(function (d) {
+      if (d.kind === "p") drawPlayer();
+      else if (moveMode && d.p === moveMode.p) { var ok = canPlaceFloor(d.p.cx, d.p.cy, d.p.w, d.p.h, d.p.uid, d.p.decor); drawFurniture(d.p, ok ? "ok" : "bad"); }
+      else drawFurniture(d.p);
+    });
     // ghost
     drawGhost();
   }
@@ -318,43 +335,86 @@
     else { if (mouse.cx < 0) return; var fp = footprint(c, ghostRot); if (!canPlaceFloor(mouse.cx, mouse.cy, fp.w, fp.h, null, c.cat === "decor")) { toast("这里放不下"); return; } addPlaced(c, mouse.cx, mouse.cy, ghostRot, false); }
     bag[c.id]--; if (bag[c.id] <= 0) selId = null; ghostRot = 0; renderItems(); save();
   }
+  // 选中/移动/旋转/收回
+  function selectPlaced(p) {
+    selectedPlaced = p; var c = byId[p.id];
+    $("selName").textContent = "选中：" + c.name; $("selBar").classList.remove("hidden", "moving");
+    $("selMove").style.display = (c.fixed || p.wall) ? "none" : "";
+    $("selRotate").style.display = (c.fixed || p.wall) ? "none" : "";
+  }
+  function deselect() { selectedPlaced = null; $("selBar").classList.add("hidden"); $("selBar").classList.remove("moving"); }
+  function enterMove(p) {
+    if (byId[p.id].fixed || p.wall) return;
+    moveMode = { p: p, ox: p.cx, oy: p.cy }; freeCells(p); selectedPlaced = p;
+    $("selName").textContent = "移动中：" + byId[p.id].name; $("selBar").classList.remove("hidden"); $("selBar").classList.add("moving");
+    toast("移动模式：移到目标后点击放下，右键取消");
+  }
+  function dropMove() {
+    var m = moveMode; if (!m) return;
+    if (canPlaceFloor(m.p.cx, m.p.cy, m.p.w, m.p.h, m.p.uid, m.p.decor)) { fillCells(m.p); moveMode = null; save(); deselect(); toast("已放下"); }
+    else toast("这里放不下");
+  }
+  function cancelMove() { var m = moveMode; if (!m) return; m.p.cx = m.ox; m.p.cy = m.oy; fillCells(m.p); moveMode = null; deselect(); toast("已取消移动"); }
+  function rotatePlaced(p) {
+    var c = byId[p.id]; if (c.fixed || p.wall) return;
+    var nr = (p.rot + 1) % 2, fp = footprint(c, nr);
+    if (moveMode && moveMode.p === p) { p.rot = nr; p.w = fp.w; p.h = fp.h; return; }
+    freeCells(p); if (canPlaceFloor(p.cx, p.cy, fp.w, fp.h, p.uid, p.decor)) { p.rot = nr; p.w = fp.w; p.h = fp.h; } else toast("旋转后放不下");
+    fillCells(p); save();
+  }
+  function removePlaced(p) {
+    if (moveMode && moveMode.p === p) moveMode = null;
+    freeCells(p); placed = placed.filter(function (q) { return q !== p; }); bag[p.id]++;
+    if (player.actUid === p.uid) backToWander(); deselect(); renderItems(); save();
+  }
+
   function bindInput() {
     canvas.addEventListener("pointermove", function (e) {
       updateMouse(e);
-      if (drag) { var fp = footprint(byId[drag.p.id], drag.p.rot); var nx = Math.max(0, Math.min(GW - fp.w, mouse.cx - drag.ox)), ny = Math.max(0, Math.min(GH - fp.h, mouse.cy - drag.oy)); drag.nx = nx; drag.ny = ny; drag.moved = true; }
+      if (moveMode && mouse.cx >= 0) { var fp = footprint(byId[moveMode.p.id], moveMode.p.rot); moveMode.p.cx = Math.max(0, Math.min(GW - fp.w, mouse.cx - Math.floor(fp.w / 2))); moveMode.p.cy = Math.max(0, Math.min(GH - fp.h, mouse.cy - Math.floor(fp.h / 2))); }
+      else if (drag && mouse.cx >= 0) { var fp2 = footprint(byId[drag.p.id], drag.p.rot); drag.nx = Math.max(0, Math.min(GW - fp2.w, mouse.cx - drag.ox)); drag.ny = Math.max(0, Math.min(GH - fp2.h, mouse.cy - drag.oy)); drag.moved = true; if (longTimer) { clearTimeout(longTimer); longTimer = null; } }
     });
     canvas.addEventListener("pointerdown", function (e) {
-      if (e.button === 2) return;
-      updateMouse(e);
-      if (selId) return; // 放置由 up 触发
+      if (e.button === 2) return; updateMouse(e);
+      if (moveMode) { dropMove(); return; }
+      if (selId) return;
       var hit = mouse.cx >= 0 && itemAtCell(mouse.cx, mouse.cy);
-      if (hit && !byId[hit.id].fixed) { drag = { p: hit, ox: mouse.cx - hit.cx, oy: mouse.cy - hit.cy, moved: false }; freeCells(hit); }
-      else if (hit) drag = { p: hit, fixedTap: true };
+      if (hit) {
+        drag = { p: hit, ox: mouse.cx - hit.cx, oy: mouse.cy - hit.cy, moved: false, fixed: byId[hit.id].fixed };
+        if (!byId[hit.id].fixed) { freeCells(hit); longTimer = setTimeout(function () { longTimer = null; if (drag && !drag.moved) { var p = drag.p; drag = null; enterMove(p); } }, 350); }
+      } else deselect();
     });
     canvas.addEventListener("pointerup", function (e) {
       updateMouse(e);
+      if (longTimer) { clearTimeout(longTimer); longTimer = null; }
+      if (moveMode) return; // 放下由下次点击触发
       if (selId) { tryPlace(); return; }
       if (drag) {
         var p = drag.p, c = byId[p.id];
-        if (drag.fixedTap || !drag.moved) { // 点击
-          if (c.func === "bed") goAction(p, "sleeping"); else if (c.func === "meditate") goAction(p, "meditating");
-          if (!drag.fixedTap) fillCells(p);
+        if (!drag.moved) { // 点击(未拖动)
+          if (!drag.fixed) fillCells(p); // 还原刚才freeCells
+          if (c.func === "bed") goAction(p, "sleeping");
+          else if (c.func === "meditate") goAction(p, "meditating");
+          else selectPlaced(p);
         } else {
           if (canPlaceFloor(drag.nx, drag.ny, p.w, p.h, p.uid, p.decor)) { p.cx = drag.nx; p.cy = drag.ny; } else toast("那里放不下");
           fillCells(p); save();
         }
         drag = null; return;
       }
-      // 空白点击：结束当前行为
       if (player.state === "sleeping" || player.state === "meditating") backToWander();
     });
     canvas.addEventListener("contextmenu", function (e) {
       e.preventDefault(); updateMouse(e);
+      if (moveMode) { cancelMove(); return; }
       if (selId) { selId = null; renderItems(); return; }
       var hit = mouse.cx >= 0 && itemAtCell(mouse.cx, mouse.cy);
-      if (hit) { freeCells(hit); placed = placed.filter(function (q) { return q !== hit; }); bag[hit.id]++; if (player.actUid === hit.uid) backToWander(); renderItems(); save(); }
+      if (hit) removePlaced(hit);
     });
-    document.addEventListener("keydown", function (e) { if (e.key === "r" || e.key === "R") ghostRot = (ghostRot + 1) % 2; });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "r" || e.key === "R") { if (moveMode) rotatePlaced(moveMode.p); else if (selectedPlaced) rotatePlaced(selectedPlaced); else ghostRot = (ghostRot + 1) % 2; }
+      if (e.key === "Escape" && moveMode) cancelMove();
+    });
   }
 
   // ---- 存档 ----
@@ -380,7 +440,10 @@
     $("dbgWeak").onclick = function () { stats.weak = true; updateStats(); toast("陷入虚弱！去睡觉恢复"); };
     $("dbgHurt").onclick = function () { stats.hp = Math.max(0, stats.hp - 30); updateStats(); toast("受伤 -30 气血"); };
     $("resetBtn").onclick = function () { if (confirm("清空房间与存档？")) { localStorage.removeItem(SAVE_KEY); location.reload(); } };
-    $("recallAll").onclick = function () { placed.slice().forEach(function (p) { if (!byId[p.id].fixed) { freeCells(p); bag[p.id]++; } }); placed = placed.filter(function (p) { return byId[p.id].fixed; }); backToWander(); renderItems(); save(); toast("已收回全部可移动物品"); };
+    $("recallAll").onclick = function () { moveMode = null; placed.slice().forEach(function (p) { if (!byId[p.id].fixed) { freeCells(p); bag[p.id]++; } }); placed = placed.filter(function (p) { return byId[p.id].fixed; }); backToWander(); deselect(); renderItems(); save(); toast("已收回全部可移动物品"); };
+    $("selMove").onclick = function () { if (selectedPlaced) enterMove(selectedPlaced); };
+    $("selRotate").onclick = function () { if (selectedPlaced) rotatePlaced(selectedPlaced); };
+    $("selRecall").onclick = function () { if (selectedPlaced) removePlaced(selectedPlaced); };
     window.addEventListener("resize", function () { resize(); });
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);
     requestAnimationFrame(loop);
