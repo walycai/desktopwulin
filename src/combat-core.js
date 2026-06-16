@@ -13,27 +13,34 @@
 
   // ---- 稀有度 / 装备模板 / 副词条池（与纸娃娃共用）----
   var RARITY = { common: { name: "凡品", color: "#9a9a9a", affixes: 0 }, fine: { name: "精良", color: "#5fbf5f", affixes: 1 }, superior: { name: "上乘", color: "#5a9bff", affixes: 2 }, epic: { name: "绝品", color: "#b06bff", affixes: 3 }, legend: { name: "秘传", color: "#ffb43a", affixes: 3 } };
+  // 装备等级需求 reqLv 按稀有度（凡1/精良3/上乘6/绝品10/秘传15），不够级穿不上
   var EQUIP_TPL = {
-    wpn_iron_sword: { name: "铁剑", type: "weapon", rarity: "common", glyph: "🗡", base: { ATK: 8 } },
-    wpn_steel_saber: { name: "精钢刀", type: "weapon", rarity: "fine", glyph: "⚔", base: { ATK: 14 } },
-    head_cloth: { name: "方巾", type: "head", rarity: "common", glyph: "🧢", base: { DEF: 3 } },
-    head_iron: { name: "铁盔", type: "head", rarity: "fine", glyph: "⛑", base: { DEF: 6, HP: 10 } },
-    body_cloth: { name: "布衣", type: "body", rarity: "common", glyph: "👕", base: { DEF: 4, HP: 15 } },
-    body_softarmor: { name: "软猬甲", type: "body", rarity: "superior", glyph: "🥋", base: { DEF: 9, HP: 30 } },
-    legs_cloth: { name: "粗布裤", type: "legs", rarity: "common", glyph: "👖", base: { DEF: 3, HP: 10 } },
-    legs_guard: { name: "护腿", type: "legs", rarity: "fine", glyph: "🦵", base: { DEF: 6, HP: 18 } },
-    neck_lock: { name: "长命锁", type: "neck", rarity: "fine", glyph: "📿", base: { HP: 25, Crit: 2 } },
-    ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
-    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", glyph: "🎗", base: { DEF: 5, HP: 12 } }
+    wpn_iron_sword: { name: "铁剑", type: "weapon", rarity: "common", reqLv: 1, glyph: "🗡", base: { ATK: 8 } },
+    wpn_steel_saber: { name: "精钢刀", type: "weapon", rarity: "fine", reqLv: 3, glyph: "⚔", base: { ATK: 14 } },
+    head_cloth: { name: "方巾", type: "head", rarity: "common", reqLv: 1, glyph: "🧢", base: { DEF: 3 } },
+    head_iron: { name: "铁盔", type: "head", rarity: "fine", reqLv: 3, glyph: "⛑", base: { DEF: 6, HP: 10 } },
+    body_cloth: { name: "布衣", type: "body", rarity: "common", reqLv: 1, glyph: "👕", base: { DEF: 4, HP: 15 } },
+    body_softarmor: { name: "软猬甲", type: "body", rarity: "superior", reqLv: 6, glyph: "🥋", base: { DEF: 9, HP: 30 } },
+    legs_cloth: { name: "粗布裤", type: "legs", rarity: "common", reqLv: 1, glyph: "👖", base: { DEF: 3, HP: 10 } },
+    legs_guard: { name: "护腿", type: "legs", rarity: "fine", reqLv: 3, glyph: "🦵", base: { DEF: 6, HP: 18 } },
+    neck_lock: { name: "长命锁", type: "neck", rarity: "fine", reqLv: 3, glyph: "📿", base: { HP: 25, Crit: 2 } },
+    ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", reqLv: 6, glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
+    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", reqLv: 3, glyph: "🎗", base: { DEF: 5, HP: 12 } }
   };
   var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
 
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
   var ENEMIES = {
-    thug: { name: "小混混", HP: 40, ATK: 8, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 90 },
-    bandit: { name: "土匪", HP: 85, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100 },
-    sect_novice: { name: "门派入门弟子", HP: 130, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110 }
+    thug: { name: "小混混", HP: 40, ATK: 8, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 90, exp: 10 },
+    bandit: { name: "土匪", HP: 85, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
+    sect_novice: { name: "门派入门弟子", HP: 130, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 }
   };
+  // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
+  function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验
+  function baseAttrs(level, neigong) {
+    var lv = level || 1, ng = neigong || 1;
+    return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100 };
+  }
   // 默认掉落配置（占位）
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.12, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
 
@@ -65,7 +72,7 @@
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
     var P = cfg.attrs, hpMax = P.HP, hp = hpMax;
-    var bag = [], drops = [], potionsUsed = 0, kills = 0, dmgDealt = 0, dmgTaken = 0, t = 0, events = [];
+    var bag = [], drops = [], potionsUsed = 0, kills = 0, dmgDealt = 0, dmgTaken = 0, t = 0, events = [], expGained = 0;
     var died = false, bagFull = false;
     var pInt = 1 / ((P.ATKspd || 100) / 100); // 玩家攻击间隔(秒)
     for (var wi = 0; wi < cfg.wave.length; wi++) {
@@ -78,7 +85,7 @@
       }
       if (hp <= 0) { died = true; events.push({ t: t, type: "death" }); break; }
       // 击杀结算
-      kills++; events.push({ t: t, type: "kill", enemy: cfg.wave[wi] });
+      kills++; expGained += (E.exp || 0); events.push({ t: t, type: "kill", enemy: cfg.wave[wi], exp: E.exp || 0 });
       if (rng() < drop.potionRate) { potionsUsed++; var before = hp; hp = Math.min(hpMax, hp + drop.potionHeal); events.push({ t: t, type: "potion", heal: hp - before }); }
       if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); events.push({ t: t, type: "drop", item: it }); } else { bagFull = true; events.push({ t: t, type: "bagfull" }); break; } }
     }
@@ -86,11 +93,11 @@
       outcome: died ? "lose" : "win",
       ttk: Math.round(t * 100) / 100,
       dmgDealt: dmgDealt, dmgTaken: dmgTaken, kills: kills,
-      drops: drops, potionsUsed: potionsUsed,
+      drops: drops, potionsUsed: potionsUsed, expGained: expGained,
       hpRemaining: Math.max(0, Math.round(hp)), bagFull: bagFull,
       events: events
     };
   }
 
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, nextExp: nextExp, baseAttrs: baseAttrs };
 });

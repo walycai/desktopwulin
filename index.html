@@ -4,17 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617g">
+<link rel="stylesheet" href="src/style.css?v=0617h">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">桌面武林 <span class="ver">家园原型 v0.3 等距</span></div>
     <div class="stats">
       <span class="stat" title="气血">❤ <b id="hpVal">100</b>/<b id="hpMax">100</b></span>
-      <span class="stat" title="内功">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
+      <span class="stat" title="历练等级">⚔ Lv<b id="lvVal">1</b> <span id="expTxt" class="exp-txt"></span></span>
+      <span class="stat" title="内功(功法)">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
       <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
     </div>
     <div class="topbtns">
+      <button id="sortieBtn" class="tb sortie" title="出门历练打怪">⚔ 出战历练</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
       <button id="dbgPoison" class="tb" title="调试：施加中毒">中毒</button>
       <button id="dbgWeak" class="tb" title="调试：施加虚弱">虚弱</button>
@@ -62,8 +64,17 @@
     </aside>
   </div>
 
+  <!-- 历练结算 -->
+  <div id="combatModal" class="modal-bg hidden">
+    <div class="combat-panel">
+      <h2 id="cmTitle">历练归来</h2>
+      <div id="cmBody" class="cm-body"></div>
+      <button id="cmClose" class="tb">确定</button>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0617g"></script>
-  <script src="src/game.js?v=0617g"></script>
+  <script src="src/combat-core.js?v=0617h"></script>
+  <script src="src/game.js?v=0617h"></script>
 </body>
 </html>

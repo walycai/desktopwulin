@@ -58,7 +58,7 @@
   var canvas, ctx, dpr = 1, CW, CH;
   var bag = {}, placed = [], occ = [], wallOcc = { left: [], right: [] };
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
-  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0 }, NG_PER_LV = 100;
+  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0 }, NG_PER_LV = 100;
   var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
   var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
@@ -334,6 +334,7 @@
     var bar = $("ngBar"); if (!bar.firstChild) bar.innerHTML = "<i></i>"; bar.firstChild.style.width = Math.round(stats.ngP / NG_PER_LV * 100) + "%";
     var s = []; if (stats.poison) s.push("中毒"); if (stats.weak) s.push("虚弱");
     $("statusVal").textContent = s.length ? s.join("、") : "正常"; $("statusVal").style.color = s.length ? "#ff8a7a" : "#9fe0a0";
+    if ($("lvVal")) { $("lvVal").textContent = stats.level; $("expTxt").textContent = "(" + stats.exp + "/" + CORE.nextExp(stats.level) + ")"; }
   }
 
   // ---- 仓库 UI ----
@@ -465,22 +466,10 @@
   // ============================================================
   // 战斗基础：属性 + 装备 + 纸娃娃 + 武器仓库（阶段①，居家可玩）
   // ============================================================
-  var RARITY = { common: { name: "凡品", color: "#9a9a9a", affixes: 0 }, fine: { name: "精良", color: "#5fbf5f", affixes: 1 }, superior: { name: "上乘", color: "#5a9bff", affixes: 2 }, epic: { name: "绝品", color: "#b06bff", affixes: 3 }, legend: { name: "秘传", color: "#ffb43a", affixes: 3 } };
+  // 装备数据以 combat-core.js(WULIN_CORE) 为单一真相源（含 reqLv 等级需求），与 sim 共用
+  var CORE = window.WULIN_CORE;
+  var RARITY = CORE.RARITY, EQUIP_TPL = CORE.EQUIP_TPL, AFFIX_POOL = CORE.AFFIX_POOL;
   var SLOT_DEFS = [{ key: "head", name: "头", type: "head" }, { key: "neck", name: "项链", type: "neck" }, { key: "body", name: "衣服", type: "body" }, { key: "legs", name: "下身", type: "legs" }, { key: "weapon", name: "手部武器", type: "weapon" }, { key: "ring1", name: "戒指1", type: "ring" }, { key: "ring2", name: "戒指2", type: "ring" }, { key: "belt", name: "腰带", type: "belt" }];
-  var EQUIP_TPL = {
-    wpn_iron_sword: { name: "铁剑", type: "weapon", rarity: "common", glyph: "🗡", base: { ATK: 8 } },
-    wpn_steel_saber: { name: "精钢刀", type: "weapon", rarity: "fine", glyph: "⚔", base: { ATK: 14 } },
-    head_cloth: { name: "方巾", type: "head", rarity: "common", glyph: "🧢", base: { DEF: 3 } },
-    head_iron: { name: "铁盔", type: "head", rarity: "fine", glyph: "⛑", base: { DEF: 6, HP: 10 } },
-    body_cloth: { name: "布衣", type: "body", rarity: "common", glyph: "👕", base: { DEF: 4, HP: 15 } },
-    body_softarmor: { name: "软猬甲", type: "body", rarity: "superior", glyph: "🥋", base: { DEF: 9, HP: 30 } },
-    legs_cloth: { name: "粗布裤", type: "legs", rarity: "common", glyph: "👖", base: { DEF: 3, HP: 10 } },
-    legs_guard: { name: "护腿", type: "legs", rarity: "fine", glyph: "🦵", base: { DEF: 6, HP: 18 } },
-    neck_lock: { name: "长命锁", type: "neck", rarity: "fine", glyph: "📿", base: { HP: 25, Crit: 2 } },
-    ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
-    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", glyph: "🎗", base: { DEF: 5, HP: 12 } }
-  };
-  var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
   var STAT_LABEL = { HP: "气血", ATK: "攻击", DEF: "防御", Crit: "暴击率%", CritDmg: "暴击伤害%", Hit: "命中", Dodge: "闪避", ATKspd: "攻速" };
   var equipped = { head: null, neck: null, body: null, legs: null, weapon: null, ring1: null, ring2: null, belt: null };
   var warehouse = [], equipSeq = 1, dollSel = null;
@@ -492,7 +481,7 @@
     return { uid: equipSeq++, tid: tid, affixes: affixes };
   }
   function itemStats(it) { var t = EQUIP_TPL[it.tid], s = {}; for (var k in t.base) s[k] = (s[k] || 0) + t.base[k]; it.affixes.forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
-  function baseAttrs() { var ng = stats.ng; return { HP: 80 + ng * 20, ATK: 10 + ng * 2, DEF: 5 + ng, Crit: 5, CritDmg: 150, Hit: 90, Dodge: 5, ATKspd: 100 }; }
+  function baseAttrs() { return CORE.baseAttrs(stats.level, stats.ng); }
   function totalAttrs() {
     var a = baseAttrs();
     SLOT_DEFS.forEach(function (sd) { var it = equipped[sd.key]; if (it) { var s = itemStats(it); for (var k in s) a[k] = (a[k] || 0) + s[k]; } });
@@ -503,6 +492,7 @@
   function equipItem(it, slotKey) {
     var sd = SLOT_DEFS.find(function (s) { return s.key === slotKey; });
     if (!sd || EQUIP_TPL[it.tid].type !== sd.type) { toast("该装备不能放这个槽"); return; }
+    var req = EQUIP_TPL[it.tid].reqLv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
     var idx = warehouse.indexOf(it); if (idx < 0) return; warehouse.splice(idx, 1);
     if (equipped[slotKey]) warehouse.push(equipped[slotKey]);
     equipped[slotKey] = it; syncHpMax(); renderDoll(); saveEquip();
@@ -548,6 +538,39 @@
     try { var raw = localStorage.getItem(SAVE_KEY + "_eq"); if (!raw) return false; var d = JSON.parse(raw); equipped = d.equipped || equipped; warehouse = d.warehouse || []; equipSeq = d.seq || 1; return true; } catch (e) { return false; }
   }
 
+  // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
+  function genWave() {
+    var lv = stats.level, pool = ["thug"];
+    if (lv >= 2) pool.push("bandit");
+    if (lv >= 4) pool.push("sect_novice");
+    var n = 6 + Math.floor(lv / 2), wave = [];
+    for (var i = 0; i < n; i++) wave.push(pool[Math.floor(Math.random() * pool.length)]);
+    return wave;
+  }
+  function sortie() {
+    var attrs = totalAttrs();
+    var wave = genWave();
+    var r = CORE.resolveCombat({ attrs: attrs, wave: wave, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
+    // 应用战果
+    stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
+    var gained = [];
+    r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes }); gained.push(d); });
+    var lvups = 0; stats.exp += r.expGained;
+    while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; }
+    syncHpMax(); saveEquip(); save();
+    // 总结弹窗
+    var outTxt = r.outcome === "win" ? "全身而退 ✅" : ("负伤回家（" + (r.bagFull ? "背包已满" : "力竭") + "）");
+    var body = '<div>结果：<span class="hl">' + outTxt + '</span></div>';
+    body += '<div>击杀：<span class="hl">' + r.kills + '</span> 个 · 历时 ' + r.ttk + 's</div>';
+    body += '<div>获得经验：<span class="hl">+' + r.expGained + '</span>' + (lvups ? ' <span class="lvup">升级 ×' + lvups + '！现 Lv' + stats.level + '</span>' : '') + '</div>';
+    body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
+    if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[t.rarity].color + '">· 【' + RARITY[t.rarity].name + '】' + t.name + '</div>'; }); }
+    else body += '<div>本趟无装备掉落</div>';
+    $("cmBody").innerHTML = body;
+    $("cmTitle").textContent = r.outcome === "win" ? "历练归来" : "负伤而归";
+    $("combatModal").classList.remove("hidden");
+  }
+
   // ---- 循环 ----
   var last = 0;
   function loop(ts) { var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; updatePlayer(dt); render(); requestAnimationFrame(loop); }
@@ -567,6 +590,9 @@
     $("selRecall").onclick = function () { if (selectedPlaced) removePlaced(selectedPlaced); };
     $("dollBtn").onclick = openDoll;
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
+    $("sortieBtn").onclick = sortie;
+    $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
+    $("combatModal").addEventListener("click", function (e) { if (e.target === $("combatModal")) $("combatModal").classList.add("hidden"); });
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
     if (!loadEquip()) { ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "ring_jade", "belt_iron", "wpn_steel_saber", "body_softarmor"].forEach(function (tid) { warehouse.push(rollItem(tid)); }); saveEquip(); }
     syncHpMax();
