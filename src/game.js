@@ -31,7 +31,7 @@
     { id: "table_desk", name: "书案", cat: "table", w: 11, h: 6, zh: 18, glyph: "📜", color: "#6a4a2e" },
     { id: "table_long", name: "条案", cat: "table", w: 13, h: 5, zh: 18, glyph: "▭", color: "#6a4a2e" },
     { id: "wall_landscape", name: "山水画", cat: "wallhang", w: 8, h: 6, wall: true, glyph: "🏞", color: "#8a8a6a" },
-    { id: "wall_scroll", name: "山水卷轴", cat: "wallhang", w: 5, h: 14, wall: true, glyph: "🪧", color: "#bcae86" },
+    { id: "wall_scroll", name: "山水卷轴", cat: "wallhang", w: 8, h: 14, wall: true, glyph: "🪧", color: "#bcae86" },
     { id: "wall_swordrack", name: "宝剑挂架", cat: "wallhang", w: 6, h: 4, wall: true, glyph: "🗡", color: "#9a9aa0" },
     { id: "wall_lantern", name: "灯笼", cat: "wallhang", w: 3, h: 5, wall: true, glyph: "🏮", color: "#b04a3a" },
     { id: "wall_mirror", name: "铜镜", cat: "wallhang", w: 4, h: 5, wall: true, glyph: "🪞", color: "#9a8a5a" },
@@ -209,10 +209,10 @@
     var top = quad(p.cx, p.cy, p.w, p.h); // 顶面四角(底部)
     var zh = c.zh || 12;
     if (img && !ghost) {
-      // 真图：底部中心锚点
-      var bc = v(p.cx + p.w / 2, p.cy + p.h / 2);
+      // 真图：底部中心对齐 footprint 的正面下顶点
+      var bc = v(p.cx + p.w, p.cy + p.h);
       var iw = (p.w + p.h) * HW, ih = img.height * (iw / img.width);
-      ctx.drawImage(img, bc.x - iw / 2, bc.y + (p.h * 0) - ih + HH, iw, ih);
+      ctx.drawImage(img, bc.x - iw / 2, bc.y - ih, iw, ih);
       return;
     }
     // 占位等距块：底面 + 抬高顶面 + 侧面
