@@ -83,17 +83,24 @@
     var bag = [], drops = [], potionsUsed = 0, kills = 0, dmgDealt = 0, dmgTaken = 0, t = 0, events = [], expGained = 0;
     var died = false, bagFull = false;
     var pInt = 1 / ((P.ATKspd || 100) / 100); // 玩家攻击间隔(秒)
-    for (var wi = 0; wi < cfg.wave.length; wi++) {
-      var E = ENEMIES[cfg.wave[wi]]; if (!E) continue;
+    // 敌人来源：固定 wave（sim 受控测试）或 endless 持续刷怪直到背包满/0血（cfg.spawnPool）
+    var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 2000, wi = 0;
+    function nextEnemyId() {
+      if (cfg.wave) return wi < cfg.wave.length ? cfg.wave[wi++] : null;
+      if (kills + 1 > cap) return null;            // 安全上限，防无敌时死循环
+      return spawnPool[Math.floor(rng() * spawnPool.length)];
+    }
+    var eid;
+    while ((eid = nextEnemyId()) != null) {
+      var E = ENEMIES[eid]; if (!E) continue;
       var ehp = E.HP, eInt = 1 / ((E.ATKspd || 100) / 100), pT = pInt, eT = eInt;
-      events.push({ t: t, type: "spawn", enemy: cfg.wave[wi] });
+      events.push({ t: t, type: "spawn", enemy: eid });
       while (ehp > 0 && hp > 0) {
         if (pT <= eT) { t += pT; eT -= pT; pT = pInt; var s = strike(rng, P, E); if (s.hit) { ehp -= s.dmg; dmgDealt += s.dmg; } events.push({ t: t, type: "phit", dmg: s.dmg, ehp: Math.max(0, ehp) }); }
         else { t += eT; pT -= eT; eT = eInt; var s2 = strike(rng, E, P); if (s2.hit) { hp -= s2.dmg; dmgTaken += s2.dmg; } events.push({ t: t, type: "ehit", dmg: s2.dmg, hp: Math.max(0, hp) }); }
       }
       if (hp <= 0) { died = true; events.push({ t: t, type: "death" }); break; }
-      // 击杀结算
-      kills++; expGained += (E.exp || 0); events.push({ t: t, type: "kill", enemy: cfg.wave[wi], exp: E.exp || 0 });
+      kills++; expGained += (E.exp || 0); events.push({ t: t, type: "kill", enemy: eid, exp: E.exp || 0 });
       if (rng() < drop.potionRate) { potionsUsed++; var before = hp; hp = Math.min(hpMax, hp + drop.potionHeal); events.push({ t: t, type: "potion", heal: hp - before }); }
       if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); events.push({ t: t, type: "drop", item: it }); } else { bagFull = true; events.push({ t: t, type: "bagfull" }); break; } }
     }

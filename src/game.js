@@ -488,6 +488,12 @@
     return a;
   }
   function syncHpMax() { var a = totalAttrs(); stats.hpMax = a.HP; if (stats.hp > stats.hpMax) stats.hp = stats.hpMax; if (stats.hp <= 0) stats.hp = stats.hpMax; updateStats(); }
+  function targetSlotFor(it) {
+    var type = EQUIP_TPL[it.tid].type;
+    if (type === "ring") return !equipped.ring1 ? "ring1" : (!equipped.ring2 ? "ring2" : "ring1");
+    var sd = SLOT_DEFS.find(function (s) { return s.type === type; }); return sd ? sd.key : null;
+  }
+  function previewTotals(it) { var slot = targetSlotFor(it), saved = equipped[slot]; equipped[slot] = it; var nt = totalAttrs(); equipped[slot] = saved; return { slot: slot, totals: nt }; }
 
   function equipItem(it, slotKey) {
     var sd = SLOT_DEFS.find(function (s) { return s.key === slotKey; });
@@ -495,9 +501,9 @@
     var req = EQUIP_TPL[it.tid].reqLv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
     var idx = warehouse.indexOf(it); if (idx < 0) return; warehouse.splice(idx, 1);
     if (equipped[slotKey]) warehouse.push(equipped[slotKey]);
-    equipped[slotKey] = it; syncHpMax(); renderDoll(); saveEquip();
+    equipped[slotKey] = it; dollSel = null; syncHpMax(); renderDoll(); saveEquip();
   }
-  function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
+  function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
   function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
   function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + rq + " " + parts.join(" "); }
@@ -525,12 +531,25 @@
       var t = EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it);
       d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>';
+      if (dollSel === it) d.style.boxShadow = "0 0 0 2px #ffd98a";
       d.addEventListener("dragstart", function () { dollSel = it; });
-      d.onclick = function () { dollSel = it; toast("已选 " + t.name + "，点左侧空槽穿上"); };
+      d.onclick = function () { dollSel = (dollSel === it ? null : it); renderDoll(); };
       wh.appendChild(d);
     });
+    // 属性 + 选中装备对比(穿上后 +/- 变化)
     var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
-    ["HP", "ATK", "DEF", "Crit", "CritDmg", "Hit", "Dodge"].forEach(function (k) { al.innerHTML += '<div class="row"><span class="k">' + STAT_LABEL[k] + '</span><span class="v">' + a[k] + (k === "Crit" || k === "CritDmg" ? "%" : "") + '</span></div>'; });
+    var pv = dollSel ? previewTotals(dollSel) : null;
+    if (pv) {
+      var st = SLOT_DEFS.find(function (s) { return s.key === pv.slot; });
+      var cur = equipped[pv.slot];
+      al.innerHTML += '<div class="row" style="border:none;color:#ffd98a">对比：' + EQUIP_TPL[dollSel.tid].name + ' → ' + (st ? st.name : "") + '槽</div>';
+      al.innerHTML += '<div class="row" style="border:none;font-size:11px;color:#9a866a">当前该槽：' + (cur ? EQUIP_TPL[cur.tid].name : "空") + '</div>';
+    }
+    ["HP", "ATK", "DEF", "Crit", "CritDmg", "Hit", "Dodge"].forEach(function (k) {
+      var pct = (k === "Crit" || k === "CritDmg") ? "%" : "", ds = "";
+      if (pv) { var dv = pv.totals[k] - a[k]; if (dv) ds = ' <span style="color:' + (dv > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dv > 0 ? "+" : "") + dv + ')</span>'; }
+      al.innerHTML += '<div class="row"><span class="k">' + STAT_LABEL[k] + '</span><span class="v">' + a[k] + pct + ds + '</span></div>';
+    });
     al.innerHTML += '<div class="row"><span class="k">内功等级</span><span class="v">' + stats.ng + '</span></div>';
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
@@ -540,17 +559,16 @@
   }
 
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
-  function genWave() {
-    var lv = stats.level, pool = ["thug"];
-    if (lv >= 2) pool.push("bandit");
-    if (lv >= 4) pool.push("sect_novice");
-    var n = 6 + Math.floor(lv / 2), wave = [];
-    for (var i = 0; i < n; i++) wave.push(pool[Math.floor(Math.random() * pool.length)]);
-    return wave;
+  function spawnPoolForLevel() {
+    var pool = ["thug", "thug", "thug"];
+    if (stats.level >= 2) pool.push("bandit", "bandit");
+    if (stats.level >= 4) pool.push("sect_novice");
+    return pool;
   }
   function sortie() {
-    var attrs = totalAttrs(), wave = genWave();
-    var r = CORE.resolveCombat({ attrs: attrs, wave: wave, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
+    var attrs = totalAttrs();
+    // endless：持续历练直到背包满(20)或气血归零
+    var r = CORE.resolveCombat({ attrs: attrs, spawnPool: spawnPoolForLevel(), bagMax: 20, cap: 1000, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
     startCombat(r, attrs);
   }
   function applyCombatResult(r) {
