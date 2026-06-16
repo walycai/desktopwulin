@@ -499,7 +499,8 @@
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
-  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); return "【" + RARITY[t.rarity].name + "】" + t.name + " " + parts.join(" "); }
+  function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
+  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + rq + " " + parts.join(" "); }
   function equipIconHTML(tid, glyph) {
     return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
@@ -511,7 +512,7 @@
     SLOT_DEFS.forEach(function (sd) {
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
-      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'box-shadow:inset 0 0 0 2px ' + RARITY[t.rarity].color : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[t.rarity].color + '">' + t.name + '</span>' : '');
+      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + t.name + '</span>' : '');
       if (it) { d.title = itemTitle(it); d.onclick = function () { unequip(sd.key); }; }
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
@@ -523,7 +524,7 @@
     warehouse.forEach(function (it) {
       var t = EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it);
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[t.rarity].color + '"></span>';
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>';
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = it; toast("已选 " + t.name + "，点左侧空槽穿上"); };
       wh.appendChild(d);
@@ -564,7 +565,7 @@
     body += '<div>击杀：<span class="hl">' + r.kills + '</span> 个 · 历时 ' + r.ttk + 's</div>';
     body += '<div>获得经验：<span class="hl">+' + r.expGained + '</span>' + (lvups ? ' <span class="lvup">升级 ×' + lvups + '！现 Lv' + stats.level + '</span>' : '') + '</div>';
     body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
-    if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[t.rarity].color + '">· 【' + RARITY[t.rarity].name + '】' + t.name + '</div>'; }); }
+    if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[d.rarity].color + '">· 【' + RARITY[d.rarity].name + '】' + t.name + '</div>'; }); }
     else body += '<div>本趟无装备掉落</div>';
     $("cmBody").innerHTML = body;
     $("cmTitle").textContent = r.outcome === "win" ? "历练归来" : "负伤而归";

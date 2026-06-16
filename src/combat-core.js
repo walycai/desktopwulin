@@ -31,7 +31,7 @@
 
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
   var ENEMIES = {
-    thug: { name: "小混混", HP: 40, ATK: 8, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 90, exp: 10 },
+    thug: { name: "小混混", HP: 40, ATK: 6, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 70, exp: 10 },
     bandit: { name: "土匪", HP: 85, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
     sect_novice: { name: "门派入门弟子", HP: 130, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 }
   };
@@ -42,7 +42,9 @@
     return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100 };
   }
   // 默认掉落配置（占位）
-  var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.12, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
+  var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
+  // 稀有度独立加权 roll（脱离模板，D2 风；@莱布尼茨 平衡报告①）
+  var RARITY_WEIGHTS = [["common", 60], ["fine", 30], ["superior", 8], ["epic", 1.8], ["legend", 0.2]];
 
   // ---- 可复现随机 (mulberry32) ----
   function mulberry32(seed) {
@@ -50,11 +52,17 @@
     return function () { t += 0x6D2B79F5; var r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
   }
 
+  function rollRarity(rng) {
+    var tot = 0, i; for (i = 0; i < RARITY_WEIGHTS.length; i++) tot += RARITY_WEIGHTS[i][1];
+    var r = rng() * tot; for (i = 0; i < RARITY_WEIGHTS.length; i++) { if (r < RARITY_WEIGHTS[i][1]) return RARITY_WEIGHTS[i][0]; r -= RARITY_WEIGHTS[i][1]; }
+    return "common";
+  }
   function rollDrop(rng, pool) {
-    var tid = pool[Math.floor(rng() * pool.length)], t = EQUIP_TPL[tid];
-    var n = RARITY[t.rarity].affixes, p = AFFIX_POOL.slice(), affixes = [];
+    var tid = pool[Math.floor(rng() * pool.length)];
+    var rarity = rollRarity(rng);                  // 稀有度独立加权，脱离模板
+    var n = RARITY[rarity].affixes, p = AFFIX_POOL.slice(), affixes = [];
     for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); }
-    return { id: tid, rarity: t.rarity, affixes: affixes };
+    return { id: tid, rarity: rarity, affixes: affixes };
   }
 
   function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); }
