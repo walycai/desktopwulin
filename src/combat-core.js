@@ -1,0 +1,96 @@
+// ============================================================
+// 桌面武林 · 战斗核心（纯逻辑，无 DOM）
+// 浏览器(game.js)与无头 sim(@莱布尼茨) 共用的单一真相源。
+// node:  const C = require('./src/combat-core.js'); C.resolveCombat(cfg)
+// 浏览器: window.WULIN_CORE.resolveCombat(cfg)
+// ============================================================
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  if (typeof window !== "undefined") window.WULIN_CORE = api;
+})(this, function () {
+  "use strict";
+
+  // ---- 稀有度 / 装备模板 / 副词条池（与纸娃娃共用）----
+  var RARITY = { common: { name: "凡品", color: "#9a9a9a", affixes: 0 }, fine: { name: "精良", color: "#5fbf5f", affixes: 1 }, superior: { name: "上乘", color: "#5a9bff", affixes: 2 }, epic: { name: "绝品", color: "#b06bff", affixes: 3 }, legend: { name: "秘传", color: "#ffb43a", affixes: 3 } };
+  var EQUIP_TPL = {
+    wpn_iron_sword: { name: "铁剑", type: "weapon", rarity: "common", glyph: "🗡", base: { ATK: 8 } },
+    wpn_steel_saber: { name: "精钢刀", type: "weapon", rarity: "fine", glyph: "⚔", base: { ATK: 14 } },
+    head_cloth: { name: "方巾", type: "head", rarity: "common", glyph: "🧢", base: { DEF: 3 } },
+    head_iron: { name: "铁盔", type: "head", rarity: "fine", glyph: "⛑", base: { DEF: 6, HP: 10 } },
+    body_cloth: { name: "布衣", type: "body", rarity: "common", glyph: "👕", base: { DEF: 4, HP: 15 } },
+    body_softarmor: { name: "软猬甲", type: "body", rarity: "superior", glyph: "🥋", base: { DEF: 9, HP: 30 } },
+    legs_cloth: { name: "粗布裤", type: "legs", rarity: "common", glyph: "👖", base: { DEF: 3, HP: 10 } },
+    legs_guard: { name: "护腿", type: "legs", rarity: "fine", glyph: "🦵", base: { DEF: 6, HP: 18 } },
+    neck_lock: { name: "长命锁", type: "neck", rarity: "fine", glyph: "📿", base: { HP: 25, Crit: 2 } },
+    ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
+    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", glyph: "🎗", base: { DEF: 5, HP: 12 } }
+  };
+  var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
+
+  // ---- 敌人梯度（占位数值，待 sim 调平衡）----
+  var ENEMIES = {
+    thug: { name: "小混混", HP: 40, ATK: 8, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 90 },
+    bandit: { name: "土匪", HP: 85, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100 },
+    sect_novice: { name: "门派入门弟子", HP: 130, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110 }
+  };
+  // 默认掉落配置（占位）
+  var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.12, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
+
+  // ---- 可复现随机 (mulberry32) ----
+  function mulberry32(seed) {
+    var t = seed >>> 0;
+    return function () { t += 0x6D2B79F5; var r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+  }
+
+  function rollDrop(rng, pool) {
+    var tid = pool[Math.floor(rng() * pool.length)], t = EQUIP_TPL[tid];
+    var n = RARITY[t.rarity].affixes, p = AFFIX_POOL.slice(), affixes = [];
+    for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); }
+    return { id: tid, rarity: t.rarity, affixes: affixes };
+  }
+
+  function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); }
+  function strike(rng, atk, def) {
+    if (rng() > hitChance(atk, def)) return { hit: false, dmg: 0 };
+    var dmg = Math.max(1, atk.ATK * 100 / (100 + def.DEF));
+    if (rng() < (atk.Crit || 0) / 100) dmg *= (atk.CritDmg || 150) / 100;
+    return { hit: true, dmg: Math.round(dmg) };
+  }
+
+  // ---- 单局战斗结算 ----
+  // cfg = { attrs, wave:[enemyId...], drop?, bagMax?, seed? }
+  // 返回 { outcome, ttk, dmgDealt, dmgTaken, kills, drops, potionsUsed, hpRemaining, bagFull, events }
+  function resolveCombat(cfg) {
+    var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
+    var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
+    var P = cfg.attrs, hpMax = P.HP, hp = hpMax;
+    var bag = [], drops = [], potionsUsed = 0, kills = 0, dmgDealt = 0, dmgTaken = 0, t = 0, events = [];
+    var died = false, bagFull = false;
+    var pInt = 1 / ((P.ATKspd || 100) / 100); // 玩家攻击间隔(秒)
+    for (var wi = 0; wi < cfg.wave.length; wi++) {
+      var E = ENEMIES[cfg.wave[wi]]; if (!E) continue;
+      var ehp = E.HP, eInt = 1 / ((E.ATKspd || 100) / 100), pT = pInt, eT = eInt;
+      events.push({ t: t, type: "spawn", enemy: cfg.wave[wi] });
+      while (ehp > 0 && hp > 0) {
+        if (pT <= eT) { t += pT; eT -= pT; pT = pInt; var s = strike(rng, P, E); if (s.hit) { ehp -= s.dmg; dmgDealt += s.dmg; } events.push({ t: t, type: "phit", dmg: s.dmg, ehp: Math.max(0, ehp) }); }
+        else { t += eT; pT -= eT; eT = eInt; var s2 = strike(rng, E, P); if (s2.hit) { hp -= s2.dmg; dmgTaken += s2.dmg; } events.push({ t: t, type: "ehit", dmg: s2.dmg, hp: Math.max(0, hp) }); }
+      }
+      if (hp <= 0) { died = true; events.push({ t: t, type: "death" }); break; }
+      // 击杀结算
+      kills++; events.push({ t: t, type: "kill", enemy: cfg.wave[wi] });
+      if (rng() < drop.potionRate) { potionsUsed++; var before = hp; hp = Math.min(hpMax, hp + drop.potionHeal); events.push({ t: t, type: "potion", heal: hp - before }); }
+      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); events.push({ t: t, type: "drop", item: it }); } else { bagFull = true; events.push({ t: t, type: "bagfull" }); break; } }
+    }
+    return {
+      outcome: died ? "lose" : "win",
+      ttk: Math.round(t * 100) / 100,
+      dmgDealt: dmgDealt, dmgTaken: dmgTaken, kills: kills,
+      drops: drops, potionsUsed: potionsUsed,
+      hpRemaining: Math.max(0, Math.round(hp)), bagFull: bagFull,
+      events: events
+    };
+  }
+
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat };
+});
