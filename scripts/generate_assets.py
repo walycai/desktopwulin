@@ -354,12 +354,160 @@ def ui_assets():
         img.save(eq / f"{eid}.png")
 
 
+def line_iso(draw, pts, fill, width=1):
+    draw.line(pts, fill=fill, width=width, joint="curve")
+
+
+def refine_priority_assets():
+    """Overwrite first-priority assets with denser pixel art while preserving paths."""
+    # Floor: 4x4 fine-cell large diamond, 96x48.
+    img = Image.new("RGBA", (96, 48), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    diamond(d, 48, 24, 96, 48, (168, 132, 78, 255), (72, 46, 28, 255))
+    # Plank seams following both isometric axes.
+    for off in range(-36, 49, 12):
+        line_iso(d, [(48 + off, 24 - abs(off) // 2), (48 + off + 18, 24 - abs(off + 18) // 2 + 9)], (118, 84, 48, 180))
+    for i in range(4):
+        t = 12 + i * 8
+        d.line((48 - t, 24, 48, 24 + t // 2), fill=(134, 94, 54, 180))
+        d.line((48 + t, 24, 48, 24 + t // 2), fill=(205, 169, 104, 120))
+    for x, y in [(30, 23), (44, 17), (61, 25), (52, 32), (38, 29), (69, 20)]:
+        d.point((x, y), fill=(96, 65, 39, 220))
+        d.point((x + 1, y), fill=(204, 166, 98, 160))
+    save(img, "tiles/indoor/floor_large.png")
+
+    for side, base, shadow in [
+        ("right", (151, 119, 82, 255), (104, 74, 48, 255)),
+        ("left", (126, 99, 72, 255), (86, 62, 43, 255)),
+    ]:
+        wall = Image.new("RGBA", (256, 176), base)
+        d = ImageDraw.Draw(wall)
+        for y in range(0, 176, 16):
+            d.rectangle((0, y, 256, y + 2), fill=shadow)
+            d.line((0, y + 15, 256, y + 15), fill=(184, 151, 105, 110))
+        for x in range(0, 256, 32):
+            d.line((x, 0, x, 176), fill=(92, 65, 42, 100), width=1)
+            d.line((x + 1, 0, x + 1, 176), fill=(185, 148, 101, 70), width=1)
+        # Low wainscot and subtle paper/wood wear.
+        d.rectangle((0, 142, 256, 176), fill=(96, 63, 38, 255))
+        for x in range(6, 256, 17):
+            d.line((x, 145, x + 8, 172), fill=(124, 82, 48, 200), width=1)
+        for x, y in [(45, 42), (120, 28), (190, 70), (72, 112), (218, 118)]:
+            d.rectangle((x, y, x + 3, y + 1), fill=(211, 178, 126, 110))
+        save(wall, f"tiles/indoor/wall_{side}.png")
+
+    yard = Image.new("RGBA", (256, 160), (64, 105, 55, 255))
+    d = ImageDraw.Draw(yard)
+    for y in range(0, 160, 16):
+        d.line((0, y, 256, y + 8), fill=(50, 88, 48, 110), width=1)
+    for x in range(0, 256, 32):
+        # Tree trunks and foliage clusters.
+        d.rectangle((x + 18, 58, x + 23, 122), fill=(82, 55, 34, 255))
+        for ox, oy, col in [(-6, 44, (48, 112, 50, 255)), (6, 38, (61, 135, 58, 255)), (14, 52, (44, 101, 45, 255))]:
+            d.ellipse((x + ox, oy, x + ox + 28, oy + 26), fill=col)
+        # Flowers and stones.
+        d.ellipse((x + 4, 130, x + 13, 139), fill=(194, 78, 112, 255))
+        d.ellipse((x + 28, 132, x + 38, 142), fill=(224, 150, 76, 255))
+        d.ellipse((x + 48, 126, x + 62, 137), fill=(90, 88, 80, 255))
+    save(yard, "tiles/exterior/courtyard.png")
+
+    # Refined basic bed, same footprint but richer textile and wood detail.
+    bed = iso_box(12, 24, 24, (146, 82, 46, 255), (86, 48, 30, 255), (113, 64, 38, 255))
+    d = ImageDraw.Draw(bed)
+    cx = bed.width // 2
+    quilt = [(cx - 114, 58), (cx + 42, 136), (cx - 42, 178), (cx - 198, 100)]
+    mat = [(cx - 136, 50), (cx + 58, 147), (cx - 48, 200), (cx - 242, 104)]
+    d.polygon(mat, fill=(218, 196, 152, 255), outline=(105, 68, 42, 255))
+    d.polygon(quilt, fill=(151, 43, 36, 255), outline=(82, 36, 30, 255))
+    for i in range(5):
+        shift = i * 18
+        d.line((cx - 105 + shift, 64 + shift // 2, cx - 40 + shift, 96 + shift // 2), fill=(205, 87, 64, 160), width=2)
+    pillow = [(cx - 158, 65), (cx - 90, 99), (cx - 124, 116), (cx - 192, 82)]
+    d.polygon(pillow, fill=(238, 219, 184, 255), outline=(126, 91, 58, 255))
+    for x in [cx - 242, cx + 54, cx - 52]:
+        d.rectangle((x, 104, x + 6, 155), fill=(70, 38, 25, 255))
+    save(bed, "furniture/bed/bed_basic.png")
+
+    table = iso_box(9, 9, 22, (125, 76, 42, 255), (72, 42, 27, 255), (98, 57, 34, 255))
+    d = ImageDraw.Draw(table)
+    cx = table.width // 2
+    top = [(cx, 25), (cx + 108, 79), (cx, 133), (cx - 108, 79)]
+    d.polygon(top, fill=(132, 78, 42, 255), outline=(58, 35, 23, 255))
+    for off in range(-72, 73, 24):
+        d.line((cx + off, 43 + abs(off)//4, cx + off + 28, 58 + abs(off)//4), fill=(174, 111, 62, 130), width=2)
+    for px, py in [(cx - 88, 90), (cx + 80, 90), (cx - 44, 120), (cx + 42, 120)]:
+        d.rectangle((px, py, px + 7, py + 48), fill=(58, 35, 23, 255))
+        d.rectangle((px + 1, py, px + 3, py + 48), fill=(112, 66, 38, 255))
+    save(table, "furniture/table/table_square.png")
+
+    # More readable home protagonist sheets.
+    out = ASSETS / "characters/protagonist"
+    rows = ["down", "left", "right", "up"]
+    for action, frames, row_count in [("idle", 4, 4), ("walk", 8, 4)]:
+        img = Image.new("RGBA", (48 * frames, 64 * row_count), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        for r, direction in enumerate(rows):
+            for f in range(frames):
+                x, y = f * 48, r * 64
+                bob = int(math.sin(f / frames * math.pi * 2) * (1 if action == "idle" else 2))
+                step = 3 if action == "walk" and f % 2 else -2
+                # Shadow
+                d.ellipse((x + 13, y + 55, x + 35, y + 61), fill=(0, 0, 0, 80))
+                # Legs/boots
+                d.line((x + 20, y + 42 + bob, x + 18 + step, y + 57), fill=(28, 31, 36, 255), width=4)
+                d.line((x + 28, y + 42 + bob, x + 30 - step, y + 57), fill=(28, 31, 36, 255), width=4)
+                # Robe body
+                robe = (42, 82, 116, 255)
+                trim = (190, 150, 78, 255)
+                d.polygon([(x + 16, y + 24 + bob), (x + 32, y + 24 + bob), (x + 35, y + 45 + bob), (x + 13, y + 45 + bob)], fill=robe)
+                d.line((x + 24, y + 25 + bob, x + 21, y + 44 + bob), fill=trim, width=1)
+                d.line((x + 25, y + 25 + bob, x + 31, y + 44 + bob), fill=(26, 55, 82, 255), width=1)
+                # Arms
+                arm_swing = step if action == "walk" else 0
+                d.line((x + 15, y + 28 + bob, x + 10 - arm_swing, y + 40 + bob), fill=(36, 66, 96, 255), width=4)
+                d.line((x + 33, y + 28 + bob, x + 38 + arm_swing, y + 40 + bob), fill=(36, 66, 96, 255), width=4)
+                # Head/hair
+                face = (198, 142, 92, 255)
+                hair = (36, 30, 26, 255)
+                d.ellipse((x + 15, y + 8 + bob, x + 33, y + 27 + bob), fill=face)
+                d.rectangle((x + 16, y + 7 + bob, x + 32, y + 14 + bob), fill=hair)
+                d.rectangle((x + 22, y + 2 + bob, x + 26, y + 8 + bob), fill=hair)
+                if direction != "up":
+                    d.point((x + 20, y + 18 + bob), fill=(42, 28, 22, 255))
+                    d.point((x + 28, y + 18 + bob), fill=(42, 28, 22, 255))
+                else:
+                    d.rectangle((x + 14, y + 10 + bob, x + 34, y + 25 + bob), fill=hair)
+        img.save(out / f"{action}.png")
+
+    # Refine single-direction rest poses.
+    for action in ["sleep", "meditate"]:
+        frames = 4
+        img = Image.new("RGBA", (48 * frames, 64), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        for f in range(frames):
+            x, y = f * 48, 0
+            pulse = int(math.sin(f / frames * math.pi * 2) * 2)
+            if action == "sleep":
+                d.ellipse((x + 9, y + 43, x + 40, y + 55), fill=(0, 0, 0, 70))
+                d.ellipse((x + 10, y + 34, x + 27, y + 49), fill=(198, 142, 92, 255))
+                d.rectangle((x + 22, y + 30, x + 43, y + 43), fill=(44, 80, 112, 255))
+                d.line((x + 32, y + 28 + pulse, x + 39, y + 22 + pulse), fill=(230, 230, 210, 180), width=1)
+            else:
+                d.ellipse((x + 11, y + 52, x + 37, y + 60), fill=(0, 0, 0, 70))
+                d.ellipse((x + 15, y + 10 + pulse, x + 33, y + 29 + pulse), fill=(198, 142, 92, 255))
+                d.rectangle((x + 15, y + 29 + pulse, x + 33, y + 45 + pulse), fill=(42, 82, 116, 255))
+                d.arc((x + 6, y + 38, x + 42, y + 61), 185, 355, fill=(28, 34, 44, 255), width=5)
+                d.ellipse((x + 13, y + 39, x + 35, y + 58), outline=(180, 158, 96, 180), width=1)
+        img.save(out / f"{action}.png")
+
+
 def main():
     environment_assets()
     furniture()
     protagonist_home()
     combat_assets()
     ui_assets()
+    refine_priority_assets()
 
 
 if __name__ == "__main__":
