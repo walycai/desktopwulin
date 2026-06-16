@@ -95,6 +95,26 @@ body {
 .bag-tip { font-size: 11px; color: #9a866a; padding: 8px 12px; border-top: 1px solid #3a2c1e; line-height: 1.5; }
 .bag-tip b { color: #d8b87a; }
 
+.modal-bg { position: fixed; inset: 0; background: rgba(8,5,3,.72); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.doll-panel { position: relative; display: flex; gap: 16px; background: linear-gradient(180deg,#2f2418,#241a10); border: 2px solid #6a5238; border-radius: 14px; padding: 18px 20px; max-width: 94vw; box-shadow: 0 12px 50px rgba(0,0,0,.6); }
+.close-x { position: absolute; right: 12px; top: 8px; cursor: pointer; color: #c9b48a; font-size: 18px; }
+.doll-col h4 { color: #e8c98a; margin-bottom: 10px; font-size: 14px; }
+.doll-left { width: 240px; } .doll-mid { width: 180px; } .doll-right { width: 260px; }
+.doll-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.slot { height: 70px; background: #322417; border: 1px solid #4f3c28; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+.slot.over { border-color: #ffd98a; background: #3a2c1d; }
+.slot .slot-lbl { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #8a7a5a; }
+.slot .ico { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 5px; }
+.slot .it-nm { font-size: 10px; margin-top: 2px; }
+.attr-list { font-size: 13px; line-height: 1.9; }
+.attr-list .row { display: flex; justify-content: space-between; border-bottom: 1px dashed #4a3826; }
+.attr-list .k { color: #c9b48a; } .attr-list .v { color: #ffd98a; font-weight: 600; }
+.wh-count { font-size: 12px; color: #9a866a; }
+.wh-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-height: 300px; overflow-y: auto; }
+.wh-item { height: 46px; background: #322417; border: 2px solid #4f3c28; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: grab; position: relative; }
+.wh-item .rb { position: absolute; inset: 0; border-radius: 4px; pointer-events: none; }
+.doll-tip { font-size: 11px; color: #9a866a; margin-top: 8px; line-height: 1.5; }
+
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
   background: rgba(20,14,9,.94); color: #ffe6a8; padding: 8px 18px; border-radius: 20px;
   font-size: 14px; border: 1px solid #6a5238; z-index: 100; transition: opacity .25s; }

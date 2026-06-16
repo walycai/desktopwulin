@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617d">
+<link rel="stylesheet" href="src/style.css?v=0617e">
 </head>
 <body>
   <header class="topbar">
@@ -15,12 +15,33 @@
       <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
     </div>
     <div class="topbtns">
+      <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
       <button id="dbgPoison" class="tb" title="调试：施加中毒">中毒</button>
       <button id="dbgWeak" class="tb" title="调试：施加虚弱">虚弱</button>
       <button id="dbgHurt" class="tb" title="调试：扣血">受伤</button>
       <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
     </div>
   </header>
+
+  <!-- 纸娃娃 + 武器仓库 -->
+  <div id="dollModal" class="modal-bg hidden">
+    <div class="doll-panel">
+      <span id="dollClose" class="close-x">✕</span>
+      <div class="doll-col doll-left">
+        <h4>侠客 · 装备</h4>
+        <div class="doll-slots" id="dollSlots"></div>
+      </div>
+      <div class="doll-col doll-mid">
+        <h4>战斗属性</h4>
+        <div id="attrList" class="attr-list"></div>
+      </div>
+      <div class="doll-col doll-right">
+        <h4>武器仓库 <span id="whCount" class="wh-count"></span></h4>
+        <div id="whGrid" class="wh-grid"></div>
+        <div class="doll-tip">拖动仓库装备到左侧槽位穿上；点击已穿装备卸下。戒指可放戒指1/2。</div>
+      </div>
+    </div>
+  </div>
 
   <div class="layout">
     <div id="roomWrap" class="room-wrap">
@@ -42,6 +63,6 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/game.js?v=0617d"></script>
+  <script src="src/game.js?v=0617e"></script>
 </body>
 </html>
