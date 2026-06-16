@@ -60,7 +60,7 @@
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
   var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0 }, NG_PER_LV = 100;
   var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
-  var images = {}, sprites = {};
+  var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
   var drag = null, selectedPlaced = null, moveMode = null, longTimer = null;
 
@@ -82,6 +82,10 @@
   function loadAssets() {
     CATALOG.forEach(function (c) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png", c.id, images); if (c.wall) tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_left.png", c.id + "_left", images); });
     ["idle", "walk", "sleep", "meditate"].forEach(function (a) { tryLoad("assets/characters/protagonist/" + a + ".png", a, sprites); });
+    tryLoad("assets/tiles/indoor/floor_large.png", "floorLarge", env);
+    tryLoad("assets/tiles/indoor/wall_right.png", "wallRight", env);
+    tryLoad("assets/tiles/indoor/wall_left.png", "wallLeft", env);
+    tryLoad("assets/tiles/exterior/courtyard.png", "courtyard", env);
   }
   var SPR = { fw: 48, fh: 64, frames: { idle: 4, walk: 8, sleep: 4, meditate: 4 }, fps: { idle: 6, walk: 10, sleep: 4, meditate: 6 }, dirs: { idle: 4, walk: 4, sleep: 1, meditate: 1 }, dirRow: { down: 0, left: 1, right: 2, up: 3 } };
 
@@ -145,6 +149,14 @@
   function drawFloor() {
     var c = quad(0, 0, GW, GH);
     poly(c); ctx.fillStyle = "#b89c6e"; ctx.fill();
+    if (env.floorLarge) {
+      poly(c); ctx.save(); ctx.clip();
+      for (var tx = 0; tx < GW; tx += 4) for (var ty = 0; ty < GH; ty += 4) {
+        var center = v(tx + 2, ty + 2);
+        ctx.drawImage(env.floorLarge, center.x - 48, center.y - 24, 96, 48);
+      }
+      ctx.restore();
+    }
     // 大格网格线(每4小格)
     ctx.strokeStyle = "rgba(90,60,30,.25)"; ctx.lineWidth = 1;
     for (var i = 0; i <= GW; i += 4) { var a = v(i, 0), b = v(i, GH); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
@@ -155,11 +167,26 @@
     // 右墙 (沿 cy=0, cx 0..GW)
     var a = v(0, 0), b = v(GW, 0);
     poly([{ x: a.x, y: a.y }, { x: b.x, y: b.y }, { x: b.x, y: b.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]);
-    ctx.fillStyle = "#9a7f5e"; ctx.fill(); ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
+    ctx.fillStyle = "#9a7f5e"; ctx.fill();
+    if (env.wallRight) {
+      ctx.save(); ctx.clip();
+      var patR = ctx.createPattern(env.wallRight, "repeat");
+      if (patR) { ctx.fillStyle = patR; ctx.fillRect(a.x, a.y - WALL_PX, b.x - a.x, WALL_PX); }
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
     // 左墙 (沿 cx=0, cy 0..GH)
     var d = v(0, GH);
     poly([{ x: a.x, y: a.y }, { x: d.x, y: d.y }, { x: d.x, y: d.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]);
-    ctx.fillStyle = "#876e50"; ctx.fill(); ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
+    ctx.fillStyle = "#876e50"; ctx.fill();
+    if (env.wallLeft) {
+      ctx.save(); ctx.clip();
+      var minX = Math.min(a.x, d.x), maxX = Math.max(a.x, d.x);
+      var patL = ctx.createPattern(env.wallLeft, "repeat");
+      if (patL) { ctx.fillStyle = patL; ctx.fillRect(minX, a.y - WALL_PX, maxX - minX, WALL_PX); }
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
   }
   function wallHangXY(p) {
     // 沿墙位置 p.cx (格)，高度 p.cy (0=底,越大越高)，返回画布坐标(左上)
@@ -218,7 +245,15 @@
   function drawCourtyard() {
     ctx.fillStyle = "#1c2a16"; ctx.fillRect(0, 0, CW, CH);
     var c = quad(-4, -4, GW + 8, GH + 8);
-    poly(c); ctx.fillStyle = "#4f7a40"; ctx.fill(); ctx.strokeStyle = "#36592f"; ctx.lineWidth = 3; ctx.stroke();
+    poly(c); ctx.fillStyle = "#4f7a40"; ctx.fill();
+    if (env.courtyard) {
+      ctx.save(); ctx.clip();
+      var pat = ctx.createPattern(env.courtyard, "repeat");
+      if (pat) { ctx.fillStyle = pat; ctx.fillRect(0, 0, CW, CH); }
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#36592f"; ctx.lineWidth = 3; ctx.stroke();
+    if (env.courtyard) return;
     // 院景点缀（占位，真图待美术）
     ctx.font = "20px sans-serif"; ctx.textAlign = "center";
     var deco = ["🌳", "🌲", "🌸", "🪨", "🌿", "🌷"];
@@ -475,12 +510,18 @@
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
   function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); return "【" + RARITY[t.rarity].name + "】" + t.name + " " + parts.join(" "); }
+  function equipIconHTML(tid, glyph) {
+    return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
+  }
+  function slotIconHTML(sd) {
+    return '<img class="slot-img" src="assets/ui/slot_' + sd.type + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback empty">·</span>';
+  }
   function renderDoll() {
     var slotsEl = $("dollSlots"); slotsEl.innerHTML = "";
     SLOT_DEFS.forEach(function (sd) {
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
-      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span>' + (it ? '<span class="ico" style="background:' + RARITY[t.rarity].color + '">' + t.glyph + '</span><span class="it-nm" style="color:' + RARITY[t.rarity].color + '">' + t.name + '</span>' : '<span class="ico" style="opacity:.3">·</span>');
+      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'box-shadow:inset 0 0 0 2px ' + RARITY[t.rarity].color : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[t.rarity].color + '">' + t.name + '</span>' : '');
       if (it) { d.title = itemTitle(it); d.onclick = function () { unequip(sd.key); }; }
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
@@ -492,7 +533,7 @@
     warehouse.forEach(function (it) {
       var t = EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it);
-      d.innerHTML = t.glyph + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[t.rarity].color + '"></span>';
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[t.rarity].color + '"></span>';
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = it; toast("已选 " + t.name + "，点左侧空槽穿上"); };
       wh.appendChild(d);
