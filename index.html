@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617j">
+<link rel="stylesheet" href="src/style.css?v=0617k">
 </head>
 <body>
   <header class="topbar">
@@ -75,8 +75,14 @@
     </div>
   </div>
 
+  <!-- 横版战斗画面 -->
+  <div id="combatView" class="combat-view hidden">
+    <canvas id="combatCanvas"></canvas>
+    <div class="combat-hud"><span id="combatInfo"></span><button id="combatSkip" class="tb">跳过 ▶▶</button></div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0617j"></script>
-  <script src="src/game.js?v=0617j"></script>
+  <script src="src/combat-core.js?v=0617k"></script>
+  <script src="src/game.js?v=0617k"></script>
 </body>
 </html>

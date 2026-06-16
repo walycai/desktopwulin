@@ -549,17 +549,17 @@
     return wave;
   }
   function sortie() {
-    var attrs = totalAttrs();
-    var wave = genWave();
+    var attrs = totalAttrs(), wave = genWave();
     var r = CORE.resolveCombat({ attrs: attrs, wave: wave, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
-    // 应用战果
+    startCombat(r, attrs);
+  }
+  function applyCombatResult(r) {
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
     var gained = [];
     r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes }); gained.push(d); });
     var lvups = 0; stats.exp += r.expGained;
     while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; }
     syncHpMax(); saveEquip(); save();
-    // 总结弹窗
     var outTxt = r.outcome === "win" ? "全身而退 ✅" : ("负伤回家（" + (r.bagFull ? "背包已满" : "力竭") + "）");
     var body = '<div>结果：<span class="hl">' + outTxt + '</span></div>';
     body += '<div>击杀：<span class="hl">' + r.kills + '</span> 个 · 历时 ' + r.ttk + 's</div>';
@@ -567,9 +567,92 @@
     body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
     if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[d.rarity].color + '">· 【' + RARITY[d.rarity].name + '】' + t.name + '</div>'; }); }
     else body += '<div>本趟无装备掉落</div>';
-    $("cmBody").innerHTML = body;
-    $("cmTitle").textContent = r.outcome === "win" ? "历练归来" : "负伤而归";
+    $("cmBody").innerHTML = body; $("cmTitle").textContent = r.outcome === "win" ? "历练归来" : "负伤而归";
     $("combatModal").classList.remove("hidden");
+  }
+
+  // ---- 横版战斗画面（回放 resolveCombat 的 events）----
+  var CV = { canvas: null, ctx: null, W: 900, H: 540, ground: 410, running: false, sheets: {}, bg: null, steps: [], si: 0, st: 0, raf: 0 };
+  var cst = {}; // 当前画面状态
+  function loadCombatAssets() {
+    CV.bg = new Image(); CV.bg.src = "assets/combat/bg_wulin.png?_=" + Date.now();
+    var pact = ["idle", "advance", "attack", "hurt", "down"];
+    pact.forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["p_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/protagonist_combat/" + a + ".png?_=" + Date.now(); });
+    ["thug", "bandit", "sect_novice"].forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
+  }
+  function startCombat(r, attrs) {
+    if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
+    cst = { result: r, pHpMax: attrs.HP, pHp: attrs.HP, pAnim: "idle", pT: 0, enemyId: null, eHpMax: 1, eHp: 0, eAnim: "idle", eT: 0, enemyX: CV.W + 80, floats: [], scroll: 0, kills: 0, done: false };
+    // 构建播放步骤
+    var steps = [];
+    r.events.forEach(function (ev) {
+      if (ev.type === "spawn") steps.push({ d: 0.5, k: "spawn", id: ev.enemy });
+      else if (ev.type === "phit") steps.push({ d: 0.3, k: "phit", dmg: ev.dmg, ehp: ev.ehp });
+      else if (ev.type === "ehit") steps.push({ d: 0.3, k: "ehit", dmg: ev.dmg, hp: ev.hp });
+      else if (ev.type === "kill") steps.push({ d: 0.5, k: "kill" });
+      else if (ev.type === "potion") steps.push({ d: 0.3, k: "potion", heal: ev.heal });
+      else if (ev.type === "drop") steps.push({ d: 0.4, k: "drop", item: ev.item });
+      else if (ev.type === "death") steps.push({ d: 1.0, k: "death" });
+    });
+    steps.push({ d: 0.8, k: "end" });
+    CV.steps = steps; CV.si = -1; CV.st = 0; CV.running = true; CV.speed = 1;
+    $("combatInfo").textContent = "历练中…";
+    $("combatView").classList.remove("hidden");
+    nextStep();
+    CV.last = 0; CV.raf = requestAnimationFrame(cvLoop);
+  }
+  function nextStep() {
+    CV.si++; CV.st = 0;
+    if (CV.si >= CV.steps.length) { endCombat(); return; }
+    var s = CV.steps[CV.si];
+    if (s.k === "spawn") { cst.enemyId = s.id; var E = CORE.ENEMIES[s.id]; cst.eHpMax = E.HP; cst.eHp = E.HP; cst.eAnim = "idle"; cst.enemyX = CV.W + 60; cst.pAnim = "advance"; }
+    else if (s.k === "phit") { cst.pAnim = "attack"; cst.eAnim = "hurt"; cst.eHp = s.ehp; if (s.dmg) addFloat(cst.enemyX, CV.ground - 70, "-" + s.dmg, "#ff7a6a"); }
+    else if (s.k === "ehit") { cst.eAnim = "attack"; cst.pAnim = "hurt"; cst.pHp = s.hp; if (s.dmg) addFloat(170, CV.ground - 70, "-" + s.dmg, "#ffd24a"); }
+    else if (s.k === "kill") { cst.eAnim = "death"; cst.kills++; }
+    else if (s.k === "potion") { cst.pAnim = "idle"; addFloat(150, CV.ground - 90, "+" + s.heal + " 回血", "#7fe0a0"); }
+    else if (s.k === "drop") { var t = EQUIP_TPL[s.item.id]; addFloat(cst.enemyX, CV.ground - 90, "拾得 " + (t ? t.name : "装备"), CORE.RARITY[s.item.rarity].color); }
+    else if (s.k === "death") { cst.pAnim = "down"; }
+    $("combatInfo").textContent = "已杀 " + cst.kills + " · 气血 " + Math.max(0, Math.round(cst.pHp)) + "/" + cst.pHpMax;
+  }
+  function addFloat(x, y, text, color) { cst.floats.push({ x: x, y: y, text: text, color: color, t: 0 }); }
+  function cvLoop(ts) {
+    if (!CV.running) return;
+    var dt = Math.min(0.05, (ts - CV.last) / 1000 || 0); CV.last = ts; dt *= (CV.speed || 1);
+    CV.st += dt; cst.pT += dt; cst.eT += dt;
+    // 敌人入场移动
+    var s = CV.steps[CV.si];
+    if (s && s.k === "spawn") { cst.enemyX += (600 - cst.enemyX) * Math.min(1, dt * 5); }
+    cst.floats.forEach(function (f) { f.t += dt; f.y -= dt * 30; }); cst.floats = cst.floats.filter(function (f) { return f.t < 1.0; });
+    if (CV.st >= (s ? s.d : 0)) nextStep();
+    renderCombat();
+    CV.raf = requestAnimationFrame(cvLoop);
+  }
+  function drawCSprite(key, x, y, faceLeft, anim, t) {
+    var sh = CV.sheets[key], c = CV.ctx;
+    if (sh) { var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * 64, 0, 64, 64, -32, y - 64, 64, 64); } else { c.drawImage(sh.img, fr * 64, 0, 64, 64, x - 32, y - 64, 64, 64); } c.restore(); }
+    else { c.fillStyle = faceLeft ? "#9a4a4a" : "#4a6a9a"; c.fillRect(x - 16, y - 56, 32, 56); }
+  }
+  function bar(x, y, w, ratio, col) { var c = CV.ctx; c.fillStyle = "#000"; c.fillRect(x, y, w, 6); c.fillStyle = col; c.fillRect(x, y, w * Math.max(0, ratio), 6); }
+  function renderCombat() {
+    var c = CV.ctx;
+    if (CV.bg && CV.bg.complete && CV.bg.naturalWidth) { var bw = CV.bg.naturalWidth * (CV.H / CV.bg.naturalHeight); for (var bx = 0; bx < CV.W; bx += bw) c.drawImage(CV.bg, bx, 0, bw, CV.H); }
+    else { var g = c.createLinearGradient(0, 0, 0, CV.H); g.addColorStop(0, "#3a4a5a"); g.addColorStop(1, "#6a5a3a"); c.fillStyle = g; c.fillRect(0, 0, CV.W, CV.H); c.fillStyle = "#4a3a26"; c.fillRect(0, CV.ground, CV.W, CV.H - CV.ground); }
+    // 主角
+    drawCSprite("p_" + cst.pAnim, 170, CV.ground, false, cst.pAnim, cst.pT);
+    bar(140, CV.ground - 78, 60, cst.pHp / cst.pHpMax, "#5fbf5f");
+    // 敌人
+    if (cst.enemyId && (CV.steps[CV.si] && CV.steps[CV.si].k !== "death" || cst.eHp > 0)) {
+      drawCSprite("e_" + cst.enemyId + "_" + cst.eAnim, cst.enemyX, CV.ground, true, cst.eAnim, cst.eT);
+      if (cst.eHp > 0) bar(cst.enemyX - 30, CV.ground - 78, 60, cst.eHp / cst.eHpMax, "#bf5f5f");
+    }
+    // 飘字
+    c.font = "bold 16px sans-serif"; c.textAlign = "center";
+    cst.floats.forEach(function (f) { c.globalAlpha = Math.max(0, 1 - f.t); c.fillStyle = f.color; c.fillText(f.text, f.x, f.y); c.globalAlpha = 1; });
+  }
+  function endCombat() {
+    CV.running = false; if (CV.raf) cancelAnimationFrame(CV.raf);
+    $("combatView").classList.add("hidden");
+    applyCombatResult(cst.result);
   }
 
   // ---- 循环 ----
@@ -591,7 +674,9 @@
     $("selRecall").onclick = function () { if (selectedPlaced) removePlaced(selectedPlaced); };
     $("dollBtn").onclick = openDoll;
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
+    loadCombatAssets();
     $("sortieBtn").onclick = sortie;
+    $("combatSkip").onclick = function () { endCombat(); };
     $("meditateBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
     $("sleepBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
     $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
