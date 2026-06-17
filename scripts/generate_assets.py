@@ -679,6 +679,41 @@ def apply_home_asset_sheet_v2():
         save(cut_chroma_to_alpha(src.crop(box)), rel)
 
 
+def normalize_icon(img, size=96, inset=8):
+    bbox = img.getchannel("A").getbbox()
+    if bbox:
+        img = img.crop(bbox)
+    max_side = size - inset * 2
+    scale = min(max_side / img.width, max_side / img.height, 1)
+    resized = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.Resampling.LANCZOS)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.alpha_composite(resized, ((size - resized.width) // 2, (size - resized.height) // 2))
+    return out
+
+
+def apply_equipment_icon_sheet_v1():
+    """Cut image-generated wuxia equipment icons into the existing equipment IDs."""
+    sample = ROOT / "previews/equipment-icon-sheet-v1.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    crops = {
+        "equipment/wpn_iron_sword.png": (35, 28, 388, 330),
+        "equipment/wpn_steel_saber.png": (398, 34, 760, 336),
+        "equipment/head_cloth.png": (776, 48, 1120, 320),
+        "equipment/head_iron.png": (1160, 42, 1460, 350),
+        "equipment/body_cloth.png": (24, 392, 368, 742),
+        "equipment/body_softarmor.png": (404, 388, 712, 730),
+        "equipment/legs_cloth.png": (804, 398, 1080, 728),
+        "equipment/legs_guard.png": (1152, 384, 1438, 730),
+        "equipment/neck_lock.png": (42, 770, 360, 1120),
+        "equipment/ring_jade.png": (404, 780, 700, 1086),
+        "equipment/belt_iron.png": (764, 782, 1138, 1074),
+    }
+    for rel, box in crops.items():
+        save(normalize_icon(cut_chroma_to_alpha(src.crop(box), pad=6)), rel)
+
+
 def main():
     environment_assets()
     furniture()
@@ -688,6 +723,7 @@ def main():
     refine_priority_assets()
     apply_approved_style_sample()
     apply_home_asset_sheet_v2()
+    apply_equipment_icon_sheet_v1()
 
 
 if __name__ == "__main__":
