@@ -914,17 +914,17 @@
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   // ---- 历练地图：分区 ----
   var ZONES = [
-    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 1, types: ["thug"], boss: { type: "thug", lv: 2, hpMult: 5, atkMult: 1.6, name: "山贼王", bossId: "shanzeiwang" } },
-    { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 3, atkMult: 1.6, name: "幽林鬼影", bossId: "youlinguiying" } },
-    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 3, atkMult: 1.6, name: "青城逆徒", bossId: "qingchengnitu" } },
-    { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 3, atkMult: 1.7, name: "血刀老祖", bossId: "xuedaolaozu" } },
-    { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 3, atkMult: 1.8, name: "天魔教主", bossId: "tianmojiaozhu" } },
+    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 1, types: ["thug"], boss: { type: "thug", lv: 2, hpMult: 10, atkMult: 0.8, name: "山贼王", bossId: "shanzeiwang" } },
+    { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 10, atkMult: 0.8, name: "幽林鬼影", bossId: "youlinguiying" } },
+    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 10, atkMult: 0.8, name: "青城逆徒", bossId: "qingchengnitu" } },
+    { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 10, atkMult: 0.8, name: "血刀老祖", bossId: "xuedaolaozu" } },
+    { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 10, atkMult: 0.8, name: "天魔教主", bossId: "tianmojiaozhu" } },
     // 新增5图(WalyCai)：图1难度不变，从图2起等级带"增幅递增"(间隔 +6→+8→+11→+14→+18)，难度超线性追上CP速增；数值待莱布尼茨重调锁
-    { id: "huangquan", name: "黄泉古道", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 3, atkMult: 1.8, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
-    { id: "luosha", name: "罗刹海市", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 3, atkMult: 1.9, name: "罗刹女君", bossId: "luoshanvjun" } },
-    { id: "yaolin", name: "妖兽森林", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 3, atkMult: 1.9, name: "妖兽之王", bossId: "yaoshouwang" } },
-    { id: "jiuyou", name: "九幽魔渊", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 3.2, atkMult: 2, name: "九幽魔尊", bossId: "jiuyoumozun" } },
-    { id: "tianwai", name: "天外魔域", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 3.5, atkMult: 2.2, name: "万古魔神", bossId: "wangumoshen" } }
+    { id: "huangquan", name: "黄泉古道", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 10, atkMult: 0.8, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
+    { id: "luosha", name: "罗刹海市", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 10, atkMult: 0.8, name: "罗刹女君", bossId: "luoshanvjun" } },
+    { id: "yaolin", name: "妖兽森林", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 10, atkMult: 0.8, name: "妖兽之王", bossId: "yaoshouwang" } },
+    { id: "jiuyou", name: "九幽魔渊", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 10, atkMult: 0.8, name: "九幽魔尊", bossId: "jiuyoumozun" } },
+    { id: "tianwai", name: "天外魔域", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 10, atkMult: 0.8, name: "万古魔神", bossId: "wangumoshen" } }
   ];
   function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
   function goZone(i) { stats.zone = i; save(); $("mapModal").classList.add("hidden"); startCombat(totalAttrs(), { zone: ZONES[i], zoneIdx: i }); } // 前往该区历练
