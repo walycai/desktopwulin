@@ -214,6 +214,7 @@
     CW = contentW; CH = contentH; dpr = window.devicePixelRatio || 1;
     canvas.width = CW * dpr; canvas.height = CH * dpr; canvas.style.width = CW + "px"; canvas.style.height = CH + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false; // 像素图非整数缩放不糊(修"角色变虚")
   }
   function drawFloor() {
     var c = quad(0, 0, GW, GH);
@@ -324,13 +325,23 @@
       var fw = (base.naturalWidth || base.width || (SPR.fw * frames)) / frames; // 帧宽=图宽/帧数(自适应48×64或64×96…)
       var fh = (base.naturalHeight || base.height || (SPR.fh * rows)) / rows;
       var sc = PLAYER_DISP_H / fh, dw = fw * sc, dh = fh * sc;
+      var fi = player.state === "meditating" ? 0 : player.fi; // 打坐用静态帧,不上下漂浮(那是仙侠)
       var dx = ctr.x - dw / 2, dy = ctr.y - dh;
-      ctx.drawImage(base, player.fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
+      if (player.state === "meditating") dy += dh * 0.16; // 坐落到打坐台/蒲团上,不悬空
+      ctx.drawImage(base, fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
       APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层(按各自帧尺寸,与主角同格)
         var it = equipped[slot]; if (!it) return;
         var ov = equipSprites[it.tid] && equipSprites[it.tid][player.anim];
-        if (ov) { var ofw = (ov.naturalWidth || ov.width) / frames, ofh = (ov.naturalHeight || ov.height) / rows; ctx.drawImage(ov, player.fi * ofw, row * ofh, ofw, ofh, dx, dy, dw, dh); }
+        if (ov) { var ofw = (ov.naturalWidth || ov.width) / frames, ofh = (ov.naturalHeight || ov.height) / rows; ctx.drawImage(ov, fi * ofw, row * ofh, ofw, ofh, dx, dy, dw, dh); }
       });
+      if (player.state === "meditating") { // 头顶动态 zzZ (武侠搞怪,替代漂浮)
+        var zt = (homeClock % 1.6) / 1.6; ctx.textAlign = "center";
+        ctx.font = "bold 12px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - zt * 0.9).toFixed(2) + ")";
+        ctx.fillText("z", dx + dw * 0.72 + zt * 7, dy + 6 - zt * 16);
+        var zt2 = ((homeClock + 0.8) % 1.6) / 1.6;
+        ctx.font = "bold 15px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - zt2 * 0.9).toFixed(2) + ")";
+        ctx.fillText("Z", dx + dw * 0.62 + zt2 * 7, dy + 2 - zt2 * 18);
+      }
     } else {
       ctx.font = "30px sans-serif"; ctx.textAlign = "center";
       ctx.fillText(player.state === "sleeping" ? "😴" : player.state === "meditating" ? "🧘" : "🧍", ctr.x, ctr.y - 8);
@@ -985,7 +996,7 @@
   var PX = 150; // 主角屏幕 x
   function startCombat(attrs, opts) {
     opts = opts || {};
-    if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
+    if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; CV.ctx.imageSmoothingEnabled = false; }
     var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) };
     var ab = []; // 主动技能(Phase4)：来自技能树 旋风斩/狂暴（数值占位待莱布尼茨）
     var wr = skillRank("whirlwind"); if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
@@ -1079,9 +1090,9 @@
 
   // ---- 循环 ----
   var last = 0;
-  var gfRefreshT = 0;
+  var gfRefreshT = 0, homeClock = 0;
   function loop(ts) {
-    var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
+    var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; homeClock += dt;
     if (player.state === "meditating") { // 打坐:逐帧练所选功法熟练度(平滑进度条)
       var dd = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {};
       if (dd.neigong) trainGongfa(dd.neigong * (1 + homeRank("meditate_eff") * 0.2) * 5 * dt);
