@@ -584,9 +584,9 @@
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   // ---- 历练地图：分区 ----
   var ZONES = [
-    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 4, types: ["thug"], boss: { type: "thug", lv: 5, name: "山贼王", bossId: "shanzeiwang" } },
-    { id: "milin", name: "幽密林", lvMin: 5, lvMax: 9, types: ["thug", "bandit"], boss: { type: "bandit", lv: 10, name: "幽林鬼影", bossId: "youlinguiying" } },
-    { id: "qingcheng", name: "青城派", lvMin: 10, lvMax: 16, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 17, name: "青城逆徒", bossId: "qingchengnitu" } }
+    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 2, types: ["thug"], boss: { type: "thug", lv: 3, hpMult: 5, atkMult: 1.6, name: "山贼王", bossId: "shanzeiwang" } },
+    { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 3, atkMult: 1.6, name: "幽林鬼影", bossId: "youlinguiying" } },
+    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 3, atkMult: 1.6, name: "青城逆徒", bossId: "qingchengnitu" } }
   ];
   function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
   function goZone(i) { stats.zone = i; save(); $("mapModal").classList.add("hidden"); startCombat(totalAttrs(), { zone: ZONES[i], zoneIdx: i }); } // 前往该区历练
