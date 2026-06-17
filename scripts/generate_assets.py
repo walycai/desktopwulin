@@ -781,6 +781,33 @@ def apply_combat_sources_v1():
             save(make_combat_sheet(poses[eid], action, frames), f"characters/enemies/{eid}/{action}.png")
 
 
+def boss_pose(src, box):
+    pose = cut_chroma_to_alpha(src.crop(box), pad=8)
+    bbox = pose.getchannel("A").getbbox()
+    if bbox:
+        pose = pose.crop(bbox)
+    scale = min(62 / pose.height, 62 / pose.width)
+    pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
+    frame = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    frame.alpha_composite(pose, ((64 - pose.width) // 2, 63 - pose.height))
+    return frame
+
+
+def apply_boss_sources_v1():
+    """Cut AI-approved boss source art into 64x64 combat sheets.
+
+    Enemy rendering mirrors source frames at draw time, so source boss poses face right.
+    """
+    sample = ROOT / "previews/boss-shanzeiwang-source-v1.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    pose = boss_pose(src, (40, 35, 1225, 1225))
+    boss_specs = {"idle": 4, "attack": 6}
+    for action, frames in boss_specs.items():
+        save(make_combat_sheet(pose, action, frames), f"characters/bosses/shanzeiwang/{action}.png")
+
+
 def actor_layout(action, frame, direction):
     phase = math.sin(frame * math.pi / 2)
     bob = int(phase * (1 if action == "idle" else 2))
@@ -958,6 +985,7 @@ def main():
     apply_home_asset_sheet_v2()
     apply_equipment_icon_sheet_v1()
     apply_combat_sources_v1()
+    apply_boss_sources_v1()
     apply_home_actor_layers_v1()
     apply_bed_table_replacement_v2()
     apply_meditation_dais_replacement_v2()
