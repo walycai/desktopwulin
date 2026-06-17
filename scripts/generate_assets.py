@@ -656,7 +656,10 @@ def apply_approved_style_sample():
         "furniture/decor/decor_vase.png": (1048, 478, 1492, 1002),
     }
     for rel, box in crops.items():
-        save(cut_sample_to_alpha(src.crop(box)), rel)
+        img = cut_sample_to_alpha(src.crop(box))
+        if rel == "furniture/bed/bed_basic.png":
+            img = ImageOps.mirror(img)
+        save(img, rel)
 
 
 def apply_home_asset_sheet_v2():
@@ -676,7 +679,10 @@ def apply_home_asset_sheet_v2():
         "furniture/decor/decor_candle.png": (1204, 520, 1390, 770),
     }
     for rel, box in crops.items():
-        save(cut_chroma_to_alpha(src.crop(box)), rel)
+        img = cut_chroma_to_alpha(src.crop(box))
+        if rel == "furniture/bed/bed_advanced.png":
+            img = ImageOps.mirror(img)
+        save(img, rel)
 
 
 def normalize_icon(img, size=96, inset=8):
