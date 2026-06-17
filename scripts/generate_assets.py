@@ -922,6 +922,23 @@ def apply_home_actor_layers_v1():
             save(img, f"characters/equip/{tid}/{action}.png")
 
 
+def apply_bed_table_replacement_v2():
+    """Replace broken generated bed/table sources with complete lower/front silhouettes."""
+    sample = ROOT / "previews/bed-table-replacement-v2-source.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    replacements = {
+        "furniture/bed/bed_basic.png": (42, 115, 790, 820),
+        "furniture/table/table_square.png": (810, 180, 1452, 805),
+    }
+    for rel, box in replacements.items():
+        img = cut_chroma_to_alpha(src.crop(box), pad=24)
+        if rel == "furniture/bed/bed_basic.png":
+            img = ImageOps.mirror(img)
+        save(img, rel)
+
+
 def main():
     environment_assets()
     furniture()
@@ -934,6 +951,7 @@ def main():
     apply_equipment_icon_sheet_v1()
     apply_combat_sources_v1()
     apply_home_actor_layers_v1()
+    apply_bed_table_replacement_v2()
 
 
 if __name__ == "__main__":
