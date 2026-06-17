@@ -55,7 +55,7 @@
   // ---- 内功附魔流(第二树) 数值常量 —— 占位,待莱布尼茨精调+验平衡 ----
   // 内功附魔流全部可调数值,单一可变对象(莱布尼茨 sim 可注入 C.ENCH.xxx 精校;DoT 按敌人最大HP百分比/秒——flat在HP跨度大的游戏早期碾压晚期可忽略,%血全程相关对高血boss尤强=附魔克boss幻想)
   var ENCH = {
-    range:    { base: 30, coef: 2 }, // 射程(像素)=base+coef×内功级别(内功级50→射程130,适度风筝不秒全场)。学了 range 根技能才生效
+    range:    { base: 165, coef: 0.5 }, // 射程(像素)=base+coef×内功级别(WalyCai/莱布尼茨:基数≈3身位先手,系数小→功法多也缓慢加不爆炸。内功级0→reach235)。学了 range 根技能才生效
     chillCap: 0.5,                   // 冰冻减速/减命中封顶(防冰流无敌)
     burn:   { chance: 0.3, dpsRoot: 0.015, dpsPer: 0.004, durRoot: 3, durPer: 1, ampPer: 0.2 },  // 炎:dps=%maxHP/s。fire_ignite根;fire_blaze +dps/级;fire_inferno +时长/级;fire_conflag ×(1+amp/级)
     poison: { chance: 0.4, dpsRoot: 0.010, dpsPer: 0.003, durRoot: 6, durPer: 1.5, ampPer: 0.2 }, // 毒:dps=%maxHP/s,更长。poison_venom根;poison_toxin +dps/级;poison_plague +时长/级;poison_corrode ×(1+amp/级)
@@ -170,6 +170,7 @@
     var spawnTypes = cfg.spawnTypes || null, lvMin = cfg.lvMin || 1, lvMax = cfg.lvMax || 1; // 分区:类型池+等级区间(带级缩放)
     var bossFight = !!cfg.boss, bossKilled = false;
     var P = { hp: cfg.startHp != null ? Math.min(cfg.startHp, P0.HP) : P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 }; // startHp=带伤出战(负伤有代价)
+    var playerRegen = cfg.playerRegen || 0, regenT = 0, lastHeal = 0; // 内功自动回血:战斗中持续回血(WalyCai:主要就是为了战斗回血)
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, gold = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
     // 主动技能(Phase4)：蓝量回复+自动释放
@@ -222,7 +223,8 @@
         if (e.hp <= 0 && !e.dead) killEnemy(e);                                  // DoT 可致死
       }
       if (haste > 0) haste -= dt;
-      P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; // 狂暴期间出手更快
+      P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; lastHeal = 0; // 狂暴期间出手更快
+      if (playerRegen > 0 && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen, P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:每秒结算一次,显示+N
       if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
       // 主动技能：蓝量回满后释放一个"最久未放"的就绪技能（避免低耗技能饿死高耗技能）
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
@@ -240,7 +242,7 @@
     }
     return {
       step: step, isDone: function () { return done; },
-      state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lane: lane, melee: melee, mana: mana, manaMax: manaMax, haste: haste, lastCast: lastCast }; },
+      state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lastHeal: lastHeal, lane: lane, melee: melee, mana: mana, manaMax: manaMax, haste: haste, lastCast: lastCast }; },
       result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: gold, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
     };
   }

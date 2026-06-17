@@ -83,6 +83,12 @@
     { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
     { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" }
   ];
+  // 自动化居家技能(WalyCai):学习(花1点)后得到一个开关;满血自动打坐 与 满血自动历练 互斥二选一
+  var HOME_AUTO = [
+    { id: "auto_sleep", name: "回家自动睡觉", desc: "在家受伤时自动上床睡觉回血" },
+    { id: "auto_meditate", name: "满血自动打坐", desc: "满血时自动去打坐修炼功法（与自动历练二选一）", excl: "auto_sortie" },
+    { id: "auto_sortie", name: "满血自动历练", desc: "满血时自动进入上次的地图历练（与自动打坐二选一）", excl: "auto_meditate" }
+  ];
   // ---- 功法系统：数据/数值以 combat-core 为单一源(与 sim 共用) ----
   var GONGFA = CORE.GONGFA, GONGFA_SLOTS = CORE.GONGFA_SLOTS, GONGFA_MAXLV = CORE.GONGFA_MAXLV;
   function gongfaById(id) { return CORE.gongfaById(id); }
@@ -462,6 +468,19 @@
     });
   }
   function backToWander() { player.state = "wander"; player.actUid = 0; player.busy = false; player.anim = "idle"; }
+  // ---- 自动化居家技能 ----
+  function autoOn(id) { return homeRank(id) > 0 && stats.autoOn && stats.autoOn[id]; } // 已学习且开关打开
+  function autoTick() { // 每秒在家结算:受伤自动睡→满血自动打坐/历练
+    if (CV.running || player.state === "walking") return;     // 战斗中/移动中不打断
+    if (stats.hp < stats.hpMax) {
+      if (autoOn("auto_sleep") && player.state !== "sleeping") { var bed = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (bed) goAction(bed, "sleeping"); }
+      return;
+    }
+    // 满血
+    if (autoOn("auto_sortie")) { var zi = Math.min(stats.zone || 0, ZONES.length - 1); startCombat(totalAttrs(), { zone: ZONES[zi], zoneIdx: zi }); return; } // 自动进上次地图
+    if (autoOn("auto_meditate")) { if (player.state !== "meditating") { var dais = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (dais) goAction(dais, "meditating"); } return; }
+    if (player.state === "sleeping") backToWander(); // 满血又没开打坐/历练→不必继续睡
+  }
   function updatePlayer(dt) {
     var dx = player.tx - player.cx, dy = player.ty - player.cy, dist = Math.hypot(dx, dy);
     if (dist > 0.05 && (player.state === "walking" || player.state === "wander")) {
@@ -490,6 +509,7 @@
       if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
     }
     // 打坐修炼=训练所选功法熟练度(主循环逐帧 trainGongfa)→升功法等级→抬内功级别。旧 stats.ng(打坐时间)已废弃,内功级别=Σ功法lv
+    autoTick(); // 自动化居家技能(自动睡/打坐/历练)
     updateStats(); save();
   }
   function updateStats() {
@@ -824,6 +844,18 @@
     else { if (homeRank(id) <= 0) return; stats.homeSkills[id] = homeRank(id) - 1; if (!stats.homeSkills[id]) delete stats.homeSkills[id]; stats.homeSpSpent = Math.max(0, (stats.homeSpSpent || 0) - 1); }
     save(); renderHomeSkill();
   }
+  function learnAuto(id) { // 学习自动化技能(花1居家技能点)
+    if (homeRank(id) > 0) return;
+    if (homeSpLeft() <= 0) { toast("居家技能点不足（多摆家具涨环境值）"); return; }
+    stats.homeSkills[id] = 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; save(); renderHomeSkill();
+  }
+  function toggleAuto(id) { // 开关;满血自动打坐/历练互斥
+    if (homeRank(id) <= 0) return;
+    if (!stats.autoOn) stats.autoOn = {};
+    var on = !stats.autoOn[id]; stats.autoOn[id] = on;
+    if (on) { var n = HOME_AUTO.filter(function (s) { return s.id === id; })[0]; if (n && n.excl) stats.autoOn[n.excl] = false; } // 互斥:开一个关另一个
+    save(); renderHomeSkill();
+  }
   function renderHomeSkill() {
     $("hsInfo").innerHTML = "居家环境值 <b>" + homeEnv() + "</b> · 居家技能点 <b>" + homeSpLeft() + "</b>/" + homeSpTotal() + " · 金币 " + (stats.gold || 0) + "💰（每 " + ENV_PER_POINT + " 环境 = 1 点）";
     var w = $("hsList"); w.innerHTML = "";
@@ -835,6 +867,18 @@
       var mn = document.createElement("button"); mn.className = "tb sk-mini"; mn.textContent = "−"; mn.disabled = rk <= 0; mn.onclick = function () { homeAdj(n.id, -1); };
       var pl = document.createElement("button"); pl.className = "tb sk-mini"; pl.textContent = "+"; pl.disabled = maxed || homeSpLeft() <= 0; pl.onclick = function () { homeAdj(n.id, 1); };
       btns.appendChild(mn); btns.appendChild(pl); row.appendChild(btns); w.appendChild(row);
+    });
+    // 自动化技能:学习→开关
+    var sep = document.createElement("div"); sep.className = "hs-sep"; sep.textContent = "⚙ 自动挂机"; w.appendChild(sep);
+    HOME_AUTO.forEach(function (n) {
+      var learned = homeRank(n.id) > 0, on = !!(stats.autoOn && stats.autoOn[n.id]);
+      var row = document.createElement("div"); row.className = "hs-row" + (learned ? " has" : "");
+      row.innerHTML = '<div class="hs-main"><span class="hs-name">' + n.name + '</span><span class="hs-rk">' + (learned ? (on ? "开" : "关") : "未学") + '</span></div><div class="hs-desc">' + n.desc + '</div>';
+      var btns = document.createElement("div"); btns.className = "hs-btns";
+      var b = document.createElement("button"); b.className = "tb sk-mini";
+      if (!learned) { b.textContent = "学习"; b.disabled = homeSpLeft() <= 0; b.onclick = function () { learnAuto(n.id); }; }
+      else { b.textContent = on ? "● 开" : "○ 关"; b.className = "tb sk-mini" + (on ? " auto-on" : ""); b.onclick = function () { toggleAuto(n.id); }; }
+      btns.appendChild(b); row.appendChild(btns); w.appendChild(row);
     });
   }
   // ---- 功法装备页 ----
@@ -1078,7 +1122,7 @@
     opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; CV.ctx.imageSmoothingEnabled = false; }
     var bc = CORE.buildToCombat(curBuild()); // 单一源：主动技能与 attrs 同源生成
-    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange }; // 附魔流:debuff + 射程必须传入(否则实战无效)
+    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() }; // 附魔流:debuff+射程;playerRegen=内功自动回血(战斗中也回,WalyCai)
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
@@ -1106,6 +1150,7 @@
       if (st.lastCast) { if (st.lastCast.type === "aoe") { addFloat(PX + 120, CV.ground - 110, "旋风斩 -" + st.lastCast.dmg, "#ffce6a"); cst.aoeFx = 0.4; } else if (st.lastCast.type === "haste") addFloat(PX, CV.ground - 116, "狂暴!", "#ff8a3a"); }
       if (st.kills > cst.prevKills) cst.prevKills = st.kills;
       if (st.P.hp < cst.prevHp - 0.5) addFloat(PX, CV.ground - 100, "-" + Math.round(cst.prevHp - st.P.hp), "#ffd24a");
+      if (st.lastHeal > 0) addFloat(PX - 18, CV.ground - 108, "+" + st.lastHeal, "#7fe0a0"); // 内功自动回血绿字
       cst.prevHp = st.P.hp;
       $("combatInfo").textContent = "已杀 " + st.kills + " · 气血 " + Math.max(0, Math.round(st.P.hp)) + "/" + st.P.hpMax + (st.manaMax ? " · 内力 " + Math.round(st.mana) + "/" + st.manaMax : "") + " · 场上敌 " + st.enemies.length;
       if (CV.sim.isDone()) CV.endTimer = 1.0;

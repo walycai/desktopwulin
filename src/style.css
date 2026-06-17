@@ -205,6 +205,8 @@ body {
 .hs-rk { color: #ffd98a; font-size: 12px; }
 .hs-desc { color: #9a866a; font-size: 11px; }
 .hs-btns { grid-row: 1 / span 2; display: flex; gap: 4px; align-items: center; }
+.hs-sep { margin: 10px 2px 2px; padding-top: 8px; border-top: 1px dashed #5a4630; color: #e8c98a; font-size: 13px; font-weight: 600; }
+.sk-mini.auto-on { background: #3a6a3a; border-color: #7fe0a0; color: #d8ffd8; }
 
 /* 功法装备页 */
 .gf-equip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px; }
