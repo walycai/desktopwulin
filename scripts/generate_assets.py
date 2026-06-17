@@ -374,6 +374,14 @@ def draw_coin_stack(d, cx, cy, scale=1):
         d.arc((cx - 13 * scale, y - 5 * scale, cx + 13 * scale, y + 5 * scale), 200, 340, fill=(255, 224, 120, 255), width=max(1, scale))
 
 
+def ui_icon_base():
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((5, 5, 58, 58), radius=8, fill=(44, 32, 22, 230), outline=(156, 112, 58, 255), width=2)
+    d.rounded_rectangle((10, 10, 53, 53), radius=5, fill=(70, 50, 32, 210))
+    return img, d
+
+
 def apply_gui_p1_assets():
     gui = ASSETS / "ui/gui"
     icons = ASSETS / "ui/icons"
@@ -422,42 +430,76 @@ def apply_gui_p1_assets():
     d.line((10, 6, 226, 6), fill=(224, 248, 240, 120), width=1)
     bar_fill.save(gui / "bar_fill.png")
 
-    def icon_base():
-        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        d.rounded_rectangle((5, 5, 58, 58), radius=8, fill=(44, 32, 22, 230), outline=(156, 112, 58, 255), width=2)
-        d.rounded_rectangle((10, 10, 53, 53), radius=5, fill=(70, 50, 32, 210))
-        return img, d
-
-    img, d = icon_base()
+    img, d = ui_icon_base()
     d.line((22, 42, 42, 22), fill=(222, 226, 212, 255), width=5)
     d.line((24, 40, 18, 47), fill=(110, 70, 38, 255), width=5)
     d.regular_polygon((44, 18, 7), 5, fill=(245, 204, 92, 255), outline=(126, 78, 28, 255))
     img.save(icons / "menu_skill.png")
 
-    img, d = icon_base()
+    img, d = ui_icon_base()
     d.polygon([(16, 32), (32, 16), (48, 32)], fill=(176, 92, 52, 255), outline=(76, 46, 30, 255))
     d.rectangle((20, 32, 44, 48), fill=(114, 72, 42, 255), outline=(76, 46, 30, 255))
     d.rectangle((29, 38, 35, 48), fill=(48, 32, 24, 255))
     img.save(icons / "menu_home.png")
 
-    img, d = icon_base()
+    img, d = ui_icon_base()
     d.rectangle((20, 14, 44, 48), fill=(196, 178, 128, 255), outline=(98, 66, 36, 255), width=2)
     d.line((24, 22, 40, 22), fill=(96, 72, 48, 255), width=2)
     d.line((24, 30, 39, 30), fill=(96, 72, 48, 255), width=1)
     d.ellipse((18, 43, 46, 53), outline=(118, 178, 188, 180), width=2)
     img.save(icons / "menu_kungfu.png")
 
-    img, d = icon_base()
+    img, d = ui_icon_base()
     draw_coin_stack(d, 32, 30, 1)
     d.text((27, 24), "文", fill=(120, 72, 28, 255))
     img.save(icons / "coin.png")
 
-    img, d = icon_base()
+    img, d = ui_icon_base()
     d.rectangle((19, 20, 45, 46), fill=(106, 64, 34, 255), outline=(58, 36, 22, 255), width=2)
     d.arc((21, 10, 43, 28), 180, 360, fill=(180, 130, 64, 255), width=3)
     draw_coin_stack(d, 43, 39, 1)
     img.save(icons / "sell.png")
+
+
+def apply_gui_p2_assets():
+    icons = ASSETS / "ui/icons"
+    gongfa = ASSETS / "ui/gongfa"
+    icons.mkdir(parents=True, exist_ok=True)
+    gongfa.mkdir(parents=True, exist_ok=True)
+
+    def save_skill(name, drawer):
+        img, d = ui_icon_base()
+        drawer(d)
+        img.save(icons / f"skill_{name}.png")
+
+    steel = (218, 222, 212, 255)
+    gold = (232, 184, 84, 255)
+    red = (186, 62, 46, 255)
+    blue = (86, 160, 194, 255)
+    jade = (86, 176, 134, 255)
+
+    save_skill("str_hp", lambda d: (d.ellipse((18, 14, 46, 44), fill=red, outline=(92, 30, 24, 255), width=2), d.rectangle((29, 24, 35, 50), fill=(240, 202, 160, 255)), d.rectangle((20, 32, 44, 38), fill=(240, 202, 160, 255))))
+    save_skill("str_atk", lambda d: (d.line((18, 44, 45, 17), fill=steel, width=6), d.line((20, 42, 14, 50), fill=(112, 68, 36, 255), width=5), d.arc((16, 12, 52, 48), 225, 320, fill=gold, width=3)))
+    save_skill("str_def", lambda d: (d.polygon([(32, 13), (48, 20), (44, 42), (32, 52), (20, 42), (16, 20)], fill=(104, 118, 118, 255), outline=gold), d.line((32, 18, 32, 47), fill=(210, 210, 184, 255), width=2)))
+    save_skill("crit", lambda d: (d.line((18, 44, 44, 18), fill=steel, width=4), d.polygon([(43, 13), (50, 20), (43, 27), (36, 20)], fill=gold, outline=(116, 76, 28, 255)), d.line((20, 28, 44, 28), fill=red, width=2)))
+    save_skill("critdmg", lambda d: (d.polygon([(18, 46), (31, 14), (45, 46)], fill=red, outline=(92, 30, 24, 255)), d.line((31, 22, 31, 38), fill=gold, width=3), d.rectangle((29, 42, 33, 46), fill=gold)))
+    save_skill("weapon_mastery", lambda d: (d.line((18, 46, 46, 18), fill=steel, width=4), d.line((16, 18, 46, 48), fill=(210, 210, 188, 255), width=3), d.ellipse((25, 25, 39, 39), outline=gold, width=3)))
+    save_skill("equip_atk", lambda d: (d.polygon([(20, 14), (44, 14), (50, 34), (32, 52), (14, 34)], fill=(92, 76, 62, 255), outline=gold), d.line((24, 38, 42, 20), fill=steel, width=4)))
+    save_skill("equip_def", lambda d: (d.polygon([(18, 15), (46, 15), (50, 46), (32, 54), (14, 46)], fill=(86, 98, 102, 255), outline=gold), d.line((20, 28, 44, 28), fill=(180, 190, 180, 255), width=2), d.line((20, 38, 44, 38), fill=(180, 190, 180, 255), width=2)))
+    save_skill("equip_hp", lambda d: (d.rectangle((18, 20, 46, 48), fill=(96, 68, 44, 255), outline=gold, width=2), d.arc((20, 10, 44, 28), 180, 360, fill=gold, width=3), d.line((32, 25, 32, 43), fill=jade, width=4), d.line((23, 34, 41, 34), fill=jade, width=4)))
+    save_skill("hit", lambda d: (d.ellipse((15, 15, 49, 49), outline=gold, width=4), d.ellipse((24, 24, 40, 40), outline=steel, width=3), d.line((32, 10, 32, 54), fill=(180, 110, 54, 255), width=2), d.line((10, 32, 54, 32), fill=(180, 110, 54, 255), width=2)))
+    save_skill("atkspd", lambda d: (d.arc((15, 18, 50, 50), 200, 40, fill=blue, width=4), d.polygon([(48, 16), (51, 30), (38, 24)], fill=blue), d.line((21, 43, 46, 18), fill=steel, width=3)))
+    save_skill("whirlwind", lambda d: (d.arc((14, 14, 52, 52), 25, 330, fill=blue, width=5), d.arc((20, 20, 46, 46), 210, 140, fill=(236, 236, 210, 255), width=3), d.polygon([(50, 24), (55, 36), (43, 32)], fill=blue)))
+    save_skill("berserk", lambda d: (d.polygon([(32, 10), (42, 28), (36, 54), (24, 54), (20, 28)], fill=red, outline=(92, 30, 24, 255)), d.ellipse((23, 20, 41, 38), fill=(236, 180, 112, 255)), d.line((20, 16, 12, 9), fill=red, width=3), d.line((44, 16, 52, 9), fill=red, width=3)))
+
+    def save_gongfa(name, drawer):
+        img, d = ui_icon_base()
+        drawer(d)
+        img.save(gongfa / f"sys_{name}.png")
+
+    save_gongfa("neigong", lambda d: (d.ellipse((18, 18, 46, 46), fill=(46, 92, 116, 255), outline=gold, width=2), d.arc((20, 20, 44, 44), 0, 180, fill=(210, 240, 235, 255), width=3), d.arc((20, 20, 44, 44), 180, 360, fill=(120, 192, 210, 255), width=3), d.ellipse((29, 29, 35, 35), fill=gold)))
+    save_gongfa("waigong", lambda d: (d.ellipse((18, 24, 36, 44), fill=(226, 166, 104, 255), outline=(92, 48, 28, 255), width=2), d.rectangle((34, 20, 46, 42), fill=(226, 166, 104, 255), outline=(92, 48, 28, 255), width=2), d.line((18, 47, 48, 16), fill=gold, width=2)))
+    save_gongfa("qinggong", lambda d: (d.polygon([(18, 42), (32, 14), (46, 42), (32, 34)], fill=(206, 226, 218, 255), outline=(80, 130, 142, 255)), d.arc((14, 18, 50, 54), 200, 340, fill=blue, width=3), d.line((22, 48, 44, 26), fill=(180, 232, 238, 180), width=2)))
 
 
 def line_iso(draw, pts, fill, width=1):
@@ -1221,6 +1263,7 @@ def main():
     apply_home_asset_sheet_v2()
     apply_equipment_icon_sheet_v1()
     apply_gui_p1_assets()
+    apply_gui_p2_assets()
     apply_combat_sources_v1()
     apply_boss_sources_v1()
     apply_home_decor_source_v1()
