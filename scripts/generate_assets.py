@@ -502,7 +502,7 @@ def refine_priority_assets():
         img.save(out / f"{action}.png")
 
 
-def cut_sample_to_alpha(crop):
+def cut_sample_to_alpha(crop, pad=24):
     """Remove connected dark sample-sheet background while preserving object outlines."""
     crop = crop.convert("RGBA")
     pix = crop.load()
@@ -540,8 +540,49 @@ def cut_sample_to_alpha(crop):
         if is_background(pix[x, y]):
             pix[x, y] = (0, 0, 0, 0)
             q.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    seen = [[False] * w for _ in range(h)]
+    comps = []
+    for sy in range(h):
+        for sx in range(w):
+            if seen[sy][sx] or pix[sx, sy][3] == 0:
+                continue
+            q = deque([(sx, sy)])
+            seen[sy][sx] = True
+            pts = []
+            while q:
+                x, y = q.popleft()
+                pts.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and not seen[ny][nx] and pix[nx, ny][3] > 0:
+                        seen[ny][nx] = True
+                        q.append((nx, ny))
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            comps.append({"pts": pts, "area": len(pts), "bbox": (min(xs), min(ys), max(xs) + 1, max(ys) + 1)})
+    if comps:
+        comps.sort(key=lambda c: c["area"], reverse=True)
+        main = comps[0]["bbox"]
+        keep = set()
+        margin = max(18, int(max(main[2] - main[0], main[3] - main[1]) * 0.08))
+        expanded = (main[0] - margin, main[1] - margin, main[2] + margin, main[3] + margin)
+
+        def overlaps(a, b):
+            return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
+
+        for comp in comps:
+            if comp["area"] >= 16 and overlaps(comp["bbox"], expanded):
+                keep.update(comp["pts"])
+        for y in range(h):
+            for x in range(w):
+                if pix[x, y][3] > 0 and (x, y) not in keep:
+                    pix[x, y] = (0, 0, 0, 0)
     bbox = crop.getbbox()
-    return crop.crop(bbox) if bbox else crop
+    if not bbox:
+        return crop
+    cut = crop.crop(bbox)
+    out = Image.new("RGBA", (cut.width + pad * 2, cut.height + pad * 2), (0, 0, 0, 0))
+    out.alpha_composite(cut, (pad, pad))
+    return out
 
 
 def apply_approved_style_sample():
@@ -551,13 +592,13 @@ def apply_approved_style_sample():
         return
     src = Image.open(sample).convert("RGBA")
     crops = {
-        "furniture/bed/bed_basic.png": (35, 30, 520, 390),
-        "furniture/table/table_square.png": (565, 120, 940, 430),
-        "furniture/func/meditation_dais.png": (970, 70, 1510, 465),
-        "furniture/decor/decor_screen.png": (35, 500, 575, 995),
-        "furniture/wallhang/wall_scroll_right.png": (615, 485, 990, 1010),
-        "furniture/wallhang/wall_scroll_left.png": (615, 485, 990, 1010),
-        "furniture/decor/decor_vase.png": (1080, 500, 1460, 965),
+        "furniture/bed/bed_basic.png": (16, 16, 552, 430),
+        "furniture/table/table_square.png": (535, 88, 975, 468),
+        "furniture/func/meditation_dais.png": (940, 48, 1535, 492),
+        "furniture/decor/decor_screen.png": (14, 482, 606, 1040),
+        "furniture/wallhang/wall_scroll_right.png": (588, 462, 1024, 1040),
+        "furniture/wallhang/wall_scroll_left.png": (588, 462, 1024, 1040),
+        "furniture/decor/decor_vase.png": (1048, 478, 1492, 1002),
     }
     for rel, box in crops.items():
         save(cut_sample_to_alpha(src.crop(box)), rel)
