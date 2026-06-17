@@ -835,12 +835,14 @@
   // ---- 横版战斗画面（回放 resolveCombat 的 events）----
   var CV = { canvas: null, ctx: null, W: 900, H: 540, ground: 410, running: false, sheets: {}, bg: null, steps: [], si: 0, st: 0, raf: 0 };
   var cst = {}; // 当前画面状态
+  function loadSheet(key, src) { // 帧尺寸=图高(方形帧)，帧数=宽/高 → 支持任意分辨率(boss可原生大图,不靠放大)
+    var im = new Image(); im.onload = function () { var fw = im.height || 64; CV.sheets[key] = { img: im, fw: fw, frames: Math.max(1, Math.round(im.width / fw)) }; }; im.src = src + "?_=" + Date.now();
+  }
   function loadCombatAssets() {
     CV.bg = new Image(); CV.bg.src = "assets/combat/bg_wulin.png?_=" + Date.now();
-    var pact = ["idle", "advance", "attack", "hurt", "down"];
-    pact.forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["p_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/protagonist_combat/" + a + ".png?_=" + Date.now(); });
-    Object.keys(CORE.ENEMIES).forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
-    ZONES.forEach(function (z) { var bid = z.boss && z.boss.bossId; if (!bid) return; ["idle", "attack"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["eb_" + bid + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/bosses/" + bid + "/" + a + ".png?_=" + Date.now(); }); });
+    ["idle", "advance", "attack", "hurt", "down"].forEach(function (a) { loadSheet("p_" + a, "assets/characters/protagonist_combat/" + a + ".png"); });
+    Object.keys(CORE.ENEMIES).forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { loadSheet("e_" + id + "_" + a, "assets/characters/enemies/" + id + "/" + a + ".png"); }); });
+    ZONES.forEach(function (z) { var bid = z.boss && z.boss.bossId; if (!bid) return; ["idle", "attack"].forEach(function (a) { loadSheet("eb_" + bid + "_" + a, "assets/characters/bosses/" + bid + "/" + a + ".png"); }); });
   }
   var PX = 150; // 主角屏幕 x
   function startCombat(attrs, opts) {
@@ -882,7 +884,7 @@
   }
   function drawCSprite(key, x, y, faceLeft, anim, t, scale) {
     var sh = CV.sheets[key], c = CV.ctx, s = scale || 1, w = 64 * s, h = 64 * s;
-    if (sh) { var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * 64, 0, 64, 64, -w / 2, y - h, w, h); } else { c.drawImage(sh.img, fr * 64, 0, 64, 64, x - w / 2, y - h, w, h); } c.restore(); }
+    if (sh) { var fw = sh.fw || 64; var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * fw, 0, fw, fw, -w / 2, y - h, w, h); } else { c.drawImage(sh.img, fr * fw, 0, fw, fw, x - w / 2, y - h, w, h); } c.restore(); } // 源用原生帧尺寸fw：boss原生大图即清晰，不再靠放大糊
     else { c.fillStyle = faceLeft ? "#9a4a4a" : "#4a6a9a"; c.fillRect(x - 16 * s, y - 56 * s, 32 * s, 56 * s); }
   }
   function drawAttackEffect(x, y, t) {
