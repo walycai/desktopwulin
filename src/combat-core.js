@@ -122,8 +122,8 @@
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
     var P0 = cfg.attrs;
-    var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 95;
-    var spawnInt = cfg.spawnInterval || 1.3, maxField = cfg.maxOnField || 8;
+    var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
+    var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
     var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
     var P = { hp: P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 };
