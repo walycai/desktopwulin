@@ -61,8 +61,8 @@
   ];
   // 经济字段：环境值 env(摆放后涨居家环境) + 价格 price(金币购买)。占位公式，待莱布尼茨精调（可改为逐件赋值）
   CATALOG.forEach(function (c) {
-    if (c.env == null) c.env = Math.max(1, Math.round(c.w * c.h / 8) + (c.func ? 5 : 0));
-    if (c.price == null) c.price = c.env * 12;
+    if (c.env == null) c.env = Math.max(1, Math.round(c.w * c.h / 16)); // 莱布尼茨 v1：÷16(起始29环境<50阈值)
+    if (c.price == null) { var eff = (c.cat === "bed" || c.cat === "table" || c.cat === "chair" || c.cat === "func" || c.cat === "storage"); c.price = c.env * (eff ? 10 : 20); } // 高效家具×10 / 装饰类×20
   });
   var CATS = [{ key: "bed", label: "床" }, { key: "func", label: "功能" }, { key: "chair", label: "椅" }, { key: "table", label: "桌" }, { key: "storage", label: "收纳" }, { key: "wallhang", label: "壁挂" }, { key: "decor", label: "装饰" }];
   var $ = function (id) { return document.getElementById(id); };

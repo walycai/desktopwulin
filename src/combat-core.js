@@ -45,7 +45,7 @@
   }
   // 默认掉落配置（占位）
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
-  var GOLD_PER_EXP = 0.6; // 金币掉落=敌人经验×此系数（占位，待莱布尼茨按"金币/分钟"反推）
+  var GOLD_PER_EXP = 0.43; // 金币掉落=敌人经验×此系数（占位，待莱布尼茨按"金币/分钟"反推）
   var SELL = { common: 8, fine: 20, superior: 55, epic: 150, legend: 400 }; // 装备售价基准(按稀有度,占位待莱布尼茨调)
   // 稀有度独立加权 roll（脱离模板，D2 风；@莱布尼茨 平衡报告①）
   var RARITY_WEIGHTS = [["common", 64], ["fine", 28], ["superior", 7], ["epic", 0.8], ["legend", 0.2]]; // 新手村(莱布尼茨报告②); 超高=绝品+秘传≈1%
