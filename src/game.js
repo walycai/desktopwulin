@@ -792,7 +792,7 @@
     renderSkillTree(SKILL_TREES[activeTreeIdx], canvas); // 只渲染当前 tab 的树
     var a = totalAttrs();
     var skcr = CORE.critResolve(a.Crit, a.CritDmg);
-    $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + skcr.crit + "% · 暴伤 " + skcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
+    $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + skcr.crit + "% · 暴伤 " + skcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0) + " · 自动回血 " + neiHealRate() + "/秒";
   }
   // ---- 居家经济 / 居家技能 ----
   function homeEnv() { var e = 0, o = stats.owned || {}; for (var id in o) { var c = byId[id]; if (c && c.env) e += c.env * o[id]; } return e; } // 环境值=拥有(已购)数量×env，不依赖陈列(WalyCai设计)
@@ -875,7 +875,7 @@
     });
     var a = totalAttrs();
     var gfcr = CORE.critResolve(a.Crit, a.CritDmg);
-    $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + gfcr.crit + "% · 暴伤 " + gfcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0);
+    $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + gfcr.crit + "% · 暴伤 " + gfcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0) + " · 自动回血 " + neiHealRate() + "/秒";
   }
   // ---- 功法商店 ----
   function buyGongfa(id) {
@@ -974,6 +974,7 @@
     });
     if (a.Crit > 50) { var dcr = CORE.critResolve(a.Crit, a.CritDmg); al.innerHTML += '<div class="row" style="font-size:11px;color:#9a866a"><span class="k">有效(暴击封顶50%)</span><span class="v">暴击 ' + dcr.crit + '% · 暴伤 ' + dcr.critDmg + '%</span></div>'; }
     al.innerHTML += '<div class="row"><span class="k">内功级别</span><span class="v">' + neigongLv() + '</span></div>';
+    al.innerHTML += '<div class="row"><span class="k">自动回血</span><span class="v">' + neiHealRate() + '/秒</span></div>';
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
   function saveEquip() { try { localStorage.setItem(SAVE_KEY + "_eq", JSON.stringify({ equipped: equipped, warehouse: warehouse, seq: equipSeq })); } catch (e) {} }
