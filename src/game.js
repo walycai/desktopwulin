@@ -849,8 +849,8 @@
     var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) };
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
-    if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:不封顶,打到死或杀boss
-    else { cfg.capTime = 90; cfg.capKills = 35; }             // 普通历练封顶
+    if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
+    // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
     CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
     CV.zoneIdx = opts.zoneIdx != null ? opts.zoneIdx : null;
     CV.bossName = opts.boss ? opts.boss.name : null;
