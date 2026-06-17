@@ -682,6 +682,16 @@
     if (sh) { var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * 64, 0, 64, 64, -w / 2, y - h, w, h); } else { c.drawImage(sh.img, fr * 64, 0, 64, 64, x - w / 2, y - h, w, h); } c.restore(); }
     else { c.fillStyle = faceLeft ? "#9a4a4a" : "#4a6a9a"; c.fillRect(x - 16 * s, y - 56 * s, 32 * s, 56 * s); }
   }
+  function drawAttackEffect(x, y, t) {
+    var c = CV.ctx, a = Math.max(0, Math.min(1, t / 0.18));
+    c.save();
+    c.globalAlpha = Math.sin(a * Math.PI);
+    c.translate(x, y);
+    c.rotate(-0.18);
+    c.strokeStyle = "#f8f0d0"; c.lineWidth = 4; c.beginPath(); c.arc(0, 0, 34, -0.75, 0.55); c.stroke();
+    c.strokeStyle = "#e6b84a"; c.lineWidth = 2; c.beginPath(); c.arc(2, 1, 24, -0.68, 0.45); c.stroke();
+    c.restore();
+  }
   function bar(x, y, w, ratio, col) { var c = CV.ctx; c.fillStyle = "#000"; c.fillRect(x, y, w, 6); c.fillStyle = col; c.fillRect(x, y, w * Math.max(0, ratio), 6); }
   function renderCombat() {
     var c = CV.ctx, st = CV.sim.state();
@@ -699,6 +709,7 @@
     // 主角
     var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
     drawCSprite("p_" + pAnim, PX, CV.ground, false, "", cst.pT);
+    if (cst.pAtk > 0) drawAttackEffect(PX + 56, CV.ground - 44, cst.pAtk);
     bar(PX - 30, CV.ground - 88, 60, st.P.hp / st.P.hpMax, "#5fbf5f");
     // 飘字
     c.font = "bold 16px sans-serif"; c.textAlign = "center";

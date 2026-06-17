@@ -389,12 +389,10 @@ def refine_priority_assets():
         for x in range(0, 256, 32):
             d.line((x, 0, x, 176), fill=(92, 65, 42, 100), width=1)
             d.line((x + 1, 0, x + 1, 176), fill=(185, 148, 101, 70), width=1)
-        # Low wainscot and subtle paper/wood wear.
+        # Low wainscot. Keep the upper wall clean; random specks read as visual noise in-game.
         d.rectangle((0, 142, 256, 176), fill=(96, 63, 38, 255))
         for x in range(6, 256, 17):
             d.line((x, 145, x + 8, 172), fill=(124, 82, 48, 200), width=1)
-        for x, y in [(45, 42), (120, 28), (190, 70), (72, 112), (218, 118)]:
-            d.rectangle((x, y, x + 3, y + 1), fill=(211, 178, 126, 110))
         save(wall, f"tiles/indoor/wall_{side}.png")
 
     yard = Image.new("RGBA", (256, 160), (64, 105, 55, 255))
