@@ -72,13 +72,32 @@
   var canvas, ctx, dpr = 1, CW, CH;
   var bag = {}, placed = [], occ = [], wallOcc = { left: [], right: [] };
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
-  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0, owned: {} }, NG_PER_LV = 100;
+  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0, owned: {}, gongfa: {}, gongfaEquip: { nei: null, wai1: null, wai2: null, qing: null }, trainId: null }, NG_PER_LV = 100;
   var ENV_PER_POINT = 50; // 居家环境值每 +50 给 1 居家技能点
   var HOME_SKILLS = [
     { id: "sleep_eff", name: "安眠", max: 5, desc: "睡觉回血效率 +20% / 级" },
     { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
     { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" }
   ];
+  // ---- 功法系统：内功/外功/轻功 三体系，被动(修炼即有)+主动(需装备 1内2外1轻)；打坐练熟练度1-10 ----
+  var GONGFA_MAXLV = 10;
+  var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
+  var GONGFA = [
+    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 8, Mana: 5 }, active: { HP: 15, DEF: 1 }, desc: "内功·增气血与内力上限" },
+    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 2 }, active: { ATK: 4, Crit: 1 }, desc: "外功·增攻防暴击" },
+    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 1 }, active: { ATKspd: 2, Hit: 1, Dodge: 1 }, desc: "轻功·增攻速命中闪避" }
+  ];
+  function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
+  function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
+  function gfProfReq(lv) { return lv * 120; } // lv→lv+1 所需熟练度(占位,待莱布尼茨)
+  function gfEquippedSlot(id) { for (var i = 0; i < GONGFA_SLOTS.length; i++) { var k = GONGFA_SLOTS[i].key; if (stats.gongfaEquip[k] === id) return k; } return null; }
+  function trainGongfa(amt) {
+    var id = stats.trainId; if (!id) return; var g = gongfaById(id); if (!g) return;
+    var st = stats.gongfa[id]; if (!st) { st = stats.gongfa[id] = { lv: 1, prof: 0 }; }
+    if (st.lv >= GONGFA_MAXLV) return;
+    st.prof += amt;
+    while (st.lv < GONGFA_MAXLV && st.prof >= gfProfReq(st.lv)) { st.prof -= gfProfReq(st.lv); st.lv++; toast("「" + g.name + "」修炼到 " + st.lv + " 级！"); syncHpMax(); }
+  }
   var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
   var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
@@ -385,7 +404,7 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
-    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; stats.ngP += (d.neigong || 0) * mm; var lv = false; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); }
+    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; trainGongfa((d.neigong || 0) * mm * 5); var lv = false; stats.ngP += (d.neigong || 0) * mm; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); } // 打坐:练所选功法熟练度(×5)+旧内功ng
     updateStats(); save();
   }
   function updateStats() {
@@ -615,7 +634,11 @@
     // 技能：总攻击%（重兵精通 + 旋风斩折算） / 攻速%（狂暴折算）
     a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03 + (sk.whirlwind || 0) * 0.06;
     a.ATKspd *= 1 + (sk.berserk || 0) * 0.05;
-    a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd);
+    // 功法：被动(已修炼即生效)×等级 + 主动(已装备)×等级
+    var gf = stats.gongfa || {};
+    for (var gid in gf) { var gobj = gongfaById(gid), lv = gf[gid].lv || 0; if (!gobj || lv <= 0) continue; for (var pk in gobj.passive) a[pk] = (a[pk] || 0) + gobj.passive[pk] * lv; }
+    GONGFA_SLOTS.forEach(function (sl) { var eid = stats.gongfaEquip && stats.gongfaEquip[sl.key]; if (!eid) return; var go = gongfaById(eid), lv = gfState(eid).lv || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
+    a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
     return a;
   }
   function syncHpMax() { var a = totalAttrs(); stats.hpMax = a.HP; if (stats.hp > stats.hpMax) stats.hp = stats.hpMax; if (stats.hp <= 0) stats.hp = stats.hpMax; stats.manaMax = a.Mana || 0; if (stats.mana == null) stats.mana = stats.manaMax; if (stats.mana > stats.manaMax) stats.mana = stats.manaMax; updateStats(); }
@@ -707,6 +730,45 @@
       var pl = document.createElement("button"); pl.className = "tb sk-mini"; pl.textContent = "+"; pl.disabled = maxed || homeSpLeft() <= 0; pl.onclick = function () { homeAdj(n.id, 1); };
       btns.appendChild(mn); btns.appendChild(pl); row.appendChild(btns); w.appendChild(row);
     });
+  }
+  // ---- 功法装备页 ----
+  function setTrain(id) { if (!gongfaById(id)) return; stats.trainId = id; save(); renderKungfu(); toast("修炼中：" + gongfaById(id).name + "（去打坐台/点打坐提升熟练度）"); }
+  function equipGongfa(id) {
+    var g = gongfaById(id); if (!g) return; if (gfState(id).lv <= 0) { toast("需先修炼到 1 级"); return; }
+    if (gfEquippedSlot(id)) { stats.gongfaEquip[gfEquippedSlot(id)] = null; syncHpMax(); save(); renderKungfu(); return; } // 已装→卸下
+    var slot = null;
+    if (g.sys === "nei") slot = "nei"; else if (g.sys === "qing") slot = "qing";
+    else { slot = !stats.gongfaEquip.wai1 ? "wai1" : (!stats.gongfaEquip.wai2 ? "wai2" : "wai1"); } // 外功 2 槽，满则替换 wai1
+    stats.gongfaEquip[slot] = id; syncHpMax(); save(); renderKungfu(); toast("已装备「" + g.name + "」到" + (slot === "nei" ? "内功" : slot === "qing" ? "轻功" : "外功") + "槽");
+  }
+  function fmtEff(o, lv) { var s = []; var NM = { HP: "气血", ATK: "攻击", DEF: "防御", Crit: "暴击", CritDmg: "暴伤", Hit: "命中", Dodge: "闪避", ATKspd: "攻速", Mana: "内力" }; for (var k in o) s.push(NM[k] + "+" + (o[k] * (lv || 1)) + (k === "Crit" || k === "CritDmg" ? "%" : "")); return s.join("、"); }
+  function openKungfu() { renderKungfu(); $("kungfuModal").classList.remove("hidden"); }
+  function renderKungfu() {
+    // 装备栏
+    var es = $("gfEquip"); es.innerHTML = "";
+    GONGFA_SLOTS.forEach(function (sl) {
+      var eid = stats.gongfaEquip[sl.key], g = eid && gongfaById(eid), lv = eid ? gfState(eid).lv : 0;
+      var d = document.createElement("div"); d.className = "gf-slot" + (g ? " filled gf-" + sl.sys : "");
+      d.innerHTML = '<div class="gf-slot-lbl">' + sl.name + '</div>' + (g ? ('<div class="gf-slot-nm">' + g.name + ' <b>Lv' + lv + '</b></div>') : '<div class="gf-slot-empty">空</div>');
+      if (g) d.onclick = function () { equipGongfa(eid); };
+      es.appendChild(d);
+    });
+    // 物品栏(已知功法)
+    var w = $("gfList"); w.innerHTML = "";
+    GONGFA.forEach(function (g) {
+      var st = gfState(g.id), lv = st.lv, learned = lv > 0, equipped = !!gfEquippedSlot(g.id), training = stats.trainId === g.id;
+      var need = lv < GONGFA_MAXLV ? gfProfReq(lv) : 0, pct = need ? Math.min(100, Math.round(st.prof / need * 100)) : 100;
+      var row = document.createElement("div"); row.className = "gf-row gf-" + g.sys + (equipped ? " equipped" : "");
+      row.innerHTML = '<div class="gf-top"><span class="gf-nm">' + g.name + ' <span class="gf-sys">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tier + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
+        + '<div class="gf-bar"><i style="width:' + pct + '%"></i></div>'
+        + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + fmtEff(g.active, lv || 1) + '（需装备）</div>';
+      var btns = document.createElement("div"); btns.className = "gf-btns";
+      var bt = document.createElement("button"); bt.className = "tb sk-mini"; bt.textContent = training ? "修炼中" : "修炼"; bt.disabled = training; bt.onclick = function () { setTrain(g.id); };
+      var be = document.createElement("button"); be.className = "tb sk-mini"; be.textContent = equipped ? "卸下" : "装备"; be.disabled = !learned; be.onclick = function () { equipGongfa(g.id); };
+      btns.appendChild(bt); btns.appendChild(be); row.appendChild(btns); w.appendChild(row);
+    });
+    var a = totalAttrs();
+    $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0);
   }
   function targetSlotFor(it) {
     var type = EQUIP_TPL[it.tid].type;
@@ -969,7 +1031,9 @@
     // 居家左侧菜单 + 技能面板
     $("menuSkill").onclick = openSkill;
     $("menuHomeSkill").onclick = openHomeSkill;
-    $("menuKungfu").onclick = function () { toast("功法装备 Phase 3 上线，敬请期待"); };
+    $("menuKungfu").onclick = openKungfu;
+    $("kfClose").onclick = function () { $("kungfuModal").classList.add("hidden"); };
+    $("kungfuModal").addEventListener("click", function (e) { if (e.target === $("kungfuModal")) $("kungfuModal").classList.add("hidden"); });
     $("skClose").onclick = function () { $("skillModal").classList.add("hidden"); };
     $("skReset").onclick = resetSkills;
     $("skillModal").addEventListener("click", function (e) { if (e.target === $("skillModal")) $("skillModal").classList.add("hidden"); });
@@ -983,6 +1047,10 @@
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等
     validateSkills(); // 树改版：清理旧无效技能id，点数退回
     var owed = Math.max(0, (stats.level || 1) - 1) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed;
+    // 功法迁移/初始化：白色功法默认已习得 Lv1
+    if (!stats.gongfa) stats.gongfa = {}; if (!stats.gongfaEquip) stats.gongfaEquip = { nei: null, wai1: null, wai2: null, qing: null };
+    GONGFA.forEach(function (g) { if (g.tier === "白" && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; });
+    if (!stats.trainId) stats.trainId = "nei_tuna";
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);

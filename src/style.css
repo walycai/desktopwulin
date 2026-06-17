@@ -196,4 +196,25 @@ body {
 .hs-desc { color: #9a866a; font-size: 11px; }
 .hs-btns { grid-row: 1 / span 2; display: flex; gap: 4px; align-items: center; }
 
+/* 功法装备页 */
+.gf-equip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 12px; }
+.gf-slot { background: #2c2016; border: 1px solid #4f3c28; border-radius: 8px; padding: 8px 6px; text-align: center; min-height: 56px; }
+.gf-slot.filled { cursor: pointer; }
+.gf-slot.gf-nei { border-color: #5fbf8f; } .gf-slot.gf-wai { border-color: #bf5f5f; } .gf-slot.gf-qing { border-color: #5f8fbf; }
+.gf-slot-lbl { font-size: 11px; color: #9a866a; }
+.gf-slot-nm { font-size: 12px; color: #f0e6d2; margin-top: 4px; } .gf-slot-nm b { color: #ffd98a; }
+.gf-slot-empty { font-size: 12px; color: #6a5a44; margin-top: 8px; }
+.gf-list { display: flex; flex-direction: column; gap: 8px; }
+.gf-row { background: #2c2016; border: 1px solid #4a3826; border-left-width: 3px; border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; }
+.gf-row.gf-nei { border-left-color: #5fbf8f; } .gf-row.gf-wai { border-left-color: #bf5f5f; } .gf-row.gf-qing { border-left-color: #5f8fbf; }
+.gf-row.equipped { background: #36291a; }
+.gf-top { display: flex; justify-content: space-between; align-items: center; }
+.gf-nm { color: #f0e6d2; font-size: 13px; font-weight: 600; }
+.gf-sys { font-size: 10px; color: #9a866a; border: 1px solid #5a4630; border-radius: 4px; padding: 0 3px; }
+.gf-lv { font-size: 12px; color: #ffd98a; }
+.gf-bar { grid-column: 1 / span 2; height: 6px; background: #1c1610; border: 1px solid #4a3826; border-radius: 4px; overflow: hidden; }
+.gf-bar > i { display: block; height: 100%; background: linear-gradient(90deg,#7fd0ff,#c89bff); }
+.gf-eff { grid-column: 1; font-size: 10px; color: #9a866a; line-height: 1.4; }
+.gf-btns { grid-column: 2; grid-row: 3; display: flex; gap: 4px; align-items: center; }
+
 .hidden { display: none !important; }

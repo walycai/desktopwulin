@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618m">
+<link rel="stylesheet" href="src/style.css?v=0618n">
 </head>
 <body>
   <header class="topbar">
@@ -71,6 +71,19 @@
       <div id="hsInfo" class="sk-info"></div>
       <div id="hsList" class="hs-list"></div>
       <div class="sk-tip">买家具摆进房间 → 涨居家环境值 → 每 50 环境得 1 居家技能点。金币靠打怪掉落 / 卖装备。</div>
+    </div>
+  </div>
+
+  <!-- 功法装备 -->
+  <div id="kungfuModal" class="modal-bg hidden">
+    <div class="skill-panel" style="width:560px">
+      <span id="kfClose" class="close-x">✕</span>
+      <h3>功法 · 装备</h3>
+      <div class="sk-info">打坐修炼所选功法熟练度（1-10级）。<b>被动</b>修炼即生效；<b>主动</b>需装备（1内功 / 2外功 / 1轻功）。</div>
+      <div id="gfEquip" class="gf-equip"></div>
+      <div id="gfList" class="gf-list"></div>
+      <div id="gfAttrs" class="sk-attrs"></div>
+      <div class="sk-tip">点「修炼」选择打坐时修炼的功法；点「装备」上阵享受主动效果。</div>
     </div>
   </div>
 
@@ -147,7 +160,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618m"></script>
-  <script src="src/game.js?v=0618m"></script>
+  <script src="src/combat-core.js?v=0618n"></script>
+  <script src="src/game.js?v=0618n"></script>
 </body>
 </html>
