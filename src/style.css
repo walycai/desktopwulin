@@ -164,7 +164,8 @@ body {
 .sk-node2.locked { opacity: .62; border-style: dashed; }
 .sk-node2.active { background: linear-gradient(180deg,#33231a,#2a1d2a); }
 .sk2-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
-.sk2-name { color: #f0e6d2; font-size: 12px; font-weight: 600; }
+.sk2-ico { flex: 0 0 24px; width: 24px; height: 24px; background: center/contain no-repeat; }
+.sk2-name { color: #f0e6d2; font-size: 12px; font-weight: 600; flex: 1; }
 .sk2-rk { color: #ffd98a; font-size: 11px; white-space: nowrap; }
 .sk2-desc { color: #9a866a; font-size: 10px; line-height: 1.25; margin: 2px 0; flex: 1; }
 .sk2-lock { color: #c98a6a; font-size: 10px; line-height: 1.25; margin: 2px 0; flex: 1; }

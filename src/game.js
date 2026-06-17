@@ -624,7 +624,7 @@
       el.style.left = (SK_PAD + n.col * SK_CW) + "px"; el.style.top = (SK_PAD + n.row * SK_CH) + "px";
       el.style.width = (SK_CW - SK_PAD * 2) + "px"; el.style.height = (SK_CH - SK_PAD * 2) + "px";
       var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '<div class="sk2-desc">' + n.desc + '</div>';
-      el.innerHTML = '<div class="sk2-top"><span class="sk2-name">' + n.name + (n.active ? ' ⚡' : '') + '</span><span class="sk2-rk">' + rk + '/' + n.max + '</span></div>' + body
+      el.innerHTML = '<div class="sk2-top"><i class="sk2-ico" style="background-image:url(\'assets/ui/icons/skill_' + n.id + '.png\')"></i><span class="sk2-name">' + n.name + (n.active ? ' ⚡' : '') + '</span><span class="sk2-rk">' + rk + '/' + n.max + '</span></div>' + body
         + '<div class="sk2-btns"><button class="tb sk-mini" data-a="m">−</button><button class="tb sk-mini" data-a="p">+</button></div>';
       var bs = el.getElementsByTagName("button");
       bs[0].disabled = rk <= 0; bs[0].onclick = function () { refundSkill(n.id); };
