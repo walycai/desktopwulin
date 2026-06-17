@@ -89,6 +89,13 @@
     tryLoad("assets/tiles/exterior/courtyard.png", "courtyard", env);
   }
   var SPR = { fw: 48, fh: 64, frames: { idle: 4, walk: 8, sleep: 4, meditate: 4 }, fps: { idle: 6, walk: 10, sleep: 4, meditate: 6 }, dirs: { idle: 4, walk: 4, sleep: 1, meditate: 1 }, dirRow: { down: 0, left: 1, right: 2, up: 3 } };
+  var PLAYER_SCALE = 1.6;               // 房屋内主角放大
+  var APPEAR_SLOTS = ["body", "legs", "head", "weapon"]; // 只有这些装备改外观(叠在主角上;项链/戒指/腰带不变外观)
+  var equipSprites = {};                // tid -> {idle,walk,sleep,meditate} 装备外观层(与主角同帧布局 48×64)
+  function loadEquipOverlay(tid) {
+    if (!tid || equipSprites[tid]) return; equipSprites[tid] = {};
+    ["idle", "walk", "sleep", "meditate"].forEach(function (a) { var im = new Image(); im.onload = function () { equipSprites[tid][a] = im; }; im.src = "assets/characters/equip/" + tid + "/" + a + ".png?_=" + Date.now(); });
+  }
 
   // ---- 几何 ----
   function footprint(c, rot) { return rot % 2 ? { w: c.h, h: c.w } : { w: c.w, h: c.h }; }
@@ -236,13 +243,20 @@
   }
   function drawPlayer() {
     var ctr = cellCenter(player.cx, player.cy);
-    var spr = sprites[player.anim];
-    if (spr) {
-      var row = SPR.dirs[player.anim] === 1 ? 0 : (SPR.dirRow[player.dir] || 0);
-      ctx.drawImage(spr, player.fi * SPR.fw, row * SPR.fh, SPR.fw, SPR.fh, ctr.x - 24, ctr.y - 60, SPR.fw, SPR.fh);
+    var base = sprites[player.anim];
+    var dw = SPR.fw * PLAYER_SCALE, dh = SPR.fh * PLAYER_SCALE;
+    var row = SPR.dirs[player.anim] === 1 ? 0 : (SPR.dirRow[player.dir] || 0);
+    var sx = player.fi * SPR.fw, sy = row * SPR.fh, dx = ctr.x - dw / 2, dy = ctr.y - dh;
+    if (base) {
+      ctx.drawImage(base, sx, sy, SPR.fw, SPR.fh, dx, dy, dw, dh);
+      APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层
+        var it = equipped[slot]; if (!it) return;
+        var ov = equipSprites[it.tid] && equipSprites[it.tid][player.anim];
+        if (ov) ctx.drawImage(ov, sx, sy, SPR.fw, SPR.fh, dx, dy, dw, dh);
+      });
     } else {
-      ctx.font = "26px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(player.state === "sleeping" ? "😴" : player.state === "meditating" ? "🧘" : "🧍", ctr.x, ctr.y - 6);
+      ctx.font = "30px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(player.state === "sleeping" ? "😴" : player.state === "meditating" ? "🧘" : "🧍", ctr.x, ctr.y - 8);
     }
   }
   function drawCourtyard() {
@@ -505,7 +519,7 @@
     var req = EQUIP_TPL[it.tid].reqLv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
     var idx = warehouse.indexOf(it); if (idx < 0) return; warehouse.splice(idx, 1);
     if (equipped[slotKey]) warehouse.push(equipped[slotKey]);
-    equipped[slotKey] = it; dollSel = null; syncHpMax(); renderDoll(); saveEquip();
+    equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(it.tid); syncHpMax(); renderDoll(); saveEquip();
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
@@ -709,6 +723,7 @@
     $("combatModal").addEventListener("click", function (e) { if (e.target === $("combatModal")) $("combatModal").classList.add("hidden"); });
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
     if (!loadEquip()) { ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "ring_jade", "belt_iron", "wpn_steel_saber", "body_softarmor"].forEach(function (tid) { warehouse.push(rollItem(tid)); }); saveEquip(); }
+    APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);
