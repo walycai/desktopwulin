@@ -937,9 +937,9 @@ def actor_layout(action, frame, direction):
     bob = int(phase * (1 if action == "idle" else 2))
     step = 3 if action == "walk" and frame % 2 else -2
     if action == "sleep":
-        return {"pose": "sleep", "head": (16, 39), "body": (27, 39), "feet": (30, 51), "bob": 0, "step": 0}
+        return {"pose": "sleep", "head": (15, 39), "body": (29, 42), "feet": (39, 45), "bob": frame % 2, "step": 0}
     if action == "meditate":
-        return {"pose": "meditate", "head": (24, 18 + bob), "body": (24, 39 + bob), "feet": (24, 57), "bob": bob, "step": 0}
+        return {"pose": "meditate", "head": (24, 17 + bob), "body": (24, 38 + bob), "feet": (24, 57), "bob": bob, "step": 0}
     return {"pose": "stand", "head": (24, 16 + bob), "body": (24, 35 + bob), "feet": (24, 59), "bob": bob, "step": step}
 
 
@@ -971,17 +971,24 @@ def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=Non
                 d.point((hx - 4, hy + 1), fill=(40, 28, 22, 255))
                 d.point((hx + 4, hy + 1), fill=(40, 28, 22, 255))
         elif pose == "sleep":
-            d.ellipse((x + 10, y + 45, x + 42, y + 57), fill=(0, 0, 0, 65))
-            d.ellipse((x + 9, y + 33, x + 25, y + 48), fill=skin)
-            d.rectangle((x + 20, y + 31, x + 43, y + 44), fill=(38, 78, 112, 255))
-            d.line((x + 29, y + 31, x + 41, y + 22), fill=(232, 226, 196, 180), width=1)
+            breath = p["bob"]
+            d.ellipse((x + 7, y + 47, x + 44, y + 58), fill=(0, 0, 0, 60))
+            d.ellipse((x + 7, y + 35, x + 24, y + 50), fill=skin)
+            d.rectangle((x + 9, y + 34, x + 23, y + 39), fill=hair)
+            d.rounded_rectangle((x + 19, y + 34 - breath, x + 43, y + 49 - breath), radius=4, fill=(38, 78, 112, 255), outline=(22, 52, 78, 255), width=1)
+            d.line((x + 25, y + 36 - breath, x + 39, y + 47 - breath), fill=(194, 154, 88, 180), width=1)
+            d.line((x + 37, y + 48 - breath, x + 45, y + 53), fill=(27, 31, 38, 255), width=3)
         else:
-            d.ellipse((x + 10, y + 52, x + 38, y + 61), fill=(0, 0, 0, 65))
+            d.ellipse((x + 8, y + 52, x + 40, y + 61), fill=(0, 0, 0, 65))
+            d.arc((x + 8, y + 41, x + 40, y + 61), 178, 362, fill=(25, 31, 40, 255), width=6)
+            d.arc((x + 12, y + 44, x + 36, y + 60), 190, 350, fill=(186, 156, 86, 160), width=2)
             d.ellipse((hx - 8, hy - 8, hx + 8, hy + 9), fill=skin)
             d.rectangle((hx - 8, hy - 10, hx + 8, hy - 3), fill=hair)
             d.polygon([(bx - 8, by - 10), (bx + 8, by - 10), (bx + 10, by + 8), (bx - 10, by + 8)], fill=(38, 78, 112, 255))
-            d.arc((x + 6, y + 39, x + 42, y + 62), 185, 355, fill=(25, 31, 40, 255), width=5)
-            d.ellipse((x + 14, y + 42, x + 34, y + 58), outline=(186, 156, 86, 185), width=1)
+            d.line((bx - 9, by - 1, bx - 17, by + 6), fill=(34, 64, 96, 255), width=3)
+            d.line((bx + 9, by - 1, bx + 17, by + 6), fill=(34, 64, 96, 255), width=3)
+            if frame % 2 == 0:
+                d.arc((x + 12, y + 13, x + 36, y + 37), 210, 330, fill=(122, 170, 188, 120), width=1)
         return
 
     if pose == "stand":
@@ -1022,11 +1029,11 @@ def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=Non
             d.line((pts[0], pts[1], pts[0] - 5 if pts[2] < pts[0] else pts[0] + 5, pts[1] + 5), fill=grip, width=3)
     elif pose == "sleep":
         if layer == "body":
-            d.rectangle((x + 20, y + 31, x + 43, y + 44), fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
+            d.rounded_rectangle((x + 19, y + 34 - p["bob"], x + 43, y + 49 - p["bob"]), radius=4, fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
         elif layer == "head":
-            d.rectangle((x + 9, y + 33, x + 25, y + 38), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
+            d.rectangle((x + 9, y + 34, x + 23, y + 39), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
         elif layer == "legs":
-            d.rectangle((x + 31, y + 41, x + 43, y + 48), fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255))
+            d.line((x + 35, y + 48 - p["bob"], x + 45, y + 53), fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255), width=4)
     elif pose == "meditate":
         if layer == "body":
             d.polygon([(bx - 9, by - 9), (bx + 9, by - 9), (bx + 11, by + 8), (bx - 11, by + 8)], fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
