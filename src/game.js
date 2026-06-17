@@ -157,8 +157,19 @@
     if (keys.length === 0) return true;          // 纯空地
     if (keys.length > 1) return false;           // 跨多个家具
     var p = pById(+keys[0]); if (!p) return true;
-    if (byId[p.id].cat !== "table") return false; // 只能叠在桌子上
-    return cx >= p.cx && cy >= p.cy && cx + fw <= p.cx + p.w && cy + fh <= p.cy + p.h; // 必须整体在桌面内
+    if (!isSurfaceHost(p)) return false; // 只能叠在承载面家具上(桌面 / 博古架顶层)
+    return cx >= p.cx && cy >= p.cy && cx + fw <= p.cx + p.w && cy + fh <= p.cy + p.h; // 必须整体在承载面内
+  }
+  // ---- 承载面 surface 机制(雅各布 最小版:桌面 + 博古架顶层) ----
+  function isSurfaceHost(p) { var c = byId[p.id]; return !!c && (c.cat === "table" || p.id === "storage_shelf"); } // 可承载摆件的家具
+  function surfLift(p) { return byId[p.id].zh || 0; } // 承载面高度=家具z高(顶面)
+  function decorHost(p) { // 摆件正下方的承载家具(桌/博古架顶);纯地面或宿主已移除则 null(自愈)
+    if (!p.decor || p.rug) return null;
+    var u = 0;
+    for (var y = p.cy; y < p.cy + p.h; y++) for (var x = p.cx; x < p.cx + p.w; x++) { var c = occ[y][x]; if (c) { if (u && u !== c) return null; u = c; } }
+    if (!u) return null;
+    var host = pById(u);
+    return (host && isSurfaceHost(host)) ? host : null;
   }
   function canPlaceFloor(cx, cy, fw, fh, ignoreUid, isDecor) {
     if (cx < 0 || cy < 0 || cx + fw > GW || cy + fh > GH) return false;
@@ -271,12 +282,13 @@
   function drawFurniture(p, ghost) {
     var c = byId[p.id];
     var fi = furnImg(p), img = fi.img;
-    var top = quad(p.cx, p.cy, p.w, p.h); // 顶面四角(底部)
+    var lift = 0; if (p.decor) { var hh = decorHost(p); if (hh) lift = surfLift(hh); } // 摆件落在承载面上→整体抬到顶面高度(含摆放预览)
+    var top = quad(p.cx, p.cy, p.w, p.h).map(function (q) { return { x: q.x, y: q.y - lift }; }); // 顶面四角(底部, 抬高 lift)
     var zh = c.zh || 12;
     if (img && !ghost) {
       // 真图正确对齐：水平=footprint菱形中心；底边=下顶点(最靠前/最低)的y；宽=菱形宽(w+h)*HW，高按比例
       var ctrX = v(p.cx + p.w / 2, p.cy + p.h / 2).x;  // 菱形水平中心(非下顶点x，避免长方形footprint偏移)
-      var botY = v(p.cx + p.w, p.cy + p.h).y;          // 下顶点y
+      var botY = v(p.cx + p.w, p.cy + p.h).y - lift;   // 下顶点y(抬到承载面)
       var iw = (p.w + p.h) * HW, ih = img.height * (iw / img.width);
       if (fi.flip) { ctx.save(); ctx.translate(ctrX, 0); ctx.scale(-1, 1); ctx.drawImage(img, -iw / 2, botY - ih, iw, ih); ctx.restore(); }
       else ctx.drawImage(img, ctrX - iw / 2, botY - ih, iw, ih);
@@ -361,7 +373,11 @@
     // 壁挂(在墙上，靠后)
     placed.filter(function (p) { return p.wall; }).forEach(drawWallHang);
     // 地面可绘制(家具+主角) 深度排序：anchor 深度 = cx+cy+w/2+h/2(取前角)
-    var drawables = placed.filter(function (p) { return !p.wall && !p.rug; }).map(function (p) { return { p: p, depth: (p.cx + p.w) + (p.cy + p.h), kind: "f" }; });
+    var drawables = placed.filter(function (p) { return !p.wall && !p.rug; }).map(function (p) {
+      var depth = (p.cx + p.w) + (p.cy + p.h);
+      if (p.decor) { var hh = decorHost(p); if (hh) depth = (hh.cx + hh.w) + (hh.cy + hh.h) + 0.5; } // 承载面上的摆件紧跟宿主之后绘制(压在桌/架顶上,不被遮挡)
+      return { p: p, depth: depth, kind: "f" };
+    });
     var pDepth = (player.cx + PLAYER_CELLS / 2) + (player.cy + PLAYER_CELLS / 2);
     if ((player.state === "sleeping" || player.state === "meditating") && player.actUid) { var host = pById(player.actUid); if (host) pDepth = (host.cx + host.w) + (host.cy + host.h) + 0.5; } // 躺/坐在家具上→画在家具之上
     drawables.push({ depth: pDepth, kind: "p" });
@@ -385,7 +401,7 @@
     if (mouse.cx < 0) return;
     var fp2 = footprint(c, ghostRot);
     var ok = canPlaceFloor(mouse.cx, mouse.cy, fp2.w, fp2.h, null, c.cat === "decor");
-    drawFurniture({ id: c.id, cx: mouse.cx, cy: mouse.cy, w: fp2.w, h: fp2.h }, ok ? "ok" : "bad");
+    drawFurniture({ id: c.id, cx: mouse.cx, cy: mouse.cy, w: fp2.w, h: fp2.h, decor: c.cat === "decor" }, ok ? "ok" : "bad");
   }
 
   // ---- 主角 ----
