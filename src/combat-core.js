@@ -154,5 +154,17 @@
   }
   function simulateRealtime(cfg) { var c = createCombat(cfg), dt = cfg.dt || 0.05, n = 0, lim = (cfg.cap || 5000) / dt + 10; while (!c.isDone() && n++ < lim) c.step(dt); return c.result(); }
 
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, nextExp: nextExp, baseAttrs: baseAttrs };
+  // 战力(CP) = √(DPS × EHP) ×10（@莱布尼茨 公式v1，互砍验证 ρ=0.99）。相对强度指数，用于 build/换装对比。
+  function combatPower(a) {
+    function cl(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
+    var critMult = 1 + (a.Crit / 100) * (a.CritDmg / 100 - 1);
+    var pHit = cl(0.6 + (a.Hit - 6) * 0.01, 0.3, 0.99);
+    var atkEff = a.ATK * 100 / (100 + 6);
+    var DPS = atkEff * (a.ATKspd / 100) * pHit * critMult;
+    var eHitOnMe = cl(0.6 + (88 - a.Dodge) * 0.01, 0.3, 0.99);
+    var EHP = a.HP * (100 + a.DEF) / 100 * (1 / eHitOnMe);
+    return Math.round(Math.sqrt(DPS * EHP) * 10);
+  }
+
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, nextExp: nextExp, baseAttrs: baseAttrs };
 });

@@ -558,6 +558,9 @@
     // 属性 + 选中装备对比(穿上后 +/- 变化)
     var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
     var pv = dollSel ? previewTotals(dollSel) : null;
+    var cp = CORE.combatPower(a), cpDelta = "";
+    if (pv) { var dcp = CORE.combatPower(pv.totals) - cp; if (dcp) cpDelta = ' <span style="color:' + (dcp > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dcp > 0 ? "+" : "") + dcp + ')</span>'; }
+    al.innerHTML += '<div class="row" style="border-bottom:1px solid #6a5238;font-size:15px"><span class="k" style="color:#e8c98a">⚔ 战力</span><span class="v" style="color:#ffd98a;font-size:16px">' + cp + cpDelta + '</span></div>';
     if (pv) {
       var st = SLOT_DEFS.find(function (s) { return s.key === pv.slot; });
       var cur = equipped[pv.slot];
