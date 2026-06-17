@@ -83,13 +83,13 @@
   var GONGFA_MAXLV = 10;
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
   var GONGFA = [
-    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 7, Mana: 5 }, active: { HP: 21, Mana: 15, DEF: 3 }, desc: "内功·增气血与内力上限" }, // 主动≈被动3x+额外(WalyCai)，待莱布尼茨复核三系
-    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 3, Crit: 2, CritDmg: 6 }, desc: "外功·增攻防暴击" },
-    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 2, Hit: 1 }, active: { ATKspd: 6, Hit: 3, Crit: 3, Dodge: 2 }, desc: "轻功·增攻速命中闪避" }
+    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 }, desc: "内功·增气血与内力上限" }, // 莱布尼茨v2:主动≈被动3x+特效,三系均衡(Lv10装后 内694/外655/轻697)
+    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 }, desc: "外功·增攻防暴击" },
+    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 3, Hit: 3, Crit: 3, CritDmg: 6, Dodge: 2 }, desc: "轻功·增攻速命中闪避" }
   ];
   function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
-  function gfProfReq(lv) { return Math.round(100 * lv * lv); } // lv→lv+1 熟练度(二次曲线:高级别大幅变慢,待莱布尼茨精调)
+  function gfProfReq(lv) { return Math.round(40 * lv * lv); } // lv→lv+1 熟练度(莱布尼茨v2:满1系~32分,高级别陡)
   function gfEquippedSlot(id) { for (var i = 0; i < GONGFA_SLOTS.length; i++) { var k = GONGFA_SLOTS[i].key; if (stats.gongfaEquip[k] === id) return k; } return null; }
   function trainGongfa(amt) {
     var id = stats.trainId; if (!id) return; var g = gongfaById(id); if (!g) return;
@@ -404,7 +404,7 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
-    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; trainGongfa((d.neigong || 0) * mm * 5); var lv = false; stats.ngP += (d.neigong || 0) * mm; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); } // 打坐:练所选功法熟练度(×5)+旧内功ng
+    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; var lv = false; stats.ngP += (d.neigong || 0) * mm; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); } // 旧内功ng(功法熟练度改为主循环逐帧练,见loop)
     updateStats(); save();
   }
   function updateStats() {
@@ -1005,7 +1005,16 @@
 
   // ---- 循环 ----
   var last = 0;
-  function loop(ts) { var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; updatePlayer(dt); render(); requestAnimationFrame(loop); }
+  var gfRefreshT = 0;
+  function loop(ts) {
+    var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts;
+    if (player.state === "meditating") { // 打坐:逐帧练所选功法熟练度(平滑进度条)
+      var dd = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {};
+      if (dd.neigong) trainGongfa(dd.neigong * (1 + homeRank("meditate_eff") * 0.2) * 5 * dt);
+    }
+    if (!$("kungfuModal").classList.contains("hidden")) { gfRefreshT += dt; if (gfRefreshT >= 0.12) { gfRefreshT = 0; renderKungfu(); } } // 功法页打开时进度条动态刷新
+    updatePlayer(dt); render(); requestAnimationFrame(loop);
+  }
 
   function init() {
     canvas = $("canvas"); ctx = canvas.getContext("2d"); resize();
