@@ -83,9 +83,9 @@
   var GONGFA_MAXLV = 10;
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
   var GONGFA = [
-    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 8, Mana: 5 }, active: { HP: 15, DEF: 1 }, desc: "内功·增气血与内力上限" },
-    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 2 }, active: { ATK: 4, Crit: 1 }, desc: "外功·增攻防暴击" },
-    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 1 }, active: { ATKspd: 2, Hit: 1, Dodge: 1 }, desc: "轻功·增攻速命中闪避" }
+    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 7, Mana: 5 }, active: { HP: 11, DEF: 2 }, desc: "内功·增气血与内力上限" }, // 莱布尼茨均衡v1
+    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 2, Crit: 1, CritDmg: 3 }, desc: "外功·增攻防暴击" },
+    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 2, Hit: 1 }, active: { ATKspd: 3, Crit: 2, Dodge: 1 }, desc: "轻功·增攻速命中闪避" }
   ];
   function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
