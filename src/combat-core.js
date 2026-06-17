@@ -149,7 +149,7 @@
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
     var rw = cfg.rarityWeights || (cfg.zoneIdx != null && ZONE_RARITY[cfg.zoneIdx]) || null; // 各区稀有度权重(高区掉得更好)
-    var enemyRegenPct = (0.4 + 0.12 * (cfg.zoneIdx || 0)) / 100; // 敌人每秒回血%maxHP(莱布尼茨:DPS软门槛,高区更高)
+    var enemyRegenPct = (0.2 + 0.05 * (cfg.zoneIdx || 0)) / 100; // 敌人每秒回血%maxHP(莱布尼茨温和版:轻DPS软底,挂机轻松盖过)
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
@@ -166,7 +166,7 @@
     var haste = 0, lastCast = null; // haste=狂暴剩余时间
     function leveledEnemy(id, lv) { // 敌人按等级缩放(占位系数,待莱布尼茨调)
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
-      return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(2 * lv), Tough: Math.round(3 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨:闪避2×lv/韧性3×lv(削玩家命中暴击)
+      return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(0.8 * lv), Tough: Math.round(0.8 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨温和版(前10层挂机向):闪避/韧性 0.8×lv
     }
     function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0 }; }
     function spawn() {
