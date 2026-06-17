@@ -135,6 +135,10 @@
     var P = { hp: cfg.startHp != null ? Math.min(cfg.startHp, P0.HP) : P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 }; // startHp=带伤出战(负伤有代价)
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, gold = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
+    // 主动技能(Phase4)：蓝量回复+自动释放
+    var mana = 0, manaMax = P0.Mana || 0, manaRegen = cfg.manaRegen || 8;
+    var abilities = (cfg.abilities || []).map(function (a) { return { id: a.id, type: a.type, cost: a.cost, cd: a.cd, mult: a.mult || 0, dur: a.dur || 0, hasteMult: a.hasteMult || 1, cdT: 0, lastT: -1e9 }; });
+    var haste = 0, lastCast = null; // haste=狂暴剩余时间
     function leveledEnemy(id, lv) { // 敌人按等级缩放(占位系数,待莱布尼茨调)
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
       return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id };
@@ -166,15 +170,26 @@
       else if (enemies.length === 0) { done = true; outcome = bossKilled ? "win" : "win"; return; }
       var i, e;
       for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } }
-      P.cd -= dt; lastHit = null;
-      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
+      if (haste > 0) haste -= dt;
+      P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; // 狂暴期间出手更快
+      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
+      // 主动技能：蓝量回满后释放一个"最久未放"的就绪技能（避免低耗技能饿死高耗技能）
+      for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
+      if (mana >= manaMax && enemies.length) {
+        var pick = null; for (i = 0; i < abilities.length; i++) { var ab = abilities[i]; if (ab.cdT <= 0 && manaMax >= ab.cost && (!pick || ab.lastT < pick.lastT)) pick = ab; } // 最久未放的优先(轮换)
+        if (pick) {
+          if (pick.type === "aoe") { var atkEff = P0.ATK * 100 / 106, dd = Math.round(atkEff * pick.mult); for (var z = 0; z < enemies.length; z++) { var en = enemies[z]; if (en.x <= melee + 220 && !en.dead) { en.hp -= dd; dmgDealt += dd; if (en.hp <= 0) killEnemy(en); } } lastCast = { type: "aoe", id: pick.id, dmg: dd }; }
+          else if (pick.type === "haste") { haste = pick.dur; lastCast = { type: "haste", id: pick.id }; }
+          mana -= pick.cost; pick.cdT = pick.cd; pick.lastT = t;
+        }
+      }
       for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.x <= melee) { e.cd -= dt; if (e.cd <= 0) { var s2 = strike(rng, e.E, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; }
       enemies = enemies.filter(function (q) { return !q.dead; });
       if (P.hp <= 0) { done = true; outcome = "lose"; }
     }
     return {
       step: step, isDone: function () { return done; },
-      state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lane: lane, melee: melee }; },
+      state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lane: lane, melee: melee, mana: mana, manaMax: manaMax, haste: haste, lastCast: lastCast }; },
       result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: gold, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
     };
   }

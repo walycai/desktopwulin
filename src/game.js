@@ -585,7 +585,7 @@
       { id: "str_atk", name: "千钧之力", max: 5, row: 1, col: 0, reqPts: 3, reqLv: 2, prereq: ["foundation"], desc: "攻击 +4 / 级" },
       { id: "crit", name: "致命强击", max: 5, row: 2, col: 0, reqPts: 10, reqLv: 5, prereq: ["str_atk"], desc: "暴击率 +2% / 级" },
       { id: "critdmg", name: "狂暴打击", max: 5, row: 3, col: 0, reqPts: 18, reqLv: 8, prereq: ["crit"], desc: "暴击伤害 +10% / 级" },
-      { id: "whirlwind", name: "旋风斩", max: 3, row: 4, col: 0, reqPts: 28, reqLv: 12, prereq: ["critdmg"], active: true, desc: "群攻（Phase4 实装）；暂折算总攻击 +6% / 级" },
+      { id: "whirlwind", name: "旋风斩", max: 3, row: 4, col: 0, reqPts: 28, reqLv: 12, prereq: ["critdmg"], active: true, desc: "主动·战斗中蓝量满自动群攻（伤害随级↑）" },
       // 械 branch (col2 中)
       { id: "weapon_mastery", name: "重兵精通", max: 5, row: 1, col: 2, reqPts: 3, reqLv: 3, prereq: ["foundation"], desc: "总攻击 +3% / 级" },
       { id: "hit", name: "百战之身", max: 3, row: 2, col: 1, reqPts: 10, reqLv: 5, prereq: ["weapon_mastery"], desc: "命中 +3 / 级" },
@@ -595,7 +595,7 @@
       { id: "str_hp", name: "强健体魄", max: 5, row: 1, col: 4, reqPts: 3, reqLv: 2, prereq: ["foundation"], desc: "气血 +30 / 级" },
       { id: "str_def", name: "铜皮铁骨", max: 5, row: 2, col: 4, reqPts: 10, reqLv: 5, prereq: ["str_hp"], desc: "防御 +3 / 级" },
       { id: "equip_hp", name: "负重前行", max: 3, row: 3, col: 4, reqPts: 18, reqLv: 8, prereq: ["str_def"], desc: "装备气血 +5% / 级" },
-      { id: "berserk", name: "狂暴", max: 1, row: 4, col: 4, reqPts: 28, reqLv: 12, prereq: ["equip_hp"], active: true, desc: "限时狂暴（Phase4 实装）；暂折算攻速 +5%" }
+      { id: "berserk", name: "狂暴", max: 1, row: 4, col: 4, reqPts: 28, reqLv: 12, prereq: ["equip_hp"], active: true, desc: "主动·战斗中蓝量满自动进入狂暴(出手大幅加快)" }
     ]
   };
   function skillNodeById(id) { for (var i = 0; i < SKILL_TREE.nodes.length; i++) if (SKILL_TREE.nodes[i].id === id) return SKILL_TREE.nodes[i]; return null; }
@@ -631,9 +631,8 @@
     a.DEF += (sk.str_def || 0) * 3;
     a.Crit += (sk.crit || 0) * 2; a.CritDmg += (sk.critdmg || 0) * 10;
     a.Hit += (sk.hit || 0) * 3; a.ATKspd += (sk.atkspd || 0) * 3;
-    // 技能：总攻击%（重兵精通 + 旋风斩折算） / 攻速%（狂暴折算）
-    a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03 + (sk.whirlwind || 0) * 0.06;
-    a.ATKspd *= 1 + (sk.berserk || 0) * 0.05;
+    // 技能：总攻击%（重兵精通）；旋风斩/狂暴是战斗主动技(Phase4)，不再折算被动
+    a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
     // 功法：被动(已修炼即生效)×等级 + 主动(已装备)×等级
     var gf = stats.gongfa || {};
     for (var gid in gf) { var gobj = gongfaById(gid), lv = gf[gid].lv || 0; if (!gobj || lv <= 0) continue; for (var pk in gobj.passive) a[pk] = (a[pk] || 0) + gobj.passive[pk] * lv; }
@@ -915,6 +914,10 @@
     opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
     var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) };
+    var ab = []; // 主动技能(Phase4)：来自技能树 旋风斩/狂暴（数值占位待莱布尼茨）
+    var wr = skillRank("whirlwind"); if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
+    var br = skillRank("berserk"); if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
+    cfg.abilities = ab; cfg.manaRegen = 8;
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
@@ -938,13 +941,15 @@
       CV.sim.step(dt);
       var st = CV.sim.state();
       if (st.lastHit) { addFloat(PX + st.lastHit.x, CV.ground - 92, "-" + st.lastHit.dmg, "#ff7a6a"); cst.pAtk = 0.18; }
+      if (st.lastCast) { if (st.lastCast.type === "aoe") { addFloat(PX + 120, CV.ground - 110, "旋风斩 -" + st.lastCast.dmg, "#ffce6a"); cst.aoeFx = 0.4; } else if (st.lastCast.type === "haste") addFloat(PX, CV.ground - 116, "狂暴!", "#ff8a3a"); }
       if (st.kills > cst.prevKills) cst.prevKills = st.kills;
       if (st.P.hp < cst.prevHp - 0.5) addFloat(PX, CV.ground - 100, "-" + Math.round(cst.prevHp - st.P.hp), "#ffd24a");
       cst.prevHp = st.P.hp;
-      $("combatInfo").textContent = "已杀 " + st.kills + " · 气血 " + Math.max(0, Math.round(st.P.hp)) + "/" + st.P.hpMax + " · 场上敌 " + st.enemies.length;
+      $("combatInfo").textContent = "已杀 " + st.kills + " · 气血 " + Math.max(0, Math.round(st.P.hp)) + "/" + st.P.hpMax + (st.manaMax ? " · 内力 " + Math.round(st.mana) + "/" + st.manaMax : "") + " · 场上敌 " + st.enemies.length;
       if (CV.sim.isDone()) CV.endTimer = 1.0;
     } else { CV.endTimer -= dt; if (CV.endTimer <= 0) { endCombat(); return; } }
     cst.floats.forEach(function (f) { f.t += dt; f.y -= dt * 30; }); cst.floats = cst.floats.filter(function (f) { return f.t < 1.0; });
+    if (cst.aoeFx > 0) cst.aoeFx -= dt;
     renderCombat();
     CV.raf = requestAnimationFrame(cvLoop);
   }
@@ -983,7 +988,10 @@
     var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
     drawCSprite("p_" + pAnim, PX, CV.ground, false, "", cst.pT);
     if (cst.pAtk > 0) drawAttackEffect(PX + 56, CV.ground - 44, cst.pAtk);
+    if (st.haste > 0) { c.save(); c.globalAlpha = 0.5 + 0.3 * Math.sin(cst.pT * 20); c.strokeStyle = "#ff8a3a"; c.lineWidth = 3; c.beginPath(); c.arc(PX, CV.ground - 32, 40, 0, 6.28); c.stroke(); c.restore(); } // 狂暴光环
+    if (cst.aoeFx > 0) { c.save(); var rr = (0.4 - cst.aoeFx) / 0.4; c.globalAlpha = cst.aoeFx / 0.4 * 0.6; c.strokeStyle = "#ffe6a8"; c.lineWidth = 5; c.beginPath(); c.arc(PX, CV.ground - 30, 40 + rr * 240, 0, 6.28); c.stroke(); c.restore(); } // 旋风斩扩散环
     bar(PX - 30, CV.ground - 88, 60, st.P.hp / st.P.hpMax, "#5fbf5f");
+    if (st.manaMax > 0) bar(PX - 30, CV.ground - 80, 60, st.mana / st.manaMax, "#5a9fe0"); // 蓝量条
     // 飘字
     c.font = "bold 16px sans-serif"; c.textAlign = "center";
     cst.floats.forEach(function (f) { c.globalAlpha = Math.max(0, 1 - f.t); c.fillStyle = f.color; c.fillText(f.text, f.x, f.y); c.globalAlpha = 1; });
