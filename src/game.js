@@ -696,6 +696,9 @@
     $("selRotate").onclick = function () { if (selectedPlaced) rotatePlaced(selectedPlaced); };
     $("selRecall").onclick = function () { if (selectedPlaced) removePlaced(selectedPlaced); };
     $("dollBtn").onclick = openDoll;
+    $("helpBtn").onclick = function () { $("helpModal").classList.remove("hidden"); };
+    $("helpClose").onclick = function () { $("helpModal").classList.add("hidden"); };
+    $("helpModal").addEventListener("click", function (e) { if (e.target === $("helpModal")) $("helpModal").classList.add("hidden"); });
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
     loadCombatAssets();
     $("sortieBtn").onclick = sortie;

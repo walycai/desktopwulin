@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617n">
+<link rel="stylesheet" href="src/style.css?v=0617o">
 </head>
 <body>
   <header class="topbar">
@@ -20,6 +20,7 @@
       <button id="meditateBtn" class="tb" title="去打坐台修炼">🧘 打坐</button>
       <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
+      <button id="helpBtn" class="tb" title="操作/快捷键">❓ 帮助</button>
       <button id="dbgPoison" class="tb" title="调试：施加中毒">中毒</button>
       <button id="dbgWeak" class="tb" title="调试：施加虚弱">虚弱</button>
       <button id="dbgHurt" class="tb" title="调试：扣血">受伤</button>
@@ -81,8 +82,28 @@
     <div class="combat-hud"><span id="combatInfo"></span><button id="combatSkip" class="tb">跳过 ▶▶</button></div>
   </div>
 
+  <!-- 帮助 / 快捷键 -->
+  <div id="helpModal" class="modal-bg hidden">
+    <div class="combat-panel" style="text-align:left;width:440px">
+      <h2 style="text-align:center">操作 & 快捷键</h2>
+      <div class="cm-body">
+        <div><b>摆放家具</b>：左侧仓库点选物品 → 房间里点格子放下</div>
+        <div><b>旋转</b>：摆放/选中/移动时按 <b>R</b> 键</div>
+        <div><b>移动已摆放</b>：<b>长按</b>该物品进入移动模式（移到目标点击放下），或点选后用「移动」键</div>
+        <div><b>收回</b>：<b>右键</b>物品 收回仓库；「收回全部」一键清空（固定的打坐台不收）</div>
+        <div><b>装备</b>：开「侠客装备」→ <b>双击</b>装备=穿戴，<b>单击</b>=对比属性，拖到槽位也可穿，点已穿=卸下</div>
+        <div><b>修炼</b>：点床/「上床休息」=睡觉(回血解负面)；点打坐台/「打坐」=修炼内功</div>
+        <div><b>历练</b>：「出战历练」=横版打怪（直到背包满或气血归零），可「跳过」</div>
+        <div><b>结束当前动作</b>：点房间空白处</div>
+        <div><b>对齐网格(调试)</b>：按 <b>G</b> 显示家具 footprint 菱形</div>
+        <div><b>取消移动</b>：右键 或 <b>Esc</b></div>
+      </div>
+      <div style="text-align:center"><button id="helpClose" class="tb">知道了</button></div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0617n"></script>
-  <script src="src/game.js?v=0617n"></script>
+  <script src="src/combat-core.js?v=0617o"></script>
+  <script src="src/game.js?v=0617o"></script>
 </body>
 </html>
