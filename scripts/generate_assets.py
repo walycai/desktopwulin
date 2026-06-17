@@ -478,6 +478,7 @@ def apply_gui_p2_assets():
     blue = (86, 160, 194, 255)
     jade = (86, 176, 134, 255)
 
+    save_skill("foundation", lambda d: (d.rectangle((29, 16, 35, 47), fill=(126, 74, 38, 255), outline=(66, 42, 24, 255)), d.arc((18, 30, 46, 58), 205, 335, fill=gold, width=4), d.ellipse((21, 14, 43, 32), fill=(226, 166, 104, 255), outline=(92, 48, 28, 255), width=2), d.line((18, 48, 46, 48), fill=(92, 58, 32, 255), width=3)))
     save_skill("str_hp", lambda d: (d.ellipse((18, 14, 46, 44), fill=red, outline=(92, 30, 24, 255), width=2), d.rectangle((29, 24, 35, 50), fill=(240, 202, 160, 255)), d.rectangle((20, 32, 44, 38), fill=(240, 202, 160, 255))))
     save_skill("str_atk", lambda d: (d.line((18, 44, 45, 17), fill=steel, width=6), d.line((20, 42, 14, 50), fill=(112, 68, 36, 255), width=5), d.arc((16, 12, 52, 48), 225, 320, fill=gold, width=3)))
     save_skill("str_def", lambda d: (d.polygon([(32, 13), (48, 20), (44, 42), (32, 52), (20, 42), (16, 20)], fill=(104, 118, 118, 255), outline=gold), d.line((32, 18, 32, 47), fill=(210, 210, 184, 255), width=2)))
