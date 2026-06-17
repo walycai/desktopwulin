@@ -748,6 +748,7 @@
     if (refunded) stats.sp = (stats.sp || 0) + refunded;
   }
   function neigongLv() { var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0; return CORE.neigongLevel(gf); } // 内功级别=所有功法等级之和(WalyCai重定义)
+  function spForLevel(lv) { return Math.floor((lv || 1) / 3); } // 技能点预算:每3级+1点(莱布尼茨:防点满,endgame~24%节点→真取舍)
   var NEI_HEAL_PER_LV = 0.25; // 内功功法自动回血:每点内功功法等级 +X HP/秒(WalyCai:纯加法/不百分比/不封顶。0.5→0.25:没怎么刷功法就比睡觉涨得快,减半)
   function neiHealRate() { var r = 0, g = stats.gongfa || {}; for (var id in g) { var go = gongfaById(id); if (go && go.sys === "nei") r += (g[id].lv || 0) * NEI_HEAL_PER_LV; } return r; } // 所有已修内功功法的自动回血/秒之和(加法,无上限)
   function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat;neigong 由 core 从 gongfa 内部推导,此字段已废弃保留兼容)
@@ -1085,7 +1086,7 @@
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
     var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes, rarity: d.rarity, lv: d.lv || 1 }); gained.push(d); }); // 保留掉落稀有度+装备等级(高区更好)
     stats.gold = (stats.gold || 0) + (r.goldGained || 0); // 金币入账
-    var lvups = 0; stats.exp += r.expGained; while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; stats.sp = (stats.sp || 0) + 1; } // 每级 +1 技能点
+    var lvups = 0, sp0 = spForLevel(stats.level); stats.exp += r.expGained; while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; } stats.sp = (stats.sp || 0) + (spForLevel(stats.level) - sp0); // 技能点 +1/3级
     syncHpMax(); saveEquip(); save(); return { gained: gained, lvups: lvups, gold: r.goldGained || 0 };
   }
   function applyCombatResult(r) {
@@ -1238,7 +1239,7 @@
   }
 
   // ---- 调试工具（WalyCai 手动测试用：快速到 Lv50 试技能树/功法/经济）----
-  function dbgAddLevel(n) { for (var i = 0; i < n && stats.level < 50; i++) { stats.level++; stats.sp = (stats.sp || 0) + 1; } stats.exp = 0; syncHpMax(); save(); updateStats(); toast("等级 → Lv" + stats.level + "（技能点 " + (stats.sp || 0) + "）"); }
+  function dbgAddLevel(n) { var sp0 = spForLevel(stats.level); for (var i = 0; i < n && stats.level < 50; i++) { stats.level++; } stats.sp = (stats.sp || 0) + (spForLevel(stats.level) - sp0); stats.exp = 0; syncHpMax(); save(); updateStats(); toast("等级 → Lv" + stats.level + "（技能点 " + (stats.sp || 0) + "）"); }
   function dbgGold(n) { stats.gold = (stats.gold || 0) + n; save(); updateStats(); toast("金币 +" + n); }
   function dbgGongfaMax() { var id = stats.trainId; if (!id) return; stats.gongfa[id] = { lv: 10, prof: 0 }; syncHpMax(); save(); toast("「" + (gongfaById(id) ? gongfaById(id).name : id) + "」直接练满 Lv10"); if (!$("kungfuModal").classList.contains("hidden")) renderKungfu(); }
   function dbgUnlockZones() { stats.unlocked = ZONES.length - 1; save(); toast("已解锁全部历练区"); }
@@ -1304,7 +1305,7 @@
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等
     validateSkills(); // 树改版：清理旧无效技能id，点数退回
-    var owed = Math.max(0, (stats.level || 1) - 1) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed;
+    var owed = spForLevel(stats.level) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed; // 技能点预算=floor(level/3),只补不扣
     // 功法迁移/初始化：白色功法默认已习得 Lv1
     if (!stats.gongfa) stats.gongfa = {}; if (!stats.gongfaEquip) stats.gongfaEquip = { nei: null, wai1: null, wai2: null, qing: null };
     GONGFA.forEach(function (g) { if (g.tier === 0 && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; }); // 白功法新手免费送
