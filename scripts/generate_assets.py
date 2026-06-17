@@ -355,6 +355,111 @@ def ui_assets():
         img.save(eq / f"{eid}.png")
 
 
+def rounded_panel(size, inset=8, fill=(52, 38, 24, 240), inner=(186, 166, 122, 235)):
+    img = Image.new("RGBA", size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    w, h = size
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=8, fill=(34, 23, 14, 245), outline=(106, 76, 42, 255), width=3)
+    d.rounded_rectangle((inset, inset, w - inset - 1, h - inset - 1), radius=5, fill=fill, outline=(172, 125, 65, 255), width=2)
+    d.rounded_rectangle((inset * 2, inset * 2, w - inset * 2 - 1, h - inset * 2 - 1), radius=3, fill=inner)
+    for x, y in [(8, 8), (w - 16, 8), (8, h - 16), (w - 16, h - 16)]:
+        d.rectangle((x, y, x + 8, y + 8), fill=(156, 110, 54, 255), outline=(72, 48, 26, 255))
+    return img
+
+
+def draw_coin_stack(d, cx, cy, scale=1):
+    for off in [10, 5, 0]:
+        y = cy + off * scale
+        d.ellipse((cx - 18 * scale, y - 8 * scale, cx + 18 * scale, y + 8 * scale), fill=(226, 174, 72, 255), outline=(116, 76, 28, 255), width=max(1, scale))
+        d.arc((cx - 13 * scale, y - 5 * scale, cx + 13 * scale, y + 5 * scale), 200, 340, fill=(255, 224, 120, 255), width=max(1, scale))
+
+
+def apply_gui_p1_assets():
+    gui = ASSETS / "ui/gui"
+    icons = ASSETS / "ui/icons"
+    gui.mkdir(parents=True, exist_ok=True)
+    icons.mkdir(parents=True, exist_ok=True)
+
+    panel = rounded_panel((480, 320), fill=(74, 52, 31, 245), inner=(190, 171, 128, 238))
+    d = ImageDraw.Draw(panel)
+    for y in range(38, 300, 18):
+        d.line((34, y, 446, y), fill=(156, 128, 86, 70), width=1)
+    panel.save(gui / "panel_bg.png")
+
+    menu = rounded_panel((92, 560), fill=(64, 45, 28, 245), inner=(74, 52, 33, 238))
+    d = ImageDraw.Draw(menu)
+    for y in range(74, 520, 86):
+        d.rounded_rectangle((14, y, 78, y + 64), radius=6, fill=(85, 60, 36, 255), outline=(160, 116, 62, 255), width=2)
+    menu.save(gui / "menubar_bg.png")
+
+    for name, active in [("slot.png", False), ("slot_active.png", True)]:
+        slot = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        d = ImageDraw.Draw(slot)
+        edge = (236, 190, 92, 255) if active else (152, 108, 58, 255)
+        d.rounded_rectangle((3, 3, 60, 60), radius=7, fill=(48, 34, 22, 235), outline=edge, width=3)
+        d.rounded_rectangle((10, 10, 53, 53), radius=4, fill=(74, 52, 34, 230), outline=(92, 66, 42, 255), width=1)
+        if active:
+            d.rounded_rectangle((7, 7, 56, 56), radius=5, outline=(255, 230, 142, 150), width=1)
+        slot.save(gui / name)
+
+    for name, light in [("btn.png", 0), ("btn_hover.png", 18)]:
+        btn = Image.new("RGBA", (128, 42), (0, 0, 0, 0))
+        d = ImageDraw.Draw(btn)
+        d.rounded_rectangle((2, 2, 125, 39), radius=8, fill=(74 + light, 51 + light, 30 + light, 245), outline=(160, 116, 62, 255), width=3)
+        d.line((12, 10, 116, 10), fill=(220, 170, 88, 130), width=1)
+        d.line((12, 31, 116, 31), fill=(48, 30, 18, 150), width=1)
+        btn.save(gui / name)
+
+    bar_bg = Image.new("RGBA", (240, 18), (0, 0, 0, 0))
+    d = ImageDraw.Draw(bar_bg)
+    d.rounded_rectangle((1, 1, 238, 16), radius=7, fill=(38, 26, 18, 245), outline=(132, 96, 54, 255), width=2)
+    d.rounded_rectangle((7, 6, 232, 11), radius=3, fill=(24, 18, 14, 255))
+    bar_bg.save(gui / "bar_bg.png")
+
+    bar_fill = Image.new("RGBA", (240, 18), (0, 0, 0, 0))
+    d = ImageDraw.Draw(bar_fill)
+    d.rounded_rectangle((3, 4, 236, 13), radius=5, fill=(75, 160, 188, 255), outline=(158, 228, 232, 180), width=1)
+    d.line((10, 6, 226, 6), fill=(224, 248, 240, 120), width=1)
+    bar_fill.save(gui / "bar_fill.png")
+
+    def icon_base():
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        d.rounded_rectangle((5, 5, 58, 58), radius=8, fill=(44, 32, 22, 230), outline=(156, 112, 58, 255), width=2)
+        d.rounded_rectangle((10, 10, 53, 53), radius=5, fill=(70, 50, 32, 210))
+        return img, d
+
+    img, d = icon_base()
+    d.line((22, 42, 42, 22), fill=(222, 226, 212, 255), width=5)
+    d.line((24, 40, 18, 47), fill=(110, 70, 38, 255), width=5)
+    d.regular_polygon((44, 18, 7), 5, fill=(245, 204, 92, 255), outline=(126, 78, 28, 255))
+    img.save(icons / "menu_skill.png")
+
+    img, d = icon_base()
+    d.polygon([(16, 32), (32, 16), (48, 32)], fill=(176, 92, 52, 255), outline=(76, 46, 30, 255))
+    d.rectangle((20, 32, 44, 48), fill=(114, 72, 42, 255), outline=(76, 46, 30, 255))
+    d.rectangle((29, 38, 35, 48), fill=(48, 32, 24, 255))
+    img.save(icons / "menu_home.png")
+
+    img, d = icon_base()
+    d.rectangle((20, 14, 44, 48), fill=(196, 178, 128, 255), outline=(98, 66, 36, 255), width=2)
+    d.line((24, 22, 40, 22), fill=(96, 72, 48, 255), width=2)
+    d.line((24, 30, 39, 30), fill=(96, 72, 48, 255), width=1)
+    d.ellipse((18, 43, 46, 53), outline=(118, 178, 188, 180), width=2)
+    img.save(icons / "menu_kungfu.png")
+
+    img, d = icon_base()
+    draw_coin_stack(d, 32, 30, 1)
+    d.text((27, 24), "文", fill=(120, 72, 28, 255))
+    img.save(icons / "coin.png")
+
+    img, d = icon_base()
+    d.rectangle((19, 20, 45, 46), fill=(106, 64, 34, 255), outline=(58, 36, 22, 255), width=2)
+    d.arc((21, 10, 43, 28), 180, 360, fill=(180, 130, 64, 255), width=3)
+    draw_coin_stack(d, 43, 39, 1)
+    img.save(icons / "sell.png")
+
+
 def line_iso(draw, pts, fill, width=1):
     draw.line(pts, fill=fill, width=width, joint="curve")
 
@@ -1115,6 +1220,7 @@ def main():
     apply_approved_style_sample()
     apply_home_asset_sheet_v2()
     apply_equipment_icon_sheet_v1()
+    apply_gui_p1_assets()
     apply_combat_sources_v1()
     apply_boss_sources_v1()
     apply_home_decor_source_v1()
