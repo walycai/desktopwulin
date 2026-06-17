@@ -330,6 +330,8 @@
       var step = player.speed * dt;
       if (step >= dist) { player.cx = player.tx; player.cy = player.ty; var cb = player._cb; player._cb = null; if (player.state === "wander") { player.anim = "idle"; player.busy = false; } if (cb) cb(); }
       else { player.cx += dx / dist * step; player.cy += dy / dist * step; player.anim = "walk"; }
+    } else if (player.state === "walking" && player._cb) { // 已在目标点(如就地再次睡觉/打坐)→立刻完成回调，避免卡在walking不显示
+      var cb2 = player._cb; player._cb = null; cb2();
     }
     // 动画帧
     var fr = SPR.frames[player.anim] || 1, fps = SPR.fps[player.anim] || 6;
@@ -722,6 +724,7 @@
   function endCombat() {
     CV.running = false; if (CV.raf) cancelAnimationFrame(CV.raf);
     $("combatView").classList.add("hidden");
+    backToWander(); // 历练归来→回到自由溜达(满包回家闲置)，避免卡在打坐/睡觉状态导致人物隐身或无法再操作
     applyCombatResult(CV.sim.result());
   }
 
