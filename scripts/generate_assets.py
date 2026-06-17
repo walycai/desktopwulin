@@ -17,6 +17,12 @@ def save(img, rel):
     img.save(path)
 
 
+def transparent_pad(img, pad=6):
+    out = Image.new("RGBA", (img.width + pad * 2, img.height + pad * 2), (0, 0, 0, 0))
+    out.alpha_composite(img, (pad, pad))
+    return out
+
+
 def rgba(color):
     return color
 
@@ -79,7 +85,7 @@ def furniture():
         d = ImageDraw.Draw(img)
         for px, py in [(18, img.height-28), (img.width-24, img.height-28), (img.width//2-20, img.height-18), (img.width//2+20, img.height-18)]:
             d.rectangle((px, py-22, px+5, py), fill=(59, 35, 24, 255))
-        save(img, f"furniture/table/{name}.png")
+        save(transparent_pad(img, 8) if name == "table_long" else img, f"furniture/table/{name}.png")
 
     for name, w, h, color in [
         ("chair_round", 5, 5, (104, 66, 38, 255)),
@@ -878,10 +884,10 @@ def combat_pose(src, box, face_right=True):
     bbox = pose.getchannel("A").getbbox()
     if bbox:
         pose = pose.crop(bbox)
-    scale = min(58 / pose.height, 58 / pose.width)
+    scale = min(54 / pose.height, 54 / pose.width)
     pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
     frame = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    frame.alpha_composite(pose, ((64 - pose.width) // 2, 62 - pose.height))
+    frame.alpha_composite(pose, ((64 - pose.width) // 2, 61 - pose.height))
     return frame
 
 
@@ -968,7 +974,7 @@ def boss_pose(src, box, key="green", max_size=62):
     scale = min(max_size / pose.height, max_size / pose.width)
     pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
     frame = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    frame.alpha_composite(pose, ((64 - pose.width) // 2, 63 - pose.height))
+    frame.alpha_composite(pose, ((64 - pose.width) // 2, 61 - pose.height))
     return frame
 
 
@@ -990,7 +996,7 @@ def apply_boss_sources_v1():
         if not sample.exists():
             continue
         src = Image.open(sample).convert("RGBA")
-        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=62)
+        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=56)
         for action, frames in boss_specs.items():
             save(make_combat_sheet(pose, action, frames), f"characters/bosses/{bid}/{action}.png")
 
@@ -1004,7 +1010,7 @@ def apply_boss_sources_v1():
         if not sample.exists():
             continue
         src = Image.open(sample).convert("RGBA")
-        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=58)
+        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=54)
         for action, frames in enemy_specs.items():
             save(make_combat_sheet(pose, action, frames), f"characters/enemies/{eid}/{action}.png")
 
@@ -1057,7 +1063,7 @@ def apply_home_decor_source_v1():
         save(ImageOps.mirror(weapon), "furniture/wallhang/wall_swordrack_left.png")
         rug = cut_chroma_to_alpha(src2.crop((360, 770, 730, 958)), pad=4)
         cushion = ImageOps.fit(rug, (132, 90), method=Image.Resampling.LANCZOS)
-        save(cushion, "furniture/chair/chair_cushion.png")
+        save(transparent_pad(cushion, 8), "furniture/chair/chair_cushion.png")
 
 
 def apply_storage_proposals_v1():
@@ -1088,7 +1094,7 @@ def actor_layout(action, frame, direction):
         return {"pose": "sleep", "head": (15, 39), "body": (29, 42), "feet": (39, 45), "bob": frame % 2, "step": 0}
     if action == "meditate":
         return {"pose": "meditate", "head": (24, 17 + bob), "body": (24, 38 + bob), "feet": (24, 57), "bob": bob, "step": 0}
-    return {"pose": "stand", "head": (24, 16 + bob), "body": (24, 35 + bob), "feet": (24, 59), "bob": bob, "step": step}
+    return {"pose": "stand", "head": (24, 18 + bob), "body": (24, 37 + bob), "feet": (24, 59), "bob": bob, "step": step}
 
 
 def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=None):
@@ -1166,15 +1172,15 @@ def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=Non
             steel = (214, 218, 210, 255)
             grip = (88, 56, 35, 255)
             if direction == "left":
-                pts = (bx - 16, by - 2, bx - 30, by - 14)
+                pts = (bx - 12, by - 2, bx - 18, by - 11)
             elif direction == "right":
-                pts = (bx + 16, by - 2, bx + 30, by - 14)
+                pts = (bx + 12, by - 2, bx + 18, by - 11)
             elif direction == "up":
-                pts = (bx + 10, by - 5, bx + 22, by - 18)
+                pts = (bx + 8, by - 5, bx + 16, by - 15)
             else:
-                pts = (bx + 12, by - 2, bx + 26, by + 6)
+                pts = (bx + 9, by - 2, bx + 17, by + 6)
             d.line(pts, fill=steel, width=3 if variant == "wpn_iron_sword" else 4)
-            d.line((pts[0], pts[1], pts[0] - 5 if pts[2] < pts[0] else pts[0] + 5, pts[1] + 5), fill=grip, width=3)
+            d.line((pts[0], pts[1], pts[0] - 3 if pts[2] < pts[0] else pts[0] + 3, pts[1] + 4), fill=grip, width=3)
     elif pose == "sleep":
         if layer == "body":
             d.rounded_rectangle((x + 19, y + 34 - p["bob"], x + 43, y + 49 - p["bob"]), radius=4, fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
