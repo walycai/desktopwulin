@@ -19,8 +19,8 @@
 
   // 物品目录（占格 w×h，画面高度另给 zh；fixed 不可拖；func 功能件）
   var CATALOG = [
-    { id: "bed_basic", name: "普通床", cat: "bed", w: 10, h: 18, zh: 24, func: "bed", heal: 4, cure: 0.4, glyph: "🛏", color: "#8a6240" },
-    { id: "bed_advanced", name: "高级床", cat: "bed", w: 12, h: 22, zh: 32, func: "bed", heal: 11, cure: 1.4, glyph: "🛏", color: "#a8743e" },
+    { id: "bed_basic", name: "普通床", cat: "bed", w: 10, h: 18, zh: 24, func: "bed", heal: 1.2, cure: 0.4, glyph: "🛏", color: "#8a6240" },
+    { id: "bed_advanced", name: "高级床", cat: "bed", w: 12, h: 22, zh: 32, func: "bed", heal: 3.5, cure: 1.4, glyph: "🛏", color: "#a8743e" },
     { id: "meditation_dais", name: "打坐台", cat: "func", w: 12, h: 12, zh: 16, fixed: true, func: "meditate", neigong: 1.2, glyph: "🧘", color: "#5f7298" },
     { id: "chair_round", name: "圈椅", cat: "chair", w: 5, h: 5, zh: 26, glyph: "🪑", color: "#6a4a30" },
     { id: "chair_bench", name: "长凳", cat: "chair", w: 9, h: 4, zh: 14, glyph: "🪵", color: "#6a4a30" },
@@ -284,7 +284,9 @@
     placed.filter(function (p) { return p.wall; }).forEach(drawWallHang);
     // 地面可绘制(家具+主角) 深度排序：anchor 深度 = cx+cy+w/2+h/2(取前角)
     var drawables = placed.filter(function (p) { return !p.wall; }).map(function (p) { return { p: p, depth: (p.cx + p.w) + (p.cy + p.h), kind: "f" }; });
-    drawables.push({ depth: (player.cx + PLAYER_CELLS / 2) + (player.cy + PLAYER_CELLS / 2), kind: "p" });
+    var pDepth = (player.cx + PLAYER_CELLS / 2) + (player.cy + PLAYER_CELLS / 2);
+    if ((player.state === "sleeping" || player.state === "meditating") && player.actUid) { var host = pById(player.actUid); if (host) pDepth = (host.cx + host.w) + (host.cy + host.h) + 0.5; } // 躺/坐在家具上→画在家具之上
+    drawables.push({ depth: pDepth, kind: "p" });
     drawables.sort(function (a, b) { return a.depth - b.depth; });
     drawables.forEach(function (d) {
       if (d.kind === "p") drawPlayer();
@@ -313,12 +315,11 @@
   function walkTo(cx, cy, cb) { player.tx = cx; player.ty = cy; player._cb = cb; player.anim = "walk"; }
   function goAction(p, state) {
     player.state = "walking"; player.actUid = p.uid;
-    var tc = { cx: p.cx + p.w / 2, cy: p.cy + p.h + 2 };
-    tc.cy = Math.min(GH - 1, tc.cy);
-    walkTo(tc.cx, tc.cy, function () {
+    // 走到家具中心：躺在床上/坐在打坐台上(而非站在家具前格)
+    walkTo(p.cx + p.w / 2, p.cy + p.h / 2, function () {
       if (player.actUid !== p.uid) return;
       player.state = state; player.anim = state === "sleeping" ? "sleep" : "meditate";
-      toast(state === "sleeping" ? "侠客躺下休息……" : "侠客盘膝打坐……");
+      toast(state === "sleeping" ? "侠客躺上床休息……" : "侠客盘膝打坐……");
     });
   }
   function backToWander() { player.state = "wander"; player.actUid = 0; player.busy = false; player.anim = "idle"; }
