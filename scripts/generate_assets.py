@@ -761,6 +761,29 @@ def make_combat_sheet(pose, action, frames):
     return sheet
 
 
+def make_player_attack_sheet(pose):
+    sheet = Image.new("RGBA", (64 * 6, 64), (0, 0, 0, 0))
+    draw_specs = [
+        {"off": (0, 0), "slash": None},
+        {"off": (2, -1), "slash": ((38, 26), (56, 14), (214, 222, 210, 210))},
+        {"off": (6, -1), "slash": ((36, 30), (62, 22), (240, 234, 196, 240))},
+        {"off": (8, 0), "slash": ((34, 36), (62, 42), (250, 220, 145, 230))},
+        {"off": (4, 0), "slash": ((36, 34), (55, 48), (226, 214, 184, 190))},
+        {"off": (1, 0), "slash": None},
+    ]
+    for f, spec in enumerate(draw_specs):
+        fr = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        body = pose.transform((64, 64), Image.Transform.AFFINE, (1, -0.05, -spec["off"][0], 0, 1, -spec["off"][1]), Image.Resampling.BICUBIC)
+        fr.alpha_composite(body)
+        d = ImageDraw.Draw(fr)
+        if spec["slash"]:
+            (x1, y1), (x2, y2), col = spec["slash"]
+            d.line((x1, y1, x2, y2), fill=col, width=4)
+            d.line((x1 - 3, y1 + 4, x2 - 2, y2 + 4), fill=(248, 238, 202, 150), width=2)
+        sheet.alpha_composite(fr, (64 * f, 0))
+    return sheet
+
+
 def apply_combat_sources_v1():
     char_src = ROOT / "previews/combat-character-source-v1.png"
     bg_src = ROOT / "previews/combat-bg-source-v1.png"
@@ -779,7 +802,10 @@ def apply_combat_sources_v1():
     }
     player_specs = {"idle": 4, "advance": 6, "attack": 6, "hurt": 3, "down": 4}
     for action, frames in player_specs.items():
-        save(make_combat_sheet(poses["player"], action, frames), f"characters/protagonist_combat/{action}.png")
+        if action == "attack":
+            save(make_player_attack_sheet(poses["player"]), f"characters/protagonist_combat/{action}.png")
+        else:
+            save(make_combat_sheet(poses["player"], action, frames), f"characters/protagonist_combat/{action}.png")
     enemy_specs = {"idle": 4, "attack": 6, "hurt": 3, "death": 4}
     for eid in ["thug", "bandit", "sect_novice"]:
         for action, frames in enemy_specs.items():
@@ -833,6 +859,77 @@ def apply_boss_sources_v1():
         pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=58)
         for action, frames in enemy_specs.items():
             save(make_combat_sheet(pose, action, frames), f"characters/enemies/{eid}/{action}.png")
+
+
+def apply_home_decor_source_v1():
+    sample = ROOT / "previews/home-decor-source-v1.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    crops = {
+        "furniture/decor/decor_screen.png": (30, 48, 335, 322),
+        "furniture/decor/decor_vase.png": (420, 58, 576, 320),
+        "furniture/decor/decor_brush.png": (686, 45, 876, 320),
+        "furniture/decor/decor_inkstone.png": (945, 98, 1195, 292),
+        "furniture/decor/decor_censer.png": (40, 385, 278, 606),
+        "furniture/decor/decor_teaset.png": (355, 400, 594, 586),
+        "furniture/decor/decor_weiqi.png": (650, 394, 865, 590),
+        "furniture/decor/decor_guqin.png": (956, 394, 1205, 558),
+        "furniture/decor/decor_bonsai.png": (30, 640, 315, 884),
+        "furniture/decor/decor_candle.png": (430, 630, 552, 882),
+        "furniture/decor/decor_books.png": (655, 660, 870, 842),
+        "furniture/decor/decor_wine.png": (984, 650, 1164, 854),
+        "furniture/decor/decor_ruyi.png": (42, 936, 298, 1185),
+        "furniture/wallhang/wall_scroll_right.png": (370, 905, 610, 1218),
+        "furniture/wallhang/wall_lantern_right.png": (704, 910, 856, 1188),
+        "furniture/wallhang/wall_mirror_right.png": (948, 910, 1224, 1185),
+    }
+    for rel, box in crops.items():
+        img = cut_chroma_to_alpha(src.crop(box), pad=12)
+        save(img, rel)
+        if rel.endswith("_right.png"):
+            save(ImageOps.mirror(img), rel.replace("_right.png", "_left.png"))
+
+    scroll = cut_chroma_to_alpha(src.crop((370, 905, 610, 1218)), pad=0)
+    landscape = ImageOps.fit(scroll, (220, 138), method=Image.Resampling.LANCZOS, centering=(0.5, 0.55))
+    framed = Image.new("RGBA", (244, 162), (0, 0, 0, 0))
+    d = ImageDraw.Draw(framed)
+    d.rectangle((6, 6, 237, 155), fill=(116, 72, 38, 255), outline=(58, 36, 22, 255), width=4)
+    framed.alpha_composite(landscape, (12, 12))
+    save(framed, "furniture/wallhang/wall_landscape_right.png")
+    save(ImageOps.mirror(framed), "furniture/wallhang/wall_landscape_left.png")
+
+    sheet2 = ROOT / "previews/home-asset-sheet-v2.png"
+    if sheet2.exists():
+        src2 = Image.open(sheet2).convert("RGBA")
+        weapon = cut_chroma_to_alpha(src2.crop((840, 552, 1120, 735)), pad=12)
+        save(weapon, "furniture/wallhang/wall_weapon_right.png")
+        save(ImageOps.mirror(weapon), "furniture/wallhang/wall_weapon_left.png")
+        save(weapon, "furniture/wallhang/wall_swordrack_right.png")
+        save(ImageOps.mirror(weapon), "furniture/wallhang/wall_swordrack_left.png")
+        rug = cut_chroma_to_alpha(src2.crop((360, 770, 730, 958)), pad=4)
+        cushion = ImageOps.fit(rug, (132, 90), method=Image.Resampling.LANCZOS)
+        save(cushion, "furniture/chair/chair_cushion.png")
+
+
+def apply_storage_proposals_v1():
+    sample = ROOT / "previews/home-asset-sheet-v2.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    crops = {
+        "furniture/storage/storage_wardrobe.png": (850, 280, 1115, 535),
+        "furniture/storage/storage_shelf.png": (1190, 275, 1475, 545),
+        "furniture/storage/storage_chest.png": (55, 552, 342, 728),
+        "furniture/storage/storage_medicine_cabinet.png": (455, 548, 705, 748),
+        "furniture/decor/decor_food_box.png": (870, 810, 1105, 988),
+        "furniture/decor/decor_wash_basin.png": (1205, 765, 1455, 988),
+        "furniture/decor/decor_floor_lamp.png": (1200, 532, 1375, 770),
+        "furniture/decor/decor_rug_large.png": (360, 770, 730, 958),
+    }
+    for rel, box in crops.items():
+        img = cut_chroma_to_alpha(src.crop(box), pad=16)
+        save(img, rel)
 
 
 def actor_layout(action, frame, direction):
@@ -1013,6 +1110,8 @@ def main():
     apply_equipment_icon_sheet_v1()
     apply_combat_sources_v1()
     apply_boss_sources_v1()
+    apply_home_decor_source_v1()
+    apply_storage_proposals_v1()
     apply_home_actor_layers_v1()
     apply_bed_table_replacement_v2()
     apply_meditation_dais_replacement_v2()
