@@ -1,4 +1,4 @@
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 from pathlib import Path
 import math
 from collections import deque
@@ -714,6 +714,69 @@ def apply_equipment_icon_sheet_v1():
         save(normalize_icon(cut_chroma_to_alpha(src.crop(box), pad=6)), rel)
 
 
+def combat_pose(src, box, face_right=True):
+    pose = cut_chroma_to_alpha(src.crop(box), pad=6)
+    if not face_right:
+        pose = ImageOps.mirror(pose)
+    bbox = pose.getchannel("A").getbbox()
+    if bbox:
+        pose = pose.crop(bbox)
+    scale = min(58 / pose.height, 58 / pose.width)
+    pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
+    frame = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    frame.alpha_composite(pose, ((64 - pose.width) // 2, 62 - pose.height))
+    return frame
+
+
+def make_combat_sheet(pose, action, frames):
+    sheet = Image.new("RGBA", (64 * frames, 64), (0, 0, 0, 0))
+    for f in range(frames):
+        fr = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        if action == "advance":
+            off = (-2 + (f % 3) * 2, -1 if f % 2 else 0)
+        elif action == "attack":
+            off = (min(6, f * 2) if f < frames / 2 else max(0, (frames - f) * 2), -1)
+        elif action == "hurt":
+            off = (-3 + f, 0)
+        elif action in ("down", "death"):
+            rot = -74 if action == "down" else 74
+            fallen = pose.rotate(rot, resample=Image.Resampling.BICUBIC, expand=True)
+            fallen = fallen.resize((min(60, fallen.width), min(44, fallen.height)), Image.Resampling.LANCZOS)
+            fr.alpha_composite(fallen, ((64 - fallen.width) // 2, 62 - fallen.height))
+            sheet.alpha_composite(fr, (64 * f, 0))
+            continue
+        else:
+            off = (0, -1 if f % 2 else 0)
+        fr.alpha_composite(pose, off)
+        sheet.alpha_composite(fr, (64 * f, 0))
+    return sheet
+
+
+def apply_combat_sources_v1():
+    char_src = ROOT / "previews/combat-character-source-v1.png"
+    bg_src = ROOT / "previews/combat-bg-source-v1.png"
+    if bg_src.exists():
+        bg = Image.open(bg_src).convert("RGBA")
+        bg = ImageOps.fit(bg, (960, 540), method=Image.Resampling.LANCZOS, centering=(0.5, 0.55))
+        save(bg, "combat/bg_wulin.png")
+    if not char_src.exists():
+        return
+    src = Image.open(char_src).convert("RGBA")
+    poses = {
+        "player": combat_pose(src, (60, 80, 540, 675), True),
+        "thug": combat_pose(src, (610, 88, 1075, 675), False),
+        "bandit": combat_pose(src, (1120, 82, 1640, 675), False),
+        "sect_novice": combat_pose(src, (1660, 80, 2140, 675), False),
+    }
+    player_specs = {"idle": 4, "advance": 6, "attack": 6, "hurt": 3, "down": 4}
+    for action, frames in player_specs.items():
+        save(make_combat_sheet(poses["player"], action, frames), f"characters/protagonist_combat/{action}.png")
+    enemy_specs = {"idle": 4, "attack": 6, "hurt": 3, "death": 4}
+    for eid in ["thug", "bandit", "sect_novice"]:
+        for action, frames in enemy_specs.items():
+            save(make_combat_sheet(poses[eid], action, frames), f"characters/enemies/{eid}/{action}.png")
+
+
 def main():
     environment_assets()
     furniture()
@@ -724,6 +787,7 @@ def main():
     apply_approved_style_sample()
     apply_home_asset_sheet_v2()
     apply_equipment_icon_sheet_v1()
+    apply_combat_sources_v1()
 
 
 if __name__ == "__main__":
