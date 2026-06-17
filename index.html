@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0617v">
+<link rel="stylesheet" href="src/style.css?v=0617w">
 </head>
 <body>
   <header class="topbar">
@@ -16,8 +16,7 @@
       <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
     </div>
     <div class="topbtns">
-      <button id="mapBtn" class="tb" title="历练地图/分区/挑战BOSS">🗺 历练地图</button>
-      <button id="sortieBtn" class="tb sortie" title="在当前区域出战历练">⚔ 出战历练</button>
+      <button id="sortieBtn" class="tb sortie" title="出门历练(选择区域)">⚔ 出战历练</button>
       <button id="meditateBtn" class="tb" title="去打坐台修炼">🧘 打坐</button>
       <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
@@ -80,7 +79,7 @@
   <!-- 横版战斗画面 -->
   <div id="combatView" class="combat-view hidden">
     <canvas id="combatCanvas"></canvas>
-    <div class="combat-hud"><span id="combatInfo"></span><button id="retreatBtn" class="tb">撤退</button></div>
+    <div class="combat-hud"><span id="combatInfo"></span><button id="bossBtn" class="tb sortie">⚔ 挑战BOSS</button><button id="retreatBtn" class="tb">撤退</button></div>
   </div>
 
   <!-- 帮助 / 快捷键 -->
@@ -116,7 +115,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0617v"></script>
-  <script src="src/game.js?v=0617v"></script>
+  <script src="src/combat-core.js?v=0617w"></script>
+  <script src="src/game.js?v=0617w"></script>
 </body>
 </html>
