@@ -56,14 +56,22 @@
     return function () { t += 0x6D2B79F5; var r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
   }
 
-  function rollRarity(rng) {
-    var tot = 0, i; for (i = 0; i < RARITY_WEIGHTS.length; i++) tot += RARITY_WEIGHTS[i][1];
-    var r = rng() * tot; for (i = 0; i < RARITY_WEIGHTS.length; i++) { if (r < RARITY_WEIGHTS[i][1]) return RARITY_WEIGHTS[i][0]; r -= RARITY_WEIGHTS[i][1]; }
+  // 各区稀有度权重(zoneIdx 0-4)：高区掉率向高稀有度倾斜(待莱布尼茨精调)
+  var ZONE_RARITY = [
+    [["common", 64], ["fine", 28], ["superior", 7], ["epic", 0.8], ["legend", 0.2]],   // 0 牛家村
+    [["common", 48], ["fine", 34], ["superior", 14], ["epic", 3], ["legend", 1]],       // 1 幽密林
+    [["common", 32], ["fine", 36], ["superior", 22], ["epic", 7], ["legend", 3]],       // 2 青城派
+    [["common", 18], ["fine", 32], ["superior", 30], ["epic", 14], ["legend", 6]],      // 3 血刀门
+    [["common", 8], ["fine", 24], ["superior", 34], ["epic", 22], ["legend", 12]]       // 4 魔教总坛
+  ];
+  function rollRarity(rng, weights) {
+    var W = weights || RARITY_WEIGHTS, tot = 0, i; for (i = 0; i < W.length; i++) tot += W[i][1];
+    var r = rng() * tot; for (i = 0; i < W.length; i++) { if (r < W[i][1]) return W[i][0]; r -= W[i][1]; }
     return "common";
   }
-  function rollDrop(rng, pool) {
+  function rollDrop(rng, pool, weights) {
     var tid = pool[Math.floor(rng() * pool.length)];
-    var rarity = rollRarity(rng);                  // 稀有度独立加权，脱离模板
+    var rarity = rollRarity(rng, weights);         // 稀有度独立加权(可按区)，脱离模板
     var n = RARITY[rarity].affixes, p = AFFIX_POOL.slice(), affixes = [];
     for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); }
     return { id: tid, rarity: rarity, affixes: affixes };
@@ -128,6 +136,7 @@
   function createCombat(cfg) {
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
+    var rw = cfg.rarityWeights || (cfg.zoneIdx != null && ZONE_RARITY[cfg.zoneIdx]) || null; // 各区稀有度权重(高区掉得更好)
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
@@ -164,7 +173,7 @@
         return;
       }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
-      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
+      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, rw); bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }

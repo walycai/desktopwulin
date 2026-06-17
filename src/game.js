@@ -989,6 +989,7 @@
     cfg.abilities = ab; cfg.manaRegen = 8;
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
+    cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
     // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
     CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
