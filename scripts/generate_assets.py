@@ -939,6 +939,16 @@ def apply_bed_table_replacement_v2():
         save(img, rel)
 
 
+def apply_meditation_dais_replacement_v2():
+    """Replace broken meditation dais source with a complete platform silhouette."""
+    sample = ROOT / "previews/meditation-dais-replacement-v2-source.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    img = cut_chroma_to_alpha(src.crop((215, 95, 1325, 905)), pad=24)
+    save(img, "furniture/func/meditation_dais.png")
+
+
 def main():
     environment_assets()
     furniture()
@@ -952,6 +962,7 @@ def main():
     apply_combat_sources_v1()
     apply_home_actor_layers_v1()
     apply_bed_table_replacement_v2()
+    apply_meditation_dais_replacement_v2()
 
 
 if __name__ == "__main__":
