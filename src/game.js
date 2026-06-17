@@ -862,10 +862,10 @@
     var curCP = CORE.combatPower(totalAttrs()); // 升级指示用：穿上后战力更高→绿箭头
     warehouse.forEach(function (it) {
       var t = EQUIP_TPL[it.tid];
-      var equippable = stats.level >= (t.reqLv || 1);
-      var up = equippable && CORE.combatPower(previewTotals(it).totals) > curCP;
-      var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "");
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>' + (up ? '<span class="up-badge">▲</span>' : '');
+      var locked = stats.level < (t.reqLv || 1);                    // 等级不够→灰掉蒙版
+      var up = CORE.combatPower(previewTotals(it).totals) > curCP;   // 战力更高→绿▲(不论是否够级)
+      var d = document.createElement("div"); d.className = "wh-item" + (locked ? " locked" : ""); d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "") + (locked ? "（需Lv" + t.reqLv + "）" : "");
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>' + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + t.reqLv + '</span>' : '');
       if (dollSel === it) d.style.boxShadow = "0 0 0 2px #ffd98a";
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = (dollSel === it ? null : it); renderDoll(); };

@@ -243,6 +243,9 @@ body {
 .ss-btns { display: flex; gap: 6px; }
 .ss-btns .tb { font-size: 12px; padding: 3px 10px; }
 
-.up-badge { position: absolute; top: 0; left: 1px; color: #5fe08a; font-size: 11px; line-height: 1; text-shadow: 0 0 2px #000, 0 1px 1px #000; pointer-events: none; }
+.up-badge { position: absolute; top: 0; left: 1px; color: #5fe08a; font-size: 11px; line-height: 1; text-shadow: 0 0 2px #000, 0 1px 1px #000; pointer-events: none; z-index: 2; }
+.wh-item.locked .equip-img, .wh-item.locked .equip-fallback { filter: grayscale(1) brightness(.45); }
+.wh-item.locked::after { content: ""; position: absolute; inset: 0; background: rgba(20,14,9,.45); border-radius: 4px; pointer-events: none; }
+.lock-badge { position: absolute; bottom: 1px; right: 1px; font-size: 9px; color: #d8c0a0; background: rgba(0,0,0,.6); border-radius: 3px; padding: 0 2px; pointer-events: none; z-index: 2; }
 
 .hidden { display: none !important; }
