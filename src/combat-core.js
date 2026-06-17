@@ -32,8 +32,8 @@
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
   var ENEMIES = {
     thug: { name: "小混混", HP: 24, ATK: 6, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 70, exp: 10 },
-    bandit: { name: "土匪", HP: 85, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
-    sect_novice: { name: "门派入门弟子", HP: 130, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 }
+    bandit: { name: "土匪", HP: 40, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
+    sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 }
   };
   // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验

@@ -584,8 +584,8 @@
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   function spawnPoolForLevel() {
     var pool = ["thug", "thug", "thug"];
-    if (stats.level >= 2) pool.push("bandit", "bandit");
-    if (stats.level >= 4) pool.push("sect_novice");
+    if (stats.level >= 5) pool.push("bandit", "bandit");   // 推迟引入(莱布尼茨:消除升级断崖)
+    if (stats.level >= 9) pool.push("sect_novice");
     return pool;
   }
   function sortie() { startCombat(totalAttrs()); } // 实时近战：刷新→走近→互攻→堆积，直到背包满/0血
