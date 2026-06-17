@@ -42,7 +42,8 @@
     gu_mo: { name: "上古魔神", HP: 640, ATK: 195, DEF: 60, Crit: 16, CritDmg: 180, Hit: 104, Dodge: 18, ATKspd: 130, exp: 700 }   // 8-9区
   };
   // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
-  function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验
+  var EXP_CURVE_MULT = 1;                                                          // 升级曲线系数(莱布尼茨可调:×3 收过度升级/软化早期faceroll,待WalyCai拍板)
+  function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5) * EXP_CURVE_MULT); } // 升到下一级所需经验
   function baseAttrs(level, neigong) {
     var lv = level || 1, ng = neigong || 1;
     return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6, Tough: 0 };
@@ -272,5 +273,5 @@
     if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
     return { attrs: a, abilities: ab, manaRegen: 8 };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, baseAttrs: baseAttrs };
 });
