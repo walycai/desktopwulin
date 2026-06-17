@@ -1303,6 +1303,242 @@ def apply_home_actor_layers_v1():
             save(img, f"characters/equip/{tid}/{action}.png")
 
 
+def remove_green_screen(img):
+    """Remove the flat green imagegen background from the wuxia actor sheet."""
+    img = img.convert("RGBA")
+    pix = img.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = pix[x, y]
+            if a and g > 120 and g > r * 1.28 and g > b * 1.28:
+                pix[x, y] = (0, 0, 0, 0)
+    return img
+
+
+def normalize_actor_pose(src, box, max_w=48, max_h=88, bottom=92, mirror=False):
+    pose = remove_green_screen(src.crop(box))
+    if mirror:
+        pose = ImageOps.mirror(pose)
+    pix = pose.load()
+    seen = [[False] * pose.width for _ in range(pose.height)]
+    comps = []
+    for sy in range(pose.height):
+        for sx in range(pose.width):
+            if seen[sy][sx] or pix[sx, sy][3] == 0:
+                continue
+            q = deque([(sx, sy)])
+            seen[sy][sx] = True
+            pts = []
+            while q:
+                x, y = q.popleft()
+                pts.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < pose.width and 0 <= ny < pose.height and not seen[ny][nx] and pix[nx, ny][3] > 0:
+                        seen[ny][nx] = True
+                        q.append((nx, ny))
+            comps.append(pts)
+    if comps:
+        keep = set(max(comps, key=len))
+        for y in range(pose.height):
+            for x in range(pose.width):
+                if pix[x, y][3] and (x, y) not in keep:
+                    pix[x, y] = (0, 0, 0, 0)
+    bbox = pose.getchannel("A").getbbox()
+    if not bbox:
+        return Image.new("RGBA", (HOME_FW, HOME_FH), (0, 0, 0, 0))
+    pose = pose.crop(bbox)
+    scale = min(max_w / pose.width, max_h / pose.height)
+    pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
+    frame = Image.new("RGBA", (HOME_FW, HOME_FH), (0, 0, 0, 0))
+    d = ImageDraw.Draw(frame)
+    if max_h > 70:
+        d.ellipse((18, 84, 46, 93), fill=(0, 0, 0, 55))
+    frame.alpha_composite(pose, ((HOME_FW - pose.width) // 2, bottom - pose.height))
+    pix = frame.load()
+    for y in range(frame.height):
+        for x in range(frame.width):
+            r, g, b, a = pix[x, y]
+            if a <= 24 and g > 120 and g > r * 1.2 and g > b * 1.2:
+                pix[x, y] = (0, 0, 0, 0)
+    return frame
+
+
+def shift_frame(frame, dx=0, dy=0):
+    out = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+    out.alpha_composite(frame, (dx, dy))
+    return out
+
+
+def make_generated_actor_base():
+    sample = ROOT / "previews/home-protagonist-wuxia-reference-v1.png"
+    if not sample.exists():
+        return None
+    src = Image.open(sample).convert("RGBA")
+    poses = {
+        "down": normalize_actor_pose(src, (65, 25, 315, 465), 47, 88, 92),
+        "left": normalize_actor_pose(src, (500, 25, 750, 465), 45, 88, 92),
+        "right": normalize_actor_pose(src, (850, 25, 1105, 465), 45, 88, 92),
+        "up": normalize_actor_pose(src, (1190, 24, 1455, 470), 47, 88, 92),
+        "walk_a": normalize_actor_pose(src, (60, 485, 315, 878), 47, 88, 92),
+        "walk_b": normalize_actor_pose(src, (390, 475, 650, 878), 47, 88, 92),
+        "walk_c": normalize_actor_pose(src, (630, 485, 860, 878), 47, 88, 92),
+        "sleep": normalize_actor_pose(src, (875, 625, 1315, 870), 58, 44, 78),
+        "meditate": normalize_actor_pose(src, (1360, 500, 1625, 870), 58, 78, 92),
+    }
+
+    idle = Image.new("RGBA", (HOME_FW * 4, HOME_FH * 4), (0, 0, 0, 0))
+    rows = ["down", "left", "right", "up"]
+    for r, direction in enumerate(rows):
+        for f in range(4):
+            idle.alpha_composite(shift_frame(poses[direction], 0, -1 if f == 1 else (1 if f == 3 else 0)), (f * HOME_FW, r * HOME_FH))
+
+    walk = Image.new("RGBA", (HOME_FW * 8, HOME_FH * 4), (0, 0, 0, 0))
+    down_seq = [poses["walk_a"], poses["walk_b"], poses["walk_c"], poses["walk_b"], poses["walk_a"], ImageOps.mirror(poses["walk_b"]), ImageOps.mirror(poses["walk_c"]), ImageOps.mirror(poses["walk_b"])]
+    for f, fr in enumerate(down_seq):
+        walk.alpha_composite(fr, (f * HOME_FW, 0))
+    for r, direction in [(1, "left"), (2, "right"), (3, "up")]:
+        for f in range(8):
+            bob = -2 if f in (1, 5) else (1 if f in (3, 7) else 0)
+            sway = -1 if f in (2, 3) else (1 if f in (6, 7) else 0)
+            walk.alpha_composite(shift_frame(poses[direction], sway, bob), (f * HOME_FW, r * HOME_FH))
+
+    sleep = Image.new("RGBA", (HOME_FW * 4, HOME_FH), (0, 0, 0, 0))
+    meditate = Image.new("RGBA", (HOME_FW * 4, HOME_FH), (0, 0, 0, 0))
+    for f in range(4):
+        sleep.alpha_composite(shift_frame(poses["sleep"], 0, -1 if f % 2 else 0), (f * HOME_FW, 0))
+        meditate.alpha_composite(shift_frame(poses["meditate"], 0, -1 if f == 1 else (1 if f == 3 else 0)), (f * HOME_FW, 0))
+    return {"idle": idle, "walk": walk, "sleep": sleep, "meditate": meditate}
+
+
+def frame_alpha_bbox(sheet, action, frame, row=0):
+    frames = 8 if action == "walk" else 4
+    rows = 4 if action in ("idle", "walk") else 1
+    fw, fh = sheet.width // frames, sheet.height // rows
+    fr = sheet.crop((frame * fw, row * fh, (frame + 1) * fw, (row + 1) * fh))
+    return fr.getchannel("A").getbbox()
+
+
+def recolor_region_from_base(sheet, action, region, fill, shade=None):
+    frames = 8 if action == "walk" else 4
+    rows = 4 if action in ("idle", "walk") else 1
+    out = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+    src = sheet.convert("RGBA")
+    sp = src.load()
+    op = out.load()
+    rx1, ry1, rx2, ry2 = region
+    for y in range(sheet.height):
+        ly = y % HOME_FH
+        if ly < ry1 or ly > ry2:
+            continue
+        for x in range(sheet.width):
+            lx = x % HOME_FW
+            if lx < rx1 or lx > rx2:
+                continue
+            r, g, b, a = sp[x, y]
+            if a < 18:
+                continue
+            # Do not recolor skin or black hair; keep the overlay on robe/trouser silhouettes.
+            if r > 145 and g > 85 and b < 80:
+                continue
+            if r < 45 and g < 45 and b < 45:
+                continue
+            mul = 0.82 + min(0.32, max(r, g, b) / 255 * 0.32)
+            col = tuple(min(255, round(c * mul)) for c in fill[:3]) + (min(230, a),)
+            op[x, y] = col
+    if shade:
+        d = ImageDraw.Draw(out)
+        for row in range(rows):
+            y0 = row * HOME_FH
+            for frame in range(frames):
+                x0 = frame * HOME_FW
+                d.line((x0 + 23, y0 + ry1 + 4, x0 + 42, y0 + ry2 - 3), fill=shade, width=1)
+    return out
+
+
+def make_generated_equipment_overlay(base_sheets, tid):
+    sheets = {}
+    for action, sheet in base_sheets.items():
+        if tid == "body_cloth":
+            sheets[action] = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (218, 205, 174, 255), (72, 96, 120, 180))
+        elif tid == "body_softarmor":
+            ov = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (112, 67, 48, 255), (190, 86, 62, 180))
+            d = ImageDraw.Draw(ov)
+            frames = 8 if action == "walk" else 4
+            rows = 4 if action in ("idle", "walk") else 1
+            for row in range(rows):
+                for f in range(frames):
+                    x, y = f * HOME_FW, row * HOME_FH
+                    d.rectangle((x + 20, y + 53, x + 44, y + 59), fill=(62, 45, 38, 170))
+                    for yy in (43, 48, 64):
+                        d.line((x + 19, y + yy, x + 45, y + yy), fill=(152, 94, 62, 170), width=1)
+            sheets[action] = ov
+        elif tid == "legs_cloth":
+            sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (208, 195, 168, 255))
+        elif tid == "legs_guard":
+            sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (96, 80, 68, 255))
+        elif tid in ("head_cloth", "head_iron"):
+            ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+            d = ImageDraw.Draw(ov)
+            frames = 8 if action == "walk" else 4
+            rows = 4 if action in ("idle", "walk") else 1
+            for row in range(rows):
+                for f in range(frames):
+                    x, y = f * HOME_FW, row * HOME_FH
+                    bbox = frame_alpha_bbox(sheet, action, f, row)
+                    if not bbox:
+                        continue
+                    cx = x + (bbox[0] + bbox[2]) // 2
+                    top = y + bbox[1] + 20
+                    if tid == "head_cloth":
+                        d.rounded_rectangle((cx - 12, top - 5, cx + 12, top + 1), radius=3, fill=(218, 205, 174, 235))
+                        d.line((cx + 9, top, cx + 16, top + 6), fill=(164, 134, 96, 230), width=2)
+                    else:
+                        d.pieslice((cx - 12, top - 11, cx + 12, top + 5), 180, 360, fill=(132, 128, 118, 240), outline=(54, 50, 44, 240))
+                        d.rectangle((cx - 11, top - 1, cx + 11, top + 3), fill=(92, 86, 78, 235))
+            sheets[action] = ov
+        else:
+            ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+            d = ImageDraw.Draw(ov)
+            frames = 8 if action == "walk" else 4
+            rows = 4 if action in ("idle", "walk") else 1
+            steel = (220, 224, 214, 245) if tid == "wpn_iron_sword" else (232, 225, 196, 250)
+            width = 4 if tid == "wpn_iron_sword" else 6
+            for row in range(rows):
+                for f in range(frames):
+                    x, y = f * HOME_FW, row * HOME_FH
+                    if action in ("sleep", "meditate"):
+                        continue
+                    if row == 1:
+                        pts = (x + 22, y + 50, x + 9, y + 25)
+                    elif row == 2:
+                        pts = (x + 43, y + 50, x + 55, y + 25)
+                    elif row == 3:
+                        pts = (x + 44, y + 47, x + 55, y + 19)
+                    else:
+                        pts = (x + 45, y + 50, x + 58, y + 64)
+                    d.line(pts, fill=steel, width=width)
+                    d.line((pts[0], pts[1], pts[0] - 5 if pts[2] < pts[0] else pts[0] + 5, pts[1] + 8), fill=(88, 56, 35, 245), width=4)
+            sheets[action] = ov
+    return sheets
+
+
+def apply_home_actor_layers_v2():
+    base = make_generated_actor_base()
+    if not base:
+        apply_home_actor_layers_v1()
+        return
+    for action, img in base.items():
+        save(img, f"characters/protagonist/{action}.png")
+    overlay_specs = [
+        "head_cloth", "head_iron", "body_cloth", "body_softarmor",
+        "legs_cloth", "legs_guard", "wpn_iron_sword", "wpn_steel_saber",
+    ]
+    for tid in overlay_specs:
+        sheets = make_generated_equipment_overlay(base, tid)
+        for action, img in sheets.items():
+            save(img, f"characters/equip/{tid}/{action}.png")
+
+
 def apply_bed_table_replacement_v2():
     """Replace broken generated bed/table sources with complete lower/front silhouettes."""
     sample = ROOT / "previews/bed-table-replacement-v2-source.png"
@@ -1346,7 +1582,7 @@ def main():
     apply_boss_sources_v1()
     apply_home_decor_source_v1()
     apply_storage_proposals_v1()
-    apply_home_actor_layers_v1()
+    apply_home_actor_layers_v2()
     apply_bed_table_replacement_v2()
     apply_meditation_dais_replacement_v2()
 
