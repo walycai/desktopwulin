@@ -226,11 +226,11 @@
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; lastHeal = 0; // 狂暴期间出手更快
       if (playerRegen > 0 && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen, P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:每秒结算一次,显示+N
       if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
-      // 主动技能：蓝量回满后释放一个"最久未放"的就绪技能（避免低耗技能饿死高耗技能）
+      // 主动技能：各技能独立 CD+固定耗蓝。选"最久未放的就绪技能"为下一个,蓝量够它才放、不够就攒(不放别的)→强制轮转,便宜技能不再饿死贵技能(WalyCai)
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
-      if (mana >= manaMax && enemies.length) {
-        var pick = null; for (i = 0; i < abilities.length; i++) { var ab = abilities[i]; if (ab.cdT <= 0 && manaMax >= ab.cost && (!pick || ab.lastT < pick.lastT)) pick = ab; } // 最久未放的优先(轮换)
-        if (pick) {
+      if (enemies.length) {
+        var pick = null; for (i = 0; i < abilities.length; i++) { var ab = abilities[i]; if (ab.cdT <= 0 && (!pick || ab.lastT < pick.lastT)) pick = ab; } // CD就绪里最久未放优先(轮换顺序),不看蓝量
+        if (pick && mana >= pick.cost) {
           if (pick.type === "aoe") { var atkEff = P0.ATK * 100 / 106, dd = Math.round(atkEff * pick.mult); for (var z = 0; z < enemies.length; z++) { var en = enemies[z]; if (en.x <= melee + 220 && !en.dead) { en.hp -= dd; dmgDealt += dd; if (en.hp <= 0) killEnemy(en); } } lastCast = { type: "aoe", id: pick.id, dmg: dd }; }
           else if (pick.type === "haste") { haste = pick.dur; lastCast = { type: "haste", id: pick.id }; }
           mana -= pick.cost; pick.cdT = pick.cd; pick.lastT = t;
