@@ -217,8 +217,12 @@
     var x = base.x, y = base.y - WALL_PX + (WALL_ROWS - p.cy - p.h) * ROW_PX;
     var w = p.w * HW, h = p.h * ROW_PX;
     var img = images[p.id + (p.side === "left" ? "_left" : "")] || images[p.id];
-    if (img) { ctx.drawImage(img, x, y, w, h); }
-    else { ctx.fillStyle = c.color; ctx.fillRect(x, y, w, h); ctx.strokeStyle = "#3a2a1a"; ctx.strokeRect(x, y, w, h); ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif"; ctx.textAlign = "center"; ctx.fillText(c.glyph + c.name, x + w / 2, y + h / 2 + 4); }
+    // 沿墙面角度斜切：右墙基线 +HH/HW(向右下)、左墙 -HH/HW(向右上)，使壁挂贴合墙面而非平贴
+    var sl = (p.side === "right" ? 1 : -1) * (HH / HW);
+    ctx.save(); ctx.transform(1, sl, 0, 1, x, y);
+    if (img) { ctx.drawImage(img, 0, 0, w, h); }
+    else { ctx.fillStyle = c.color; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = "#3a2a1a"; ctx.strokeRect(0, 0, w, h); ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif"; ctx.textAlign = "center"; ctx.fillText(c.glyph + c.name, w / 2, h / 2 + 4); }
+    ctx.restore();
   }
   function drawFurniture(p, ghost) {
     var c = byId[p.id];
