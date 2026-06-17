@@ -90,7 +90,11 @@
   // ---- 资源 ----
   function tryLoad(src, key, store) { var im = new Image(); im.onload = function () { store[key] = im; }; im.src = src + "?_=" + Date.now(); }
   function loadAssets() {
-    CATALOG.forEach(function (c) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png", c.id, images); if (c.wall) tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_left.png", c.id + "_left", images); });
+    CATALOG.forEach(function (c) {
+      tryLoad("assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png", c.id, images);
+      if (c.wall) tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_left.png", c.id + "_left", images);
+      else if (!c.rug) [1, 2, 3].forEach(function (r) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_r" + r + ".png", c.id + "_r" + r, images); }); // 方向贴图(可选 2/4 面)
+    });
     ["idle", "walk", "sleep", "meditate"].forEach(function (a) { tryLoad("assets/characters/protagonist/" + a + ".png", a, sprites); });
     tryLoad("assets/tiles/indoor/floor_large.png", "floorLarge", env);
     tryLoad("assets/tiles/indoor/wall_right.png", "wallRight", env);
@@ -224,9 +228,17 @@
     else { ctx.fillStyle = c.color; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = "#3a2a1a"; ctx.strokeRect(0, 0, w, h); ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif"; ctx.textAlign = "center"; ctx.fillText(c.glyph + c.name, w / 2, h / 2 + 4); }
     ctx.restore();
   }
+  function furnImg(p) {
+    // 方向贴图：rot0=base, rot1/2/3 找 _r1/_r2/_r3；缺则回退。无方向图时 rot1/3 镜像出"2面"以反映旋转
+    var rot = p.rot || 0;
+    var di = images[p.id + "_r" + rot] || (rot === 3 ? images[p.id + "_r1"] : null);
+    if (di) return { img: di, flip: false };
+    var base = images[p.id];
+    return { img: base, flip: !!base && (rot === 1 || rot === 3) };
+  }
   function drawFurniture(p, ghost) {
     var c = byId[p.id];
-    var img = images[p.id];
+    var fi = furnImg(p), img = fi.img;
     var top = quad(p.cx, p.cy, p.w, p.h); // 顶面四角(底部)
     var zh = c.zh || 12;
     if (img && !ghost) {
@@ -234,7 +246,8 @@
       var ctrX = v(p.cx + p.w / 2, p.cy + p.h / 2).x;  // 菱形水平中心(非下顶点x，避免长方形footprint偏移)
       var botY = v(p.cx + p.w, p.cy + p.h).y;          // 下顶点y
       var iw = (p.w + p.h) * HW, ih = img.height * (iw / img.width);
-      ctx.drawImage(img, ctrX - iw / 2, botY - ih, iw, ih);
+      if (fi.flip) { ctx.save(); ctx.translate(ctrX, 0); ctx.scale(-1, 1); ctx.drawImage(img, -iw / 2, botY - ih, iw, ih); ctx.restore(); }
+      else ctx.drawImage(img, ctrX - iw / 2, botY - ih, iw, ih);
       if (DEBUG_FOOT) { poly(quad(p.cx, p.cy, p.w, p.h)); ctx.strokeStyle = "rgba(0,255,180,.9)"; ctx.lineWidth = 1; ctx.stroke(); }
       return;
     }
