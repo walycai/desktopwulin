@@ -63,6 +63,7 @@
   var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
   var drag = null, selectedPlaced = null, moveMode = null, longTimer = null;
+  var DEBUG_FOOT = false; // 按 G 切换：显示每件家具的 footprint 菱形，校验贴图对齐
 
   // ---- 等距投影（小格中心）----
   function v(cx, cy) { return { x: OX + (cx - cy) * HW, y: OY + (cx + cy) * HH }; } // 网格顶点
@@ -209,10 +210,12 @@
     var top = quad(p.cx, p.cy, p.w, p.h); // 顶面四角(底部)
     var zh = c.zh || 12;
     if (img && !ghost) {
-      // 真图：底部中心对齐 footprint 的正面下顶点
-      var bc = v(p.cx + p.w, p.cy + p.h);
+      // 真图正确对齐：水平=footprint菱形中心；底边=下顶点(最靠前/最低)的y；宽=菱形宽(w+h)*HW，高按比例
+      var ctrX = v(p.cx + p.w / 2, p.cy + p.h / 2).x;  // 菱形水平中心(非下顶点x，避免长方形footprint偏移)
+      var botY = v(p.cx + p.w, p.cy + p.h).y;          // 下顶点y
       var iw = (p.w + p.h) * HW, ih = img.height * (iw / img.width);
-      ctx.drawImage(img, bc.x - iw / 2, bc.y - ih, iw, ih);
+      ctx.drawImage(img, ctrX - iw / 2, botY - ih, iw, ih);
+      if (DEBUG_FOOT) { poly(quad(p.cx, p.cy, p.w, p.h)); ctx.strokeStyle = "rgba(0,255,180,.9)"; ctx.lineWidth = 1; ctx.stroke(); }
       return;
     }
     // 占位等距块：底面 + 抬高顶面 + 侧面
@@ -450,6 +453,7 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "r" || e.key === "R") { if (moveMode) rotatePlaced(moveMode.p); else if (selectedPlaced) rotatePlaced(selectedPlaced); else ghostRot = (ghostRot + 1) % 2; }
       if (e.key === "Escape" && moveMode) cancelMove();
+      if (e.key === "g" || e.key === "G") { DEBUG_FOOT = !DEBUG_FOOT; toast("footprint 对齐网格 " + (DEBUG_FOOT ? "开" : "关")); }
     });
   }
 
