@@ -783,6 +783,145 @@ def apply_combat_sources_v1():
             save(make_combat_sheet(poses[eid], action, frames), f"characters/enemies/{eid}/{action}.png")
 
 
+def actor_layout(action, frame, direction):
+    phase = math.sin(frame * math.pi / 2)
+    bob = int(phase * (1 if action == "idle" else 2))
+    step = 3 if action == "walk" and frame % 2 else -2
+    if action == "sleep":
+        return {"pose": "sleep", "head": (16, 39), "body": (27, 39), "feet": (30, 51), "bob": 0, "step": 0}
+    if action == "meditate":
+        return {"pose": "meditate", "head": (24, 18 + bob), "body": (24, 39 + bob), "feet": (24, 57), "bob": bob, "step": 0}
+    return {"pose": "stand", "head": (24, 16 + bob), "body": (24, 35 + bob), "feet": (24, 59), "bob": bob, "step": step}
+
+
+def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=None):
+    p = actor_layout(action, frame, direction)
+    pose = p["pose"]
+    hx, hy = x + p["head"][0], y + p["head"][1]
+    bx, by = x + p["body"][0], y + p["body"][1]
+    skin = (204, 151, 100, 255)
+    hair = (30, 25, 23, 255)
+
+    if layer == "base":
+        if pose == "stand":
+            d.ellipse((x + 12, y + 55, x + 36, y + 62), fill=(0, 0, 0, 70))
+            d.line((x + 20, y + 43 + p["bob"], x + 18 + p["step"], y + 58), fill=(27, 31, 38, 255), width=4)
+            d.line((x + 28, y + 43 + p["bob"], x + 30 - p["step"], y + 58), fill=(27, 31, 38, 255), width=4)
+            d.polygon([(bx - 9, by - 12), (bx + 8, by - 12), (bx + 12, by + 12), (bx, by + 18), (bx - 12, by + 12)], fill=(38, 78, 112, 255))
+            d.line((bx, by - 11, bx - 4, by + 13), fill=(194, 154, 88, 255), width=1)
+            d.line((bx + 1, by - 11, bx + 8, by + 10), fill=(23, 53, 80, 255), width=1)
+            swing = p["step"] if action == "walk" else 0
+            d.line((bx - 10, by - 7, bx - 17 - swing, by + 6), fill=(34, 64, 96, 255), width=4)
+            d.line((bx + 10, by - 7, bx + 17 + swing, by + 6), fill=(34, 64, 96, 255), width=4)
+            d.ellipse((hx - 8, hy - 8, hx + 8, hy + 9), fill=skin)
+            if direction == "up":
+                d.rectangle((hx - 9, hy - 9, hx + 9, hy + 7), fill=hair)
+            else:
+                d.rectangle((hx - 8, hy - 10, hx + 8, hy - 3), fill=hair)
+                d.rectangle((hx - 3, hy - 15, hx + 2, hy - 9), fill=hair)
+                d.point((hx - 4, hy + 1), fill=(40, 28, 22, 255))
+                d.point((hx + 4, hy + 1), fill=(40, 28, 22, 255))
+        elif pose == "sleep":
+            d.ellipse((x + 10, y + 45, x + 42, y + 57), fill=(0, 0, 0, 65))
+            d.ellipse((x + 9, y + 33, x + 25, y + 48), fill=skin)
+            d.rectangle((x + 20, y + 31, x + 43, y + 44), fill=(38, 78, 112, 255))
+            d.line((x + 29, y + 31, x + 41, y + 22), fill=(232, 226, 196, 180), width=1)
+        else:
+            d.ellipse((x + 10, y + 52, x + 38, y + 61), fill=(0, 0, 0, 65))
+            d.ellipse((hx - 8, hy - 8, hx + 8, hy + 9), fill=skin)
+            d.rectangle((hx - 8, hy - 10, hx + 8, hy - 3), fill=hair)
+            d.polygon([(bx - 8, by - 10), (bx + 8, by - 10), (bx + 10, by + 8), (bx - 10, by + 8)], fill=(38, 78, 112, 255))
+            d.arc((x + 6, y + 39, x + 42, y + 62), 185, 355, fill=(25, 31, 40, 255), width=5)
+            d.ellipse((x + 14, y + 42, x + 34, y + 58), outline=(186, 156, 86, 185), width=1)
+        return
+
+    if pose == "stand":
+        if layer == "body":
+            col = (214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255)
+            trim = (72, 96, 120, 255) if variant == "body_cloth" else (183, 84, 62, 255)
+            d.polygon([(bx - 10, by - 11), (bx + 10, by - 11), (bx + 12, by + 12), (bx, by + 18), (bx - 12, by + 12)], fill=col)
+            d.line((bx - 7, by - 5, bx + 7, by + 8), fill=trim, width=2)
+            if variant == "body_softarmor":
+                for yy in range(by - 6, by + 10, 5):
+                    d.line((bx - 8, yy, bx + 8, yy), fill=(132, 83, 56, 220), width=1)
+        elif layer == "legs":
+            col = (205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255)
+            d.line((x + 20, y + 43 + p["bob"], x + 18 + p["step"], y + 58), fill=col, width=5)
+            d.line((x + 28, y + 43 + p["bob"], x + 30 - p["step"], y + 58), fill=col, width=5)
+            if variant == "legs_guard":
+                d.rectangle((x + 15 + p["step"], y + 51, x + 21 + p["step"], y + 58), fill=(116, 109, 98, 255))
+                d.rectangle((x + 27 - p["step"], y + 51, x + 33 - p["step"], y + 58), fill=(116, 109, 98, 255))
+        elif layer == "head":
+            if variant == "head_cloth":
+                d.rectangle((hx - 9, hy - 8, hx + 9, hy - 3), fill=(212, 198, 166, 255))
+                d.line((hx + 7, hy - 4, hx + 14, hy + 3), fill=(178, 154, 118, 255), width=2)
+            else:
+                d.pieslice((hx - 10, hy - 11, hx + 10, hy + 6), 180, 360, fill=(126, 120, 112, 255), outline=(54, 48, 42, 255))
+                d.rectangle((hx - 9, hy - 3, hx + 9, hy + 3), fill=(92, 84, 76, 255))
+        elif layer == "weapon":
+            steel = (214, 218, 210, 255)
+            grip = (88, 56, 35, 255)
+            if direction == "left":
+                pts = (bx - 16, by - 2, bx - 30, by - 14)
+            elif direction == "right":
+                pts = (bx + 16, by - 2, bx + 30, by - 14)
+            elif direction == "up":
+                pts = (bx + 10, by - 5, bx + 22, by - 18)
+            else:
+                pts = (bx + 12, by - 2, bx + 26, by + 6)
+            d.line(pts, fill=steel, width=3 if variant == "wpn_iron_sword" else 4)
+            d.line((pts[0], pts[1], pts[0] - 5 if pts[2] < pts[0] else pts[0] + 5, pts[1] + 5), fill=grip, width=3)
+    elif pose == "sleep":
+        if layer == "body":
+            d.rectangle((x + 20, y + 31, x + 43, y + 44), fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
+        elif layer == "head":
+            d.rectangle((x + 9, y + 33, x + 25, y + 38), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
+        elif layer == "legs":
+            d.rectangle((x + 31, y + 41, x + 43, y + 48), fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255))
+    elif pose == "meditate":
+        if layer == "body":
+            d.polygon([(bx - 9, by - 9), (bx + 9, by - 9), (bx + 11, by + 8), (bx - 11, by + 8)], fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
+        elif layer == "head":
+            d.rectangle((hx - 9, hy - 8, hx + 9, hy - 3), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
+        elif layer == "legs":
+            d.arc((x + 6, y + 39, x + 42, y + 62), 185, 355, fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255), width=5)
+
+
+def make_actor_sheet(layer="base", variant=None):
+    actions = [("idle", 4, 4), ("walk", 8, 4), ("sleep", 4, 1), ("meditate", 4, 1)]
+    dirs = ["down", "left", "right", "up"]
+    sheets = {}
+    for action, frames, rows in actions:
+        img = Image.new("RGBA", (48 * frames, 64 * rows), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        for r in range(rows):
+            direction = dirs[r] if rows == 4 else "down"
+            for f in range(frames):
+                draw_home_actor(d, f * 48, r * 64, action, f, direction, layer, variant)
+        sheets[action] = img
+    return sheets
+
+
+def apply_home_actor_layers_v1():
+    base = make_actor_sheet("base")
+    for action, img in base.items():
+        save(img, f"characters/protagonist/{action}.png")
+    overlay_specs = {
+        "head_cloth": "head",
+        "head_iron": "head",
+        "body_cloth": "body",
+        "body_softarmor": "body",
+        "legs_cloth": "legs",
+        "legs_guard": "legs",
+        "wpn_iron_sword": "weapon",
+        "wpn_steel_saber": "weapon",
+    }
+    for tid, layer in overlay_specs.items():
+        sheets = make_actor_sheet(layer, tid)
+        for action, img in sheets.items():
+            save(img, f"characters/equip/{tid}/{action}.png")
+
+
 def main():
     environment_assets()
     furniture()
@@ -794,6 +933,7 @@ def main():
     apply_home_asset_sheet_v2()
     apply_equipment_icon_sheet_v1()
     apply_combat_sources_v1()
+    apply_home_actor_layers_v1()
 
 
 if __name__ == "__main__":
