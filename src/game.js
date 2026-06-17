@@ -593,7 +593,8 @@
     for (var i = 0; i < n && pool.length; i++) { var k = Math.floor(Math.random() * pool.length), a = pool.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(Math.random() * (a.b - a.a + 1)) }); }
     return { uid: equipSeq++, tid: tid, affixes: affixes };
   }
-  function itemStats(it) { var t = EQUIP_TPL[it.tid], s = {}; for (var k in t.base) s[k] = (s[k] || 0) + t.base[k]; it.affixes.forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
+  var GEAR_LV_SCALE = 0.12; // 装备等级每级 base ×(1+0.12)，高区掉的同名装备更强(占位,待莱布尼茨并入①/②)
+  function itemStats(it) { var t = EQUIP_TPL[it.tid], s = {}, m = 1 + GEAR_LV_SCALE * ((it.lv || 1) - 1); for (var k in t.base) s[k] = (s[k] || 0) + Math.round(t.base[k] * m); it.affixes.forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
   function baseAttrs() { return CORE.baseAttrs(stats.level, stats.ng); }
   // ---- 人物技能树：力量战士（草案数值，待莱布尼茨平衡）----
   // ---- 人物技能树：力量战士（树状·串联+级别+投点 门槛；Salt & Sanctuary / Titan Quest 风）----
@@ -837,7 +838,7 @@
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
   function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
-  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + rq + " " + parts.join(" "); }
+  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; var lvt = (it.lv && it.lv > 1) ? " ·Lv" + it.lv : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + lvt + rq + " " + parts.join(" "); }
   function equipIconHTML(tid, glyph) {
     return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
@@ -942,7 +943,7 @@
   function openMap() { renderZones(); $("mapModal").classList.remove("hidden"); }
   function bankResult(r) { // 静默结算(用于挑战BOSS前先把本趟战利品入库)
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
-    var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes }); gained.push(d); });
+    var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes, rarity: d.rarity, lv: d.lv || 1 }); gained.push(d); }); // 保留掉落稀有度+装备等级(高区更好)
     stats.gold = (stats.gold || 0) + (r.goldGained || 0); // 金币入账
     var lvups = 0; stats.exp += r.expGained; while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; stats.sp = (stats.sp || 0) + 1; } // 每级 +1 技能点
     syncHpMax(); saveEquip(); save(); return { gained: gained, lvups: lvups, gold: r.goldGained || 0 };

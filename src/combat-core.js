@@ -169,11 +169,11 @@
       if (e.isBoss) {
         bossKilled = true; done = true; outcome = "win";
         // boss 首杀必掉高品质(高稀有度,非高等级需求)
-        if (bag.length < bagMax) { var bit = rollDrop(rng, drop.equipPool); var rs = ["superior", "epic", "epic", "legend"]; bit.rarity = rs[Math.floor(rng() * rs.length)]; var rn = RARITY[bit.rarity].affixes, pp = AFFIX_POOL.slice(), af = []; for (var z = 0; z < rn && pp.length; z++) { var kk = Math.floor(rng() * pp.length), aa = pp.splice(kk, 1)[0]; af.push({ s: aa.s, v: aa.a + Math.floor(rng() * (aa.b - aa.a + 1)) }); } bit.affixes = af; bag.push(bit); drops.push(bit); }
+        if (bag.length < bagMax) { var bit = rollDrop(rng, drop.equipPool); var rs = ["superior", "epic", "epic", "legend"]; bit.rarity = rs[Math.floor(rng() * rs.length)]; var rn = RARITY[bit.rarity].affixes, pp = AFFIX_POOL.slice(), af = []; for (var z = 0; z < rn && pp.length; z++) { var kk = Math.floor(rng() * pp.length), aa = pp.splice(kk, 1)[0]; af.push({ s: aa.s, v: aa.a + Math.floor(rng() * (aa.b - aa.a + 1)) }); } bit.affixes = af; bit.lv = e.lv || 1; bag.push(bit); drops.push(bit); }
         return;
       }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
-      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, rw); bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
+      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, rw); it.lv = e.lv || 1; bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
