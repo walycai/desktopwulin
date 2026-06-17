@@ -72,7 +72,7 @@
   var canvas, ctx, dpr = 1, CW, CH;
   var bag = {}, placed = [], occ = [], wallOcc = { left: [], right: [] };
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
-  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0 }, NG_PER_LV = 100;
+  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0, owned: {} }, NG_PER_LV = 100;
   var ENV_PER_POINT = 50; // 居家环境值每 +50 给 1 居家技能点
   var HOME_SKILLS = [
     { id: "sleep_eff", name: "安眠", max: 5, desc: "睡觉回血效率 +20% / 级" },
@@ -401,18 +401,18 @@
   }
 
   // ---- 仓库 UI ----
-  var STARTER_FURN = { bed_basic: 1, table_square: 1, chair_round: 2, meditation_dais: 1 }; // 新手免费起步(加快首个居家技能点)
-  function initBag() { CATALOG.forEach(function (c) { bag[c.id] = (bag[c.id] || 0) + (STARTER_FURN[c.id] || 0); }); }
+  var STARTER_FURN = { bed_basic: 1, table_square: 1, chair_round: 2, meditation_dais: 1 }; // 新手赠送(含床)≈30环境
+  function initBag() { CATALOG.forEach(function (c) { var n = STARTER_FURN[c.id] || 0; bag[c.id] = (bag[c.id] || 0) + n; if (n) stats.owned[c.id] = (stats.owned[c.id] || 0) + n; }); }
   function renderCats() { var w = $("cats"); w.innerHTML = ""; CATS.forEach(function (ct) { var d = document.createElement("div"); d.className = "cat" + (ct.key === activeCat ? " active" : ""); d.textContent = ct.label; d.onclick = function () { activeCat = ct.key; renderCats(); renderItems(); }; w.appendChild(d); }); }
   function iconHTML(c) { var src = "assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png"; return '<img src="' + src + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'"><span style="display:none;width:46px;height:46px;align-items:center;justify-content:center;background:' + c.color + ';color:#fff;border-radius:4px">' + c.glyph + '</span>'; }
   function renderItems() {
     var w = $("items"); w.innerHTML = "";
     CATALOG.filter(function (c) { return c.cat === activeCat; }).forEach(function (c) {
-      var own = bag[c.id] || 0, afford = (stats.gold || 0) >= c.price;
+      var place = bag[c.id] || 0, own = (stats.owned && stats.owned[c.id]) || 0, afford = (stats.gold || 0) >= c.price;
       var d = document.createElement("div"); d.className = "bag-item" + (selId === c.id ? " selected" : "") + (own <= 0 ? " dim" : "");
-      d.innerHTML = '<div class="ico">' + iconHTML(c) + '</div><div class="nm">' + c.name + (c.func ? " ⚙" : "") + '</div><div class="ct">' + c.w + "×" + c.h + " · 环" + c.env + " · 余" + own + '</div>'
+      d.innerHTML = '<div class="ico">' + iconHTML(c) + '</div><div class="nm">' + c.name + (c.func ? " ⚙" : "") + '</div><div class="ct">环' + c.env + ' · 拥' + own + ' · 可摆' + place + '</div>'
         + '<div class="shop"><span class="price">' + c.price + '💰</span><button class="tb buy"' + (afford ? "" : " disabled") + '>买</button></div>';
-      d.onclick = function () { if ((bag[c.id] || 0) <= 0) { toast("先购买「" + c.name + "」(" + c.price + "💰)"); return; } selId = (selId === c.id ? null : c.id); ghostRot = 0; renderItems(); };
+      d.onclick = function () { if ((bag[c.id] || 0) <= 0) { toast(own > 0 ? "已全摆出，再买可加环境/多摆" : ("先购买「" + c.name + "」(" + c.price + "💰)")); return; } selId = (selId === c.id ? null : c.id); ghostRot = 0; renderItems(); };
       var bb = d.getElementsByClassName("buy")[0]; if (bb) bb.onclick = function (e) { e.stopPropagation(); buyFurniture(c.id); };
       w.appendChild(d);
     });
@@ -461,7 +461,7 @@
   function cancelMove() { var m = moveMode; if (!m) return; m.p.cx = m.ox; m.p.cy = m.oy; fillCells(m.p); moveMode = null; deselect(); toast("已取消移动"); }
   function rotatePlaced(p) {
     var c = byId[p.id]; if (c.fixed || p.wall) return;
-    var nr = (p.rot + 1) % 2, fp = footprint(c, nr);
+    var nr = (p.rot + 1) % 4, fp = footprint(c, nr);
     if (moveMode && moveMode.p === p) { p.rot = nr; p.w = fp.w; p.h = fp.h; return; }
     freeCells(p); if (canPlaceFloor(p.cx, p.cy, fp.w, fp.h, p.uid, p.decor)) { p.rot = nr; p.w = fp.w; p.h = fp.h; } else toast("旋转后放不下");
     fillCells(p); save();
@@ -516,7 +516,7 @@
       if (hit) removePlaced(hit);
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "r" || e.key === "R") { if (moveMode) rotatePlaced(moveMode.p); else if (selectedPlaced) rotatePlaced(selectedPlaced); else ghostRot = (ghostRot + 1) % 2; }
+      if (e.key === "r" || e.key === "R") { if (moveMode) rotatePlaced(moveMode.p); else if (selectedPlaced) rotatePlaced(selectedPlaced); else ghostRot = (ghostRot + 1) % 4; }
       if (e.key === "Escape" && moveMode) cancelMove();
       if (e.key === "g" || e.key === "G") { DEBUG_FOOT = !DEBUG_FOOT; toast("footprint 对齐网格 " + (DEBUG_FOOT ? "开" : "关")); }
     });
@@ -527,8 +527,11 @@
   function load() {
     try { var raw = localStorage.getItem(SAVE_KEY); if (!raw) return false; var d = JSON.parse(raw);
       if (d.bag) { CATALOG.forEach(function (c) { if (d.bag[c.id] == null) d.bag[c.id] = 0; }); bag = d.bag; } // 新家具默认0(金币商店购买)
+      var hadOwned = !!(d.stats && d.stats.owned);
       if (d.stats) stats = Object.assign(stats, d.stats);
-      (d.placed || []).forEach(function (s) { var c = byId[s.id]; if (c) addPlaced(c, s.cx, s.cy, s.rot || 0, !!s.wall, s.side); }); return true;
+      (d.placed || []).forEach(function (s) { var c = byId[s.id]; if (c) addPlaced(c, s.cx, s.cy, s.rot || 0, !!s.wall, s.side); });
+      if (!hadOwned) { stats.owned = {}; for (var k in bag) if (bag[k] > 0) stats.owned[k] = bag[k]; placed.forEach(function (p) { stats.owned[p.id] = (stats.owned[p.id] || 0) + 1; }); } // 老存档迁移：拥有数=可摆+已摆
+      return true;
     } catch (e) { return false; }
   }
   var toastT = null; function toast(m) { var t = $("toast"); t.textContent = m; t.classList.remove("hidden"); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.add("hidden"); }, 1500); }
@@ -665,7 +668,7 @@
     $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 暴伤 " + a.CritDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
   }
   // ---- 居家经济 / 居家技能 ----
-  function homeEnv() { var e = 0; placed.forEach(function (p) { var c = byId[p.id]; if (c && c.env) e += c.env; }); return e; }
+  function homeEnv() { var e = 0, o = stats.owned || {}; for (var id in o) { var c = byId[id]; if (c && c.env) e += c.env * o[id]; } return e; } // 环境值=拥有(已购)数量×env，不依赖陈列(WalyCai设计)
   function homeSpTotal() { return Math.floor(homeEnv() / ENV_PER_POINT); }
   function homeSpLeft() { return Math.max(0, homeSpTotal() - (stats.homeSpSpent || 0)); }
   function homeRank(id) { return (stats.homeSkills && stats.homeSkills[id]) || 0; }
@@ -673,7 +676,8 @@
   function buyFurniture(id) {
     var c = byId[id]; if (!c) return;
     if ((stats.gold || 0) < c.price) { toast("金币不足（需 " + c.price + "💰）"); return; }
-    stats.gold -= c.price; bag[id] = (bag[id] || 0) + 1; save(); renderItems(); updateStats(); toast("购入「" + c.name + "」 -" + c.price + "💰");
+    stats.gold -= c.price; bag[id] = (bag[id] || 0) + 1; stats.owned[id] = (stats.owned[id] || 0) + 1; // 可重复购买,每件+环境(金币无底洞)
+    save(); renderItems(); updateStats(); toast("购入「" + c.name + "」 +环境" + c.env + " · -" + c.price + "💰");
   }
   function sellPrice(it) { // 售价=稀有度基准×(1+词条数*0.15)×(1+精算技能)
     var r = it.rarity || (EQUIP_TPL[it.tid] && "common"); var base = (CORE.SELL && CORE.SELL[r]) || 8;
@@ -883,8 +887,8 @@
     CV.raf = requestAnimationFrame(cvLoop);
   }
   function drawCSprite(key, x, y, faceLeft, anim, t, scale) {
-    var sh = CV.sheets[key], c = CV.ctx, s = scale || 1, w = 64 * s, h = 64 * s;
-    if (sh) { var fw = sh.fw || 64; var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * fw, 0, fw, fw, -w / 2, y - h, w, h); } else { c.drawImage(sh.img, fr * fw, 0, fw, fw, x - w / 2, y - h, w, h); } c.restore(); } // 源用原生帧尺寸fw：boss原生大图即清晰，不再靠放大糊
+    var sh = CV.sheets[key], c = CV.ctx, s = scale || 1, fw = sh && sh.fw ? sh.fw : 64, w = fw * s, h = fw * s;
+    if (sh) { var fr = Math.floor(t * 8) % sh.frames; c.save(); if (faceLeft) { c.translate(x, 0); c.scale(-1, 1); c.drawImage(sh.img, fr * fw, 0, fw, fw, -w / 2, y - h, w, h); } else { c.drawImage(sh.img, fr * fw, 0, fw, fw, x - w / 2, y - h, w, h); } c.restore(); } // 源用原生帧尺寸fw：boss原生大图即清晰，不再靠放大糊
     else { c.fillStyle = faceLeft ? "#9a4a4a" : "#4a6a9a"; c.fillRect(x - 16 * s, y - 56 * s, 32 * s, 56 * s); }
   }
   function drawAttackEffect(x, y, t) {
@@ -906,11 +910,12 @@
     st.enemies.slice().sort(function (a, b) { return b.x - a.x; }).forEach(function (e) {
       var ex = PX + e.x; if (ex > CV.W + 80) return;
       cst.etime[e.uid] = (cst.etime[e.uid] || 0) + 0.016;
-      var sc = e.isBoss ? 2.0 : 1, anm = (e.at > 0 ? "attack" : "idle");
+      var anm = (e.at > 0 ? "attack" : "idle");
       var bkey = e.isBoss && e.bossId && CV.sheets["eb_" + e.bossId + "_" + anm] ? ("eb_" + e.bossId + "_" + anm) : ("e_" + e.id + "_" + anm);
-      drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, sc);
-      bar(ex - 22 * sc, CV.ground - 72 * sc, 44 * sc, e.hp / e.hpMax, "#bf5f5f");
-      if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * sc - 6); }
+      var sh = CV.sheets[bkey], srcScale = sh && sh.fw > 64 ? 1 : (e.isBoss ? 2.0 : 1), uiScale = ((sh && sh.fw) || 64) * srcScale / 64;
+      drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, srcScale);
+      bar(ex - 22 * uiScale, CV.ground - 72 * uiScale, 44 * uiScale, e.hp / e.hpMax, "#bf5f5f");
+      if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * uiScale - 6); }
     });
     // 主角
     var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
