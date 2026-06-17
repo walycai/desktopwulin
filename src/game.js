@@ -1055,11 +1055,11 @@
     { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 20, atkMult: 1.5, name: "血刀老祖", bossId: "xuedaolaozu" } },
     { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 20, atkMult: 1.5, name: "天魔教主", bossId: "tianmojiaozhu" } },
     // 新增5图(WalyCai)：图1难度不变，从图2起等级带"增幅递增"(间隔 +6→+8→+11→+14→+18)，难度超线性追上CP速增；数值待莱布尼茨重调锁
-    { id: "huangquan", name: "黄泉古道", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 20, atkMult: 1.5, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
-    { id: "luosha", name: "罗刹海市", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 20, atkMult: 1.5, name: "罗刹女君", bossId: "luoshanvjun" } },
-    { id: "yaolin", name: "妖兽森林", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 20, atkMult: 1.5, name: "妖兽之王", bossId: "yaoshouwang" } },
-    { id: "jiuyou", name: "九幽魔渊", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 20, atkMult: 1.5, name: "九幽魔尊", bossId: "jiuyoumozun" } },
-    { id: "tianwai", name: "天外魔域", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 20, atkMult: 1.5, name: "万古魔神", bossId: "wangumoshen" } }
+    { id: "huangquan", name: "黄泉古道", bg: "bg_huangquan", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 20, atkMult: 1.5, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
+    { id: "luosha", name: "罗刹海市", bg: "bg_luosha", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 20, atkMult: 1.5, name: "罗刹女君", bossId: "luoshanvjun" } },
+    { id: "yaolin", name: "妖兽森林", bg: "bg_yaolin", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 20, atkMult: 1.5, name: "妖兽之王", bossId: "yaoshouwang" } },
+    { id: "jiuyou", name: "九幽魔渊", bg: "bg_jiuyou", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 20, atkMult: 1.5, name: "九幽魔尊", bossId: "jiuyoumozun" } },
+    { id: "tianwai", name: "天外魔域", bg: "bg_tianwai", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 20, atkMult: 1.5, name: "万古魔神", bossId: "wangumoshen" } }
   ];
   function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
   function goZone(i) { stats.zone = i; save(); $("mapModal").classList.add("hidden"); startCombat(totalAttrs(), { zone: ZONES[i], zoneIdx: i }); } // 前往该区历练
@@ -1125,6 +1125,8 @@
     var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() }; // 附魔流:debuff+射程;playerRegen=内功自动回血(战斗中也回,WalyCai)
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
+    var bgKey = (opts.zone && opts.zone.bg) || "bg_wulin";
+    CV.bg = new Image(); CV.bg.src = "assets/combat/" + bgKey + ".png?_=" + Date.now();
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
     // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
