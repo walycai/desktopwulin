@@ -35,7 +35,11 @@
     bandit: { name: "土匪", HP: 40, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
     sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 },
     xie_jiao: { name: "邪教教众", HP: 90, ATK: 30, DEF: 13, Crit: 10, CritDmg: 155, Hit: 92, Dodge: 10, ATKspd: 115, exp: 85 }, // 占位值，待莱布尼茨整体重调
-    mo_jiao: { name: "魔教精英", HP: 130, ATK: 42, DEF: 18, Crit: 12, CritDmg: 160, Hit: 94, Dodge: 12, ATKspd: 120, exp: 130 } // 占位值，待莱布尼茨整体重调
+    mo_jiao: { name: "魔教精英", HP: 130, ATK: 42, DEF: 18, Crit: 12, CritDmg: 160, Hit: 94, Dodge: 12, ATKspd: 120, exp: 130 }, // 占位值，待莱布尼茨整体重调
+    gui_zu: { name: "黄泉鬼卒", HP: 190, ATK: 60, DEF: 24, Crit: 12, CritDmg: 165, Hit: 96, Dodge: 13, ATKspd: 120, exp: 200 },   // 5-6区(占位)
+    yao_xiu: { name: "罗刹妖修", HP: 280, ATK: 88, DEF: 32, Crit: 14, CritDmg: 170, Hit: 98, Dodge: 15, ATKspd: 125, exp: 300 }, // 6-7区
+    mo_jiang: { name: "九幽魔将", HP: 420, ATK: 130, DEF: 44, Crit: 15, CritDmg: 175, Hit: 100, Dodge: 16, ATKspd: 128, exp: 460 }, // 7-8区
+    gu_mo: { name: "上古魔神", HP: 640, ATK: 195, DEF: 60, Crit: 16, CritDmg: 180, Hit: 104, Dodge: 18, ATKspd: 130, exp: 700 }   // 8-9区
   };
   // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验
@@ -63,7 +67,12 @@
     [["common", 62], ["fine", 29], ["superior", 7], ["epic", 1.5], ["legend", 0.5]],    // 1 幽密林  ~2%
     [["common", 54], ["fine", 32], ["superior", 10], ["epic", 3], ["legend", 1]],       // 2 青城派  ~4%
     [["common", 46], ["fine", 34], ["superior", 13], ["epic", 5], ["legend", 2]],       // 3 血刀门  ~7%
-    [["common", 38], ["fine", 35], ["superior", 17], ["epic", 7], ["legend", 3]]        // 4 魔教总坛 ~10%(封顶,后续区也≈此)
+    [["common", 38], ["fine", 35], ["superior", 17], ["epic", 7], ["legend", 3]],       // 4 魔教总坛 ~10%
+    [["common", 35], ["fine", 35], ["superior", 20], ["epic", 7], ["legend", 3]],       // 5 黄泉古道 ~10%(高区维持稀有≤10%,靠分级base拉强度)
+    [["common", 32], ["fine", 36], ["superior", 22], ["epic", 7], ["legend", 3]],       // 6 罗刹海市
+    [["common", 30], ["fine", 37], ["superior", 23], ["epic", 7], ["legend", 3]],       // 7 妖兽森林
+    [["common", 28], ["fine", 38], ["superior", 24], ["epic", 7], ["legend", 3]],       // 8 九幽魔渊
+    [["common", 26], ["fine", 39], ["superior", 25], ["epic", 7], ["legend", 3]]        // 9 天外魔域 (稀有仍≤10%,superior渐多)
   ];
   function rollRarity(rng, weights) {
     var W = weights || RARITY_WEIGHTS, tot = 0, i; for (i = 0; i < W.length; i++) tot += W[i][1];
