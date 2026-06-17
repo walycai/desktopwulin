@@ -469,6 +469,7 @@
   }
   function backToWander() { player.state = "wander"; player.actUid = 0; player.busy = false; player.anim = "idle"; }
   // ---- 自动化居家技能 ----
+  var autoStats = { kills: 0, exp: 0, gold: 0, runs: 0, loot: 0 }; // 过夜挂机累计(本次会话,给醒来看增量)
   function autoOn(id) { return homeRank(id) > 0 && stats.autoOn && stats.autoOn[id]; } // 已学习且开关打开
   function autoTick() { // 每秒在家结算:受伤自动睡→满血自动打坐/历练
     if (CV.running || player.state === "walking") return;     // 战斗中/移动中不打断
@@ -869,7 +870,7 @@
       btns.appendChild(mn); btns.appendChild(pl); row.appendChild(btns); w.appendChild(row);
     });
     // 自动化技能:学习→开关
-    var sep = document.createElement("div"); sep.className = "hs-sep"; sep.textContent = "⚙ 自动挂机"; w.appendChild(sep);
+    var sep = document.createElement("div"); sep.className = "hs-sep"; sep.textContent = "⚙ 自动挂机" + (autoStats.runs ? "（本次累计 " + autoStats.runs + " 趟 · " + autoStats.kills + " 杀 · +" + autoStats.exp + " exp · +" + autoStats.gold + " 金 · " + autoStats.loot + " 装备）" : ""); w.appendChild(sep);
     HOME_AUTO.forEach(function (n) {
       var learned = homeRank(n.id) > 0, on = !!(stats.autoOn && stats.autoOn[n.id]);
       var row = document.createElement("div"); row.className = "hs-row" + (learned ? " has" : "");
@@ -1088,6 +1089,7 @@
   }
   function applyCombatResult(r) {
     var bk = bankResult(r), gained = bk.gained, lvups = bk.lvups;
+    if (autoOn("auto_sortie") && !r.bossKilled) { autoStats.kills += r.kills; autoStats.exp += r.expGained; autoStats.gold += (r.goldGained || 0); autoStats.runs++; autoStats.loot += gained.length; toast("挂机历练 +" + r.kills + "杀 +" + r.expGained + "exp · 累计 " + autoStats.runs + " 趟"); return; } // 自动挂机:不弹结算框(否则卡住循环),静默累计
     var outTxt = r.outcome === "win" ? "全身而退 ✅" : ("负伤回家（" + (r.bagFull ? "背包已满" : "力竭") + "）");
     var body = '<div>结果：<span class="hl">' + outTxt + '</span></div>';
     body += '<div>击杀：<span class="hl">' + r.kills + '</span> 个 · 历时 ' + r.ttk + 's</div>';
