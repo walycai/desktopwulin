@@ -209,7 +209,8 @@ body {
 .gf-row.gf-nei { border-left-color: #5fbf8f; } .gf-row.gf-wai { border-left-color: #bf5f5f; } .gf-row.gf-qing { border-left-color: #5f8fbf; }
 .gf-row.equipped { background: #36291a; }
 .gf-top { display: flex; justify-content: space-between; align-items: center; }
-.gf-nm { color: #f0e6d2; font-size: 13px; font-weight: 600; }
+.gf-nm { color: #f0e6d2; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.gf-ico { width: 22px; height: 22px; background: center/contain no-repeat; flex: 0 0 22px; }
 .gf-sys { font-size: 10px; color: #9a866a; border: 1px solid #5a4630; border-radius: 4px; padding: 0 3px; }
 .gf-lv { font-size: 12px; color: #ffd98a; }
 .gf-bar { grid-column: 1 / span 2; height: 6px; background: #1c1610; border: 1px solid #4a3826; border-radius: 4px; overflow: hidden; }

@@ -759,7 +759,7 @@
       var st = gfState(g.id), lv = st.lv, learned = lv > 0, equipped = !!gfEquippedSlot(g.id), training = stats.trainId === g.id;
       var need = lv < GONGFA_MAXLV ? gfProfReq(lv) : 0, pct = need ? Math.min(100, Math.round(st.prof / need * 100)) : 100;
       var row = document.createElement("div"); row.className = "gf-row gf-" + g.sys + (equipped ? " equipped" : "");
-      row.innerHTML = '<div class="gf-top"><span class="gf-nm">' + g.name + ' <span class="gf-sys">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tier + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
+      row.innerHTML = '<div class="gf-top"><span class="gf-nm"><i class="gf-ico" style="background-image:url(\'assets/ui/gongfa/book_' + g.id + '.png\')"></i>' + g.name + ' <span class="gf-sys">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tier + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
         + '<div class="gf-bar"><i style="width:' + pct + '%"></i></div>'
         + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + fmtEff(g.active, lv || 1) + '（需装备）</div>';
       var btns = document.createElement("div"); btns.className = "gf-btns";
