@@ -284,6 +284,36 @@
   // ==== build → 实战(单一源)：game.js totalAttrs/abilities 与 @莱布尼茨 sim 共用 ====
   // build = {level, neigong, equipped:{slot:{tid,affixes,lv}}, skills:{nodeId:rank}, gongfa:{id:lv}, gongfaEquip:{nei,wai1,wai2,qing}}
   function neigongLevel(gf) { var s = 0; for (var gid in (gf || {})) s += gf[gid] || 0; return s; } // 内功级别=所有功法等级之和(WalyCai重定义,不再用打坐时间)
+  // ---- 深度技能树扩展(WalyCai:每树3线~200节点,点数预算<<节点数→必取舍) ----
+  // 每条线在原有手作节点之后再延伸 EXT_PER_ROUTE 层纯数值节点(eff加法,数值占位待莱布尼茨)。现有节点效果不动→不影响现有build CP
+  var EXT_PER_ROUTE = 62;
+  var SKILL_EXT_DEF = { // 每树3线:列/起始衔接的尾节点/主属性/每级加成(占位)/名
+    warrior: [
+      { route: "force", col: 0, tail: "whirlwind", stat: "ATK", per: 6, nm: "刚劲" },
+      { route: "arms", col: 2, tail: "equip_atk", stat: "Crit", per: 1, nm: "技击" },
+      { route: "body", col: 4, tail: "berserk", stat: "HP", per: 40, nm: "淬体" }
+    ],
+    enchant: [
+      { route: "fire", col: 0, tail: "fire_conflag", stat: "ATK", per: 5, nm: "炎息" },
+      { route: "ice", col: 2, tail: "ice_permafrost", stat: "ATKspd", per: 1, nm: "冰息" },
+      { route: "poison", col: 4, tail: "poison_corrode", stat: "DEF", per: 4, nm: "毒息" }
+    ]
+  };
+  var SKILL_EXT_EFF = {}; // {nodeId: {stat,per}} 供 buildToCombat 通用应用
+  function genSkillExt(treeId, baseRow) {
+    var out = [], defs = SKILL_EXT_DEF[treeId] || []; baseRow = baseRow || 5;
+    defs.forEach(function (d) {
+      var prev = d.tail;
+      for (var t = 0; t < EXT_PER_ROUTE; t++) {
+        var id = treeId + "_x_" + d.route + "_" + t;
+        SKILL_EXT_EFF[id] = { stat: d.stat, per: d.per };
+        out.push({ id: id, name: d.nm + (t + 1) + "层", col: d.col, row: baseRow + t, max: 5, reqPts: 30 + t * 6, reqLv: Math.min(99, 14 + t * 1), prereq: [prev], eff: { stat: d.stat, per: d.per }, ext: true });
+        prev = id;
+      }
+    });
+    return out;
+  }
+  var SKILL_EXT_NODES = { warrior: genSkillExt("warrior", 5), enchant: genSkillExt("enchant", 5) };
   function buildToCombat(b) {
     b = b || {}; var sk = b.skills || {}, gf = b.gongfa || {}, ge = b.gongfaEquip || {};
     var ngLv = neigongLevel(gf);
@@ -296,6 +326,7 @@
     a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
     for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
     GONGFA_SLOTS.forEach(function (sl) { var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
+    for (var xid in sk) { var xe = SKILL_EXT_EFF[xid]; if (xe && sk[xid] > 0) a[xe.stat] = (a[xe.stat] || 0) + xe.per * sk[xid]; } // 深度扩展节点(纯加法,仅已学才计→不影响现有build CP)
     a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
@@ -308,5 +339,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
 });

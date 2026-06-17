@@ -725,6 +725,7 @@
       { id: "poison_corrode", name: "腐蚀", max: 3, row: 4, col: 4, reqPts: 24, reqLv: 22, prereq: ["poison_plague"], desc: "中毒伤害额外增幅 ×/级" }
     ]
   }];
+  SKILL_TREES.forEach(function (tr) { var ext = (CORE.SKILL_EXT_NODES && CORE.SKILL_EXT_NODES[tr.id]) || []; tr.nodes = tr.nodes.concat(ext); tr.totalPts += ext.reduce(function (s, n) { return s + n.max; }, 0); }); // 深度扩展节点接到各树末尾(WalyCai:每树~200节点,选择性投点)
   var SK_NODE_TREE = {}; SKILL_TREES.forEach(function (tr) { tr.nodes.forEach(function (n) { SK_NODE_TREE[n.id] = tr; }); }); // 节点→所属树
   function treeOfNode(id) { return SK_NODE_TREE[id] || SKILL_TREES[0]; }
   function skillNodeById(id) { for (var t = 0; t < SKILL_TREES.length; t++) { var ns = SKILL_TREES[t].nodes; for (var i = 0; i < ns.length; i++) if (ns[i].id === id) return ns[i]; } return null; }
