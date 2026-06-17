@@ -1459,8 +1459,33 @@ def make_generated_equipment_overlay(base_sheets, tid):
     sheets = {}
     for action, sheet in base_sheets.items():
         if tid == "body_cloth":
-            sheets[action] = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (218, 205, 174, 255), (72, 96, 120, 180))
+            if action == "meditate":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.polygon([(x + 25, 52), (x + 39, 52), (x + 45, 66), (x + 37, 73), (x + 27, 73), (x + 19, 66)], fill=(218, 205, 174, 242))
+                    d.line((x + 32, 53, x + 27, 69), fill=(72, 96, 120, 220), width=2)
+                    d.line((x + 34, 53, x + 41, 67), fill=(72, 96, 120, 180), width=1)
+                    d.arc((x + 15, 56, x + 30, 75), 190, 285, fill=(218, 205, 174, 235), width=4)
+                    d.arc((x + 34, 56, x + 49, 75), 255, 350, fill=(218, 205, 174, 235), width=4)
+                sheets[action] = ov
+            else:
+                sheets[action] = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (218, 205, 174, 255), (72, 96, 120, 180))
         elif tid == "body_softarmor":
+            if action == "meditate":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.polygon([(x + 25, 52), (x + 39, 52), (x + 45, 66), (x + 37, 73), (x + 27, 73), (x + 19, 66)], fill=(112, 67, 48, 242))
+                    d.rectangle((x + 22, 60, x + 42, 65), fill=(62, 45, 38, 210))
+                    for yy in (56, 59, 69):
+                        d.line((x + 23, yy, x + 41, yy), fill=(152, 94, 62, 200), width=1)
+                    d.arc((x + 15, 56, x + 30, 75), 190, 285, fill=(112, 67, 48, 230), width=4)
+                    d.arc((x + 34, 56, x + 49, 75), 255, 350, fill=(112, 67, 48, 230), width=4)
+                sheets[action] = ov
+                continue
             ov = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (112, 67, 48, 255), (190, 86, 62, 180))
             d = ImageDraw.Draw(ov)
             frames = 8 if action == "walk" else 4
@@ -1473,9 +1498,29 @@ def make_generated_equipment_overlay(base_sheets, tid):
                         d.line((x + 19, y + yy, x + 45, y + yy), fill=(152, 94, 62, 170), width=1)
             sheets[action] = ov
         elif tid == "legs_cloth":
-            sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (208, 195, 168, 255))
+            if action == "meditate":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.arc((x + 9, 63, x + 55, 92), 185, 355, fill=(208, 195, 168, 235), width=7)
+                    d.line((x + 23, 78, x + 41, 78), fill=(146, 132, 104, 170), width=2)
+                sheets[action] = ov
+            else:
+                sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (208, 195, 168, 255))
         elif tid == "legs_guard":
-            sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (96, 80, 68, 255))
+            if action == "meditate":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.arc((x + 9, 63, x + 55, 92), 185, 355, fill=(96, 80, 68, 235), width=7)
+                    d.line((x + 21, 78, x + 43, 78), fill=(132, 122, 104, 190), width=2)
+                    d.line((x + 16, 83, x + 30, 83), fill=(72, 62, 54, 190), width=2)
+                    d.line((x + 34, 83, x + 48, 83), fill=(72, 62, 54, 190), width=2)
+                sheets[action] = ov
+            else:
+                sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (96, 80, 68, 255))
         elif tid in ("head_cloth", "head_iron"):
             ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
             d = ImageDraw.Draw(ov)
