@@ -73,7 +73,7 @@
   function strike(rng, atk, def) {
     if (rng() > hitChance(atk, def)) return { hit: false, dmg: 0 };
     var dmg = Math.max(1, atk.ATK * 100 / (100 + def.DEF));
-    if (rng() < (atk.Crit || 0) / 100) dmg *= (atk.CritDmg || 150) / 100;
+    if (rng() < Math.min(0.75, (atk.Crit || 0) / 100)) dmg *= (atk.CritDmg || 150) / 100; // 暴击率封顶75%(莱布尼茨:防刀刀暴击)
     return { hit: true, dmg: Math.round(dmg) };
   }
 
@@ -198,7 +198,7 @@
   // 战力(CP) = √(DPS × EHP) ×10（@莱布尼茨 公式v1，互砍验证 ρ=0.99）。相对强度指数，用于 build/换装对比。
   function combatPower(a) {
     function cl(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
-    var critMult = 1 + (a.Crit / 100) * (a.CritDmg / 100 - 1);
+    var critMult = 1 + (Math.min(75, a.Crit) / 100) * (a.CritDmg / 100 - 1); // 暴击率封顶75%与战斗一致
     var pHit = cl(0.6 + (a.Hit - 6) * 0.01, 0.3, 0.99);
     var atkEff = a.ATK * 100 / (100 + 6);
     var DPS = atkEff * (a.ATKspd / 100) * pHit * critMult;

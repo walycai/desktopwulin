@@ -91,15 +91,17 @@
   var GONGFA_LINES = [
     { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
     { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] },
-    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 3, Hit: 3, Crit: 3, CritDmg: 6, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] }
+    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 4, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] } // 莱布尼茨独立结论:轻功去暴击
   ];
-  function gfScale(o, m) { var r = {}; for (var k in o) r[k] = Math.max(1, Math.round(o[k] * m)); return r; }
+  // 率类属性(暴击/命中/闪避)每阶+固定值(不乘×1.5,否则破表)；其余(HP/ATK/DEF/暴伤/攻速/内力)×1.5^阶
+  var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 };
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(1.5, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
   var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" }; // tier0保留旧id(存档兼容)
   var GONGFA = [];
   GONGFA_LINES.forEach(function (line) {
     for (var t = 0; t < 10; t++) {
-      var m = Math.pow(1.5, t), price = Math.round(240 * Math.pow(5, t));
-      GONGFA.push({ id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScale(line.base.passive, m), active: gfScale(line.base.active, m), price: price });
+      var price = Math.round(240 * Math.pow(5, t));
+      GONGFA.push({ id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: price });
     }
   });
   function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
