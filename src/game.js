@@ -154,6 +154,39 @@
     mouse.cy = Math.max(0, Math.min(GH - fp.h, Math.floor((GH - fp.h) / 2)));
     mouse.onWall = null;
   }
+  function pointInPoly(px, py, pts) {
+    var inside = false;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      var a = pts[i], b = pts[j];
+      if (((a.y > py) !== (b.y > py)) && px < (b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+  function surfaceHostAt(px, py) {
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+    var best = null, bestDepth = -Infinity;
+    placed.forEach(function (p) {
+      if (!isSurfaceHost(p)) return;
+      var lift = surfLift(p);
+      var top = quad(p.cx, p.cy, p.w, p.h).map(function (q) { return { x: q.x, y: q.y - lift }; });
+      if (!pointInPoly(px, py, top)) return;
+      var depth = (p.cx + p.w) + (p.cy + p.h);
+      if (depth > bestDepth) { best = p; bestDepth = depth; }
+    });
+    return best;
+  }
+  function snapDecorToSurface(c) {
+    if (!c || c.cat !== "decor") return false;
+    var host = surfaceHostAt(mouse.x, mouse.y);
+    if (!host) return false;
+    var fp = footprint(c, ghostRot);
+    if (fp.w > host.w || fp.h > host.h) return false;
+    var cc = screenToCell(mouse.x, mouse.y + surfLift(host));
+    mouse.cx = Math.max(host.cx, Math.min(host.cx + host.w - fp.w, cc.cx));
+    mouse.cy = Math.max(host.cy, Math.min(host.cy + host.h - fp.h, cc.cy));
+    mouse.onWall = null;
+    return true;
+  }
 
   function pById(uid) { for (var i = 0; i < placed.length; i++) if (placed[i].uid === uid) return placed[i]; return null; }
   function decorValid(cx, cy, fw, fh, ignoreUid) {
@@ -408,6 +441,7 @@
       drawWallHang({ id: c.id, cx: mouse.wcx, cy: mouse.wrow, w: c.w, h: c.h, side: mouse.onWall });
       return;
     }
+    if (c.cat === "decor") snapDecorToSurface(c);
     seedGhostCell(c);
     if (!validCell(mouse.cx, mouse.cy)) return;
     var fp2 = footprint(c, ghostRot);
@@ -503,7 +537,7 @@
   function tryPlace() {
     var c = byId[selId]; if (!c || bag[c.id] <= 0) return;
     if (c.wall) { if (!mouse.onWall) return; addPlaced(c, mouse.wcx, mouse.wrow, 0, true, mouse.onWall); }
-    else { if (mouse.cx < 0) return; var fp = footprint(c, ghostRot); if (!canPlaceFloor(mouse.cx, mouse.cy, fp.w, fp.h, null, c.cat === "decor")) { toast("这里放不下"); return; } addPlaced(c, mouse.cx, mouse.cy, ghostRot, false); }
+    else { if (c.cat === "decor") snapDecorToSurface(c); if (!validCell(mouse.cx, mouse.cy)) return; var fp = footprint(c, ghostRot); if (!canPlaceFloor(mouse.cx, mouse.cy, fp.w, fp.h, null, c.cat === "decor")) { toast("这里放不下"); return; } addPlaced(c, mouse.cx, mouse.cy, ghostRot, false); }
     bag[c.id]--; if (bag[c.id] <= 0) selId = null; ghostRot = 0; renderItems(); save();
   }
   // 选中/移动/旋转/收回
