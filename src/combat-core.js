@@ -229,5 +229,44 @@
     return Math.round(Math.sqrt(DPS * EHP) * 10);
   }
 
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, nextExp: nextExp, baseAttrs: baseAttrs };
+  // ==== 功法数据(单一源) ====
+  var GONGFA_MAXLV = 10;
+  var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
+  var GONGFA_TIERS = ["白", "绿", "蓝", "紫", "橙", "赤", "金", "玄", "天", "绝"];
+  var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
+  var GONGFA_LINES = [
+    { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
+    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] },
+    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 4, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] }
+  ];
+  var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 }; // 率类每阶+固定(不×1.5)
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(1.5, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
+  var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" };
+  var GONGFA = [], GONGFA_BY = {};
+  GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: Math.round(240 * Math.pow(5, t)) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
+  function gongfaById(id) { return GONGFA_BY[id] || null; }
+  function gfProfReq(lv) { return Math.round(40 * lv * lv); }
+  // ==== 装备等级缩放 + itemStats(单一源) ====
+  var GEAR_LV_SCALE = 0.12;
+  function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var s = {}, m = 1 + GEAR_LV_SCALE * ((it.lv || 1) - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * m); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
+  // ==== build → 实战(单一源)：game.js totalAttrs/abilities 与 @莱布尼茨 sim 共用 ====
+  // build = {level, neigong, equipped:{slot:{tid,affixes,lv}}, skills:{nodeId:rank}, gongfa:{id:lv}, gongfaEquip:{nei,wai1,wai2,qing}}
+  function buildToCombat(b) {
+    b = b || {}; var sk = b.skills || {}, gf = b.gongfa || {}, ge = b.gongfaEquip || {};
+    var a = baseAttrs(b.level || 1, b.neigong || 1);
+    var eq = {}, eqp = b.equipped || {}; for (var slot in eqp) { var it = eqp[slot]; if (!it) continue; var s = itemStats(it); for (var k in s) eq[k] = (eq[k] || 0) + s[k]; }
+    if (eq.ATK) eq.ATK *= 1 + (sk.equip_atk || 0) * 0.05; if (eq.HP) eq.HP *= 1 + (sk.equip_hp || 0) * 0.05;
+    for (var k2 in eq) a[k2] = (a[k2] || 0) + eq[k2];
+    a.HP += (sk.foundation || 0) * 15 + (sk.str_hp || 0) * 30; a.ATK += (sk.foundation || 0) * 2 + (sk.str_atk || 0) * 4; a.DEF += (sk.str_def || 0) * 3;
+    a.Crit += (sk.crit || 0) * 2; a.CritDmg += (sk.critdmg || 0) * 10; a.Hit += (sk.hit || 0) * 3; a.ATKspd += (sk.atkspd || 0) * 3;
+    a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
+    for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
+    GONGFA_SLOTS.forEach(function (sl) { var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
+    a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
+    var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
+    if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
+    if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
+    return { attrs: a, abilities: ab, manaRegen: 8 };
+  }
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, nextExp: nextExp, baseAttrs: baseAttrs };
 });

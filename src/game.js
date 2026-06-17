@@ -7,6 +7,7 @@
 // ============================================================
 (function () {
   "use strict";
+  var CORE = window.WULIN_CORE; // 战斗核心单一源(数值/功法/build→实战)
   var HW = 12, HH = 6;          // 小格菱形半宽/半高 (2:1)
   var GW = 66, GH = 48;         // 地板小格
   var WALL_ROWS = 16, ROW_PX = 11; // 墙高 16 小格档，每档像素
@@ -82,31 +83,11 @@
     { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
     { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" }
   ];
-  // ---- 功法系统：内功/外功/轻功 三体系，被动(修炼即有)+主动(需装备 1内2外1轻)；打坐练熟练度1-10 ----
-  var GONGFA_MAXLV = 10;
-  var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
-  // 30 功法 = 3系 × 10阶，按阶 加成×1.5^t / 价格 240×5^t（莱布尼茨锚点）；tier0=白功法(新手免费送)
-  var GONGFA_TIERS = ["白", "绿", "蓝", "紫", "橙", "赤", "金", "玄", "天", "绝"];
-  var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
-  var GONGFA_LINES = [
-    { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
-    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] },
-    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 4, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] } // 莱布尼茨独立结论:轻功去暴击
-  ];
-  // 率类属性(暴击/命中/闪避)每阶+固定值(不乘×1.5,否则破表)；其余(HP/ATK/DEF/暴伤/攻速/内力)×1.5^阶
-  var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 };
-  function gfScaleTier(o, t) { var r = {}, m = Math.pow(1.5, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
-  var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" }; // tier0保留旧id(存档兼容)
-  var GONGFA = [];
-  GONGFA_LINES.forEach(function (line) {
-    for (var t = 0; t < 10; t++) {
-      var price = Math.round(240 * Math.pow(5, t));
-      GONGFA.push({ id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: price });
-    }
-  });
-  function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
+  // ---- 功法系统：数据/数值以 combat-core 为单一源(与 sim 共用) ----
+  var GONGFA = CORE.GONGFA, GONGFA_SLOTS = CORE.GONGFA_SLOTS, GONGFA_MAXLV = CORE.GONGFA_MAXLV;
+  function gongfaById(id) { return CORE.gongfaById(id); }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
-  function gfProfReq(lv) { return Math.round(40 * lv * lv); } // lv→lv+1 熟练度(莱布尼茨v2:满1系~32分,高级别陡)
+  function gfProfReq(lv) { return CORE.gfProfReq(lv); }
   function gfEquippedSlot(id) { for (var i = 0; i < GONGFA_SLOTS.length; i++) { var k = GONGFA_SLOTS[i].key; if (stats.gongfaEquip[k] === id) return k; } return null; }
   function trainGongfa(amt) {
     var id = stats.trainId; if (!id) return; var g = gongfaById(id); if (!g) return;
@@ -598,7 +579,6 @@
   // 战斗基础：属性 + 装备 + 纸娃娃 + 武器仓库（阶段①，居家可玩）
   // ============================================================
   // 装备数据以 combat-core.js(WULIN_CORE) 为单一真相源（含 reqLv 等级需求），与 sim 共用
-  var CORE = window.WULIN_CORE;
   var RARITY = CORE.RARITY, EQUIP_TPL = CORE.EQUIP_TPL, AFFIX_POOL = CORE.AFFIX_POOL;
   var SLOT_DEFS = [{ key: "head", name: "头", type: "head" }, { key: "neck", name: "项链", type: "neck" }, { key: "body", name: "衣服", type: "body" }, { key: "legs", name: "下身", type: "legs" }, { key: "weapon", name: "手部武器", type: "weapon" }, { key: "ring1", name: "戒指1", type: "ring" }, { key: "ring2", name: "戒指2", type: "ring" }, { key: "belt", name: "腰带", type: "belt" }];
   var STAT_LABEL = { HP: "气血", ATK: "攻击", DEF: "防御", Crit: "暴击率%", CritDmg: "暴击伤害%", Hit: "命中", Dodge: "闪避", ATKspd: "攻速" };
@@ -611,8 +591,7 @@
     for (var i = 0; i < n && pool.length; i++) { var k = Math.floor(Math.random() * pool.length), a = pool.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(Math.random() * (a.b - a.a + 1)) }); }
     return { uid: equipSeq++, tid: tid, affixes: affixes };
   }
-  var GEAR_LV_SCALE = 0.12; // 装备等级每级 base ×(1+0.12)，高区掉的同名装备更强(占位,待莱布尼茨并入①/②)
-  function itemStats(it) { var t = EQUIP_TPL[it.tid], s = {}, m = 1 + GEAR_LV_SCALE * ((it.lv || 1) - 1); for (var k in t.base) s[k] = (s[k] || 0) + Math.round(t.base[k] * m); it.affixes.forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
+  function itemStats(it) { return CORE.itemStats(it); } // 装备词条/等级缩放以 core 为单一源
   function baseAttrs() { return CORE.baseAttrs(stats.level, stats.ng); }
   // ---- 人物技能树：力量战士（草案数值，待莱布尼茨平衡）----
   // ---- 人物技能树：力量战士（树状·串联+级别+投点 门槛；Salt & Sanctuary / Titan Quest 风）----
@@ -656,30 +635,11 @@
     for (var id in sk) { var n = skillNodeById(id); if (!n) { refunded += sk[id]; delete sk[id]; } else if (sk[id] > n.max) { refunded += sk[id] - n.max; sk[id] = n.max; } }
     if (refunded) stats.sp = (stats.sp || 0) + refunded;
   }
-  function totalAttrs() {
-    var a = baseAttrs();
-    var sk = stats.skills || {};
-    // 装备求和（装备百分比技能先作用于装备部分）
-    var eq = {};
-    SLOT_DEFS.forEach(function (sd) { var it = equipped[sd.key]; if (it) { var s = itemStats(it); for (var k in s) eq[k] = (eq[k] || 0) + s[k]; } });
-    if (eq.ATK) eq.ATK *= 1 + (sk.equip_atk || 0) * 0.05;
-    if (eq.HP) eq.HP *= 1 + (sk.equip_hp || 0) * 0.05;
-    for (var k in eq) a[k] = (a[k] || 0) + eq[k];
-    // 技能：基础三维 flat（根基 + 三维节点）
-    a.HP += (sk.foundation || 0) * 15 + (sk.str_hp || 0) * 30;
-    a.ATK += (sk.foundation || 0) * 2 + (sk.str_atk || 0) * 4;
-    a.DEF += (sk.str_def || 0) * 3;
-    a.Crit += (sk.crit || 0) * 2; a.CritDmg += (sk.critdmg || 0) * 10;
-    a.Hit += (sk.hit || 0) * 3; a.ATKspd += (sk.atkspd || 0) * 3;
-    // 技能：总攻击%（重兵精通）；旋风斩/狂暴是战斗主动技(Phase4)，不再折算被动
-    a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
-    // 功法：被动(已修炼即生效)×等级 + 主动(已装备)×等级
-    var gf = stats.gongfa || {};
-    for (var gid in gf) { var gobj = gongfaById(gid), lv = gf[gid].lv || 0; if (!gobj || lv <= 0) continue; for (var pk in gobj.passive) a[pk] = (a[pk] || 0) + gobj.passive[pk] * lv; }
-    GONGFA_SLOTS.forEach(function (sl) { var eid = stats.gongfaEquip && stats.gongfaEquip[sl.key]; if (!eid) return; var go = gongfaById(eid), lv = gfState(eid).lv || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
-    a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
-    return a;
+  function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat)
+    var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0;
+    return { level: stats.level, neigong: stats.ng, equipped: equipped, skills: stats.skills, gongfa: gf, gongfaEquip: stats.gongfaEquip };
   }
+  function totalAttrs() { return CORE.buildToCombat(curBuild()).attrs; } // 单一源：与 sim 逐位一致
   function syncHpMax() { var a = totalAttrs(); stats.hpMax = a.HP; if (stats.hp > stats.hpMax) stats.hp = stats.hpMax; if (stats.hp <= 0) stats.hp = stats.hpMax; stats.manaMax = a.Mana || 0; if (stats.mana == null) stats.mana = stats.manaMax; if (stats.mana > stats.manaMax) stats.mana = stats.manaMax; updateStats(); }
   // ---- 人物技能面板 ----
   function openSkill() { renderSkill(); $("skillModal").classList.remove("hidden"); }
@@ -1010,11 +970,8 @@
   function startCombat(attrs, opts) {
     opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; CV.ctx.imageSmoothingEnabled = false; }
-    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) };
-    var ab = []; // 主动技能(Phase4)：来自技能树 旋风斩/狂暴（数值占位待莱布尼茨）
-    var wr = skillRank("whirlwind"); if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
-    var br = skillRank("berserk"); if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
-    cfg.abilities = ab; cfg.manaRegen = 8;
+    var bc = CORE.buildToCombat(curBuild()); // 单一源：主动技能与 attrs 同源生成
+    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen };
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
