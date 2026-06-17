@@ -57,12 +57,13 @@
   }
 
   // 各区稀有度权重(zoneIdx 0-4)：高区掉率向高稀有度倾斜(待莱布尼茨精调)
+  // 小怪掉落稀有度按区(WalyCai: 高稀有 epic+legend 即使最高区也≤~10%, 别赶上boss; superior 适度涨)
   var ZONE_RARITY = [
-    [["common", 64], ["fine", 28], ["superior", 7], ["epic", 0.8], ["legend", 0.2]],   // 0 牛家村
-    [["common", 48], ["fine", 34], ["superior", 14], ["epic", 3], ["legend", 1]],       // 1 幽密林
-    [["common", 32], ["fine", 36], ["superior", 22], ["epic", 7], ["legend", 3]],       // 2 青城派
-    [["common", 18], ["fine", 32], ["superior", 30], ["epic", 14], ["legend", 6]],      // 3 血刀门
-    [["common", 8], ["fine", 24], ["superior", 34], ["epic", 22], ["legend", 12]]       // 4 魔教总坛
+    [["common", 70], ["fine", 25], ["superior", 4.5], ["epic", 0.4], ["legend", 0.1]],  // 0 牛家村  稀有~0.5%
+    [["common", 62], ["fine", 29], ["superior", 7], ["epic", 1.5], ["legend", 0.5]],    // 1 幽密林  ~2%
+    [["common", 54], ["fine", 32], ["superior", 10], ["epic", 3], ["legend", 1]],       // 2 青城派  ~4%
+    [["common", 46], ["fine", 34], ["superior", 13], ["epic", 5], ["legend", 2]],       // 3 血刀门  ~7%
+    [["common", 38], ["fine", 35], ["superior", 17], ["epic", 7], ["legend", 3]]        // 4 魔教总坛 ~10%(封顶,后续区也≈此)
   ];
   function rollRarity(rng, weights) {
     var W = weights || RARITY_WEIGHTS, tot = 0, i; for (i = 0; i < W.length; i++) tot += W[i][1];
