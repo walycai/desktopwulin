@@ -619,7 +619,7 @@
   var PX = 150; // 主角屏幕 x
   function startCombat(attrs) {
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
-    CV.sim = CORE.createCombat({ attrs: attrs, spawnPool: spawnPoolForLevel(), bagMax: 20, capTime: 90, capKills: 35, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) }); // 封顶:90秒或35杀先到(暂定,待WalyCai)
+    CV.sim = CORE.createCombat({ attrs: attrs, startHp: stats.hp, spawnPool: spawnPoolForLevel(), bagMax: 20, capTime: 90, capKills: 35, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) }); // 带当前气血出战(负伤有代价);封顶90s/35杀
     cst = { floats: [], pT: 0, pAtk: 0, prevKills: 0, prevHp: attrs.HP, etime: {} };
     CV.running = true; CV.speed = 1; CV.endTimer = 0;
     $("combatView").classList.remove("hidden");

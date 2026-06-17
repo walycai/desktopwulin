@@ -126,7 +126,7 @@
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
     var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
-    var P = { hp: P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 };
+    var P = { hp: cfg.startHp != null ? Math.min(cfg.startHp, P0.HP) : P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 }; // startHp=带伤出战(负伤有代价)
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
     function spawn() { var id = spawnPool[Math.floor(rng() * spawnPool.length)], E = ENEMIES[id]; if (!E) return; enemies.push({ uid: uid++, id: id, hp: E.HP, hpMax: E.HP, x: lane, cd: 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, anim: "idle", at: 0 }); }
