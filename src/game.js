@@ -584,7 +584,7 @@
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   // ---- 历练地图：分区 ----
   var ZONES = [
-    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 2, types: ["thug"], boss: { type: "thug", lv: 3, hpMult: 5, atkMult: 1.6, name: "山贼王", bossId: "shanzeiwang" } },
+    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 1, types: ["thug"], boss: { type: "thug", lv: 2, hpMult: 5, atkMult: 1.6, name: "山贼王", bossId: "shanzeiwang" } },
     { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 3, atkMult: 1.6, name: "幽林鬼影", bossId: "youlinguiying" } },
     { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 3, atkMult: 1.6, name: "青城逆徒", bossId: "qingchengnitu" } },
     { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 3, atkMult: 1.7, name: "血刀老祖", bossId: "xuedaolaozu" } },
