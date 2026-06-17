@@ -1376,8 +1376,8 @@ def make_generated_actor_base():
     src = Image.open(sample).convert("RGBA")
     poses = {
         "down": normalize_actor_pose(src, (65, 25, 315, 465), 47, 88, 92),
-        "left": normalize_actor_pose(src, (500, 25, 750, 465), 45, 88, 92),
-        "right": normalize_actor_pose(src, (850, 25, 1105, 465), 45, 88, 92),
+        "left": normalize_actor_pose(src, (850, 25, 1105, 465), 45, 88, 92),
+        "right": normalize_actor_pose(src, (500, 25, 750, 465), 45, 88, 92),
         "up": normalize_actor_pose(src, (1190, 24, 1455, 470), 47, 88, 92),
         "walk_a": normalize_actor_pose(src, (60, 485, 315, 878), 47, 88, 92),
         "walk_b": normalize_actor_pose(src, (390, 475, 650, 878), 47, 88, 92),
@@ -1488,13 +1488,20 @@ def make_generated_equipment_overlay(base_sheets, tid):
                     if not bbox:
                         continue
                     cx = x + (bbox[0] + bbox[2]) // 2
-                    top = y + bbox[1] + 20
+                    top = y + bbox[1] + 9
                     if tid == "head_cloth":
-                        d.rounded_rectangle((cx - 12, top - 5, cx + 12, top + 1), radius=3, fill=(218, 205, 174, 235))
-                        d.line((cx + 9, top, cx + 16, top + 6), fill=(164, 134, 96, 230), width=2)
+                        d.rounded_rectangle((cx - 11, top - 3, cx + 11, top + 2), radius=2, fill=(218, 205, 174, 235))
+                        d.line((cx - 9, top + 1, cx + 9, top + 1), fill=(152, 126, 92, 220), width=1)
+                        if row == 1:
+                            d.line((cx + 8, top + 1, cx + 15, top + 8), fill=(164, 134, 96, 225), width=2)
+                        elif row == 2:
+                            d.line((cx - 8, top + 1, cx - 15, top + 8), fill=(164, 134, 96, 225), width=2)
+                        else:
+                            d.line((cx + 7, top + 1, cx + 13, top + 7), fill=(164, 134, 96, 215), width=2)
                     else:
-                        d.pieslice((cx - 12, top - 11, cx + 12, top + 5), 180, 360, fill=(132, 128, 118, 240), outline=(54, 50, 44, 240))
-                        d.rectangle((cx - 11, top - 1, cx + 11, top + 3), fill=(92, 86, 78, 235))
+                        d.arc((cx - 12, top - 7, cx + 12, top + 10), 190, 350, fill=(144, 140, 128, 240), width=4)
+                        d.line((cx - 10, top + 2, cx + 10, top + 2), fill=(80, 74, 66, 235), width=2)
+                        d.rectangle((cx - 3, top - 5, cx + 3, top + 1), fill=(168, 160, 136, 230))
             sheets[action] = ov
         else:
             ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
