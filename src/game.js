@@ -586,7 +586,9 @@
   var ZONES = [
     { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 2, types: ["thug"], boss: { type: "thug", lv: 3, hpMult: 5, atkMult: 1.6, name: "山贼王", bossId: "shanzeiwang" } },
     { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 3, atkMult: 1.6, name: "幽林鬼影", bossId: "youlinguiying" } },
-    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 3, atkMult: 1.6, name: "青城逆徒", bossId: "qingchengnitu" } }
+    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 3, atkMult: 1.6, name: "青城逆徒", bossId: "qingchengnitu" } },
+    { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 3, atkMult: 1.7, name: "血刀老祖", bossId: "xuedaolaozu" } },
+    { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 3, atkMult: 1.8, name: "天魔教主", bossId: "tianmojiaozhu" } }
   ];
   function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
   function goZone(i) { stats.zone = i; save(); $("mapModal").classList.add("hidden"); startCombat(totalAttrs(), { zone: ZONES[i], zoneIdx: i }); } // 前往该区历练
@@ -637,7 +639,8 @@
     CV.bg = new Image(); CV.bg.src = "assets/combat/bg_wulin.png?_=" + Date.now();
     var pact = ["idle", "advance", "attack", "hurt", "down"];
     pact.forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["p_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/protagonist_combat/" + a + ".png?_=" + Date.now(); });
-    ["thug", "bandit", "sect_novice"].forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
+    Object.keys(CORE.ENEMIES).forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
+    ZONES.forEach(function (z) { var bid = z.boss && z.boss.bossId; if (!bid) return; ["idle", "attack"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["eb_" + bid + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/bosses/" + bid + "/" + a + ".png?_=" + Date.now(); }); });
   }
   var PX = 150; // 主角屏幕 x
   function startCombat(attrs, opts) {
@@ -701,8 +704,9 @@
     st.enemies.slice().sort(function (a, b) { return b.x - a.x; }).forEach(function (e) {
       var ex = PX + e.x; if (ex > CV.W + 80) return;
       cst.etime[e.uid] = (cst.etime[e.uid] || 0) + 0.016;
-      var sc = e.isBoss ? 2.0 : 1;
-      drawCSprite("e_" + e.id + "_" + (e.at > 0 ? "attack" : "idle"), ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, sc);
+      var sc = e.isBoss ? 2.0 : 1, anm = (e.at > 0 ? "attack" : "idle");
+      var bkey = e.isBoss && e.bossId && CV.sheets["eb_" + e.bossId + "_" + anm] ? ("eb_" + e.bossId + "_" + anm) : ("e_" + e.id + "_" + anm);
+      drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, sc);
       bar(ex - 22 * sc, CV.ground - 72 * sc, 44 * sc, e.hp / e.hpMax, "#bf5f5f");
       if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * sc - 6); }
     });

@@ -33,7 +33,9 @@
   var ENEMIES = {
     thug: { name: "小混混", HP: 24, ATK: 6, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 70, exp: 10 },
     bandit: { name: "土匪", HP: 40, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
-    sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 }
+    sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 },
+    xie_jiao: { name: "邪教教众", HP: 90, ATK: 30, DEF: 13, Crit: 10, CritDmg: 155, Hit: 92, Dodge: 10, ATKspd: 115, exp: 85 }, // 占位值，待莱布尼茨整体重调
+    mo_jiao: { name: "魔教精英", HP: 130, ATK: 42, DEF: 18, Crit: 12, CritDmg: 160, Hit: 94, Dodge: 12, ATKspd: 120, exp: 130 } // 占位值，待莱布尼茨整体重调
   };
   // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验
@@ -142,7 +144,7 @@
       else { var id2 = spawnPool[Math.floor(rng() * spawnPool.length)], b = ENEMIES[id2]; if (b) E = { name: b.name, HP: b.HP, ATK: b.ATK, DEF: b.DEF, Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: b.exp, lv: 1, type: id2 }; }
       if (E) enemies.push(mkEnemy(E, false));
     }
-    if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8)); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); enemies.push(mkEnemy(bE, true)); }
+    if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8)); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); var bm = mkEnemy(bE, true); bm.bossId = cfg.boss.bossId; enemies.push(bm); }
     function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= melee + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; }
     function killEnemy(e) {
       e.dead = true; kills++; exp += (e.E.exp || 0);
