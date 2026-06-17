@@ -859,10 +859,13 @@
       slotsEl.appendChild(d);
     });
     var wh = $("whGrid"); wh.innerHTML = ""; $("whCount").textContent = "(" + warehouse.length + ")";
+    var curCP = CORE.combatPower(totalAttrs()); // 升级指示用：穿上后战力更高→绿箭头
     warehouse.forEach(function (it) {
       var t = EQUIP_TPL[it.tid];
-      var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it);
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>';
+      var equippable = stats.level >= (t.reqLv || 1);
+      var up = equippable && CORE.combatPower(previewTotals(it).totals) > curCP;
+      var d = document.createElement("div"); d.className = "wh-item"; d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "");
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>' + (up ? '<span class="up-badge">▲</span>' : '');
       if (dollSel === it) d.style.boxShadow = "0 0 0 2px #ffd98a";
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = (dollSel === it ? null : it); renderDoll(); };
