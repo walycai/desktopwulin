@@ -45,7 +45,7 @@
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5)); }       // 升到下一级所需经验
   function baseAttrs(level, neigong) {
     var lv = level || 1, ng = neigong || 1;
-    return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6 };
+    return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6, Tough: 0 };
   }
   // 默认掉落配置（占位）
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
@@ -87,14 +87,16 @@
     return { id: tid, rarity: rarity, affixes: affixes };
   }
 
-  function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); }
+  function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); } // 命中/闪避新公式待莱布尼茨K值确认后替换
   var CRIT_CAP = 50; // 暴击率有效上限(莱布尼茨)；溢出按2:1转暴伤。未来丹药/特殊技能可抬高
+  var TOUGH_K = 120; // 韧性DR系数：暴击减免=min(75%, 韧性/(韧性+120))(莱布尼茨)
+  function toughDR(t) { return Math.min(0.75, (t || 0) / ((t || 0) + TOUGH_K)); }
   function critResolve(crit, critDmg) { var c = crit || 0, cd = critDmg || 150, eff = Math.min(CRIT_CAP, c), over = Math.max(0, c - CRIT_CAP); return { crit: eff, critDmg: cd + over * 2 }; }
   function strike(rng, atk, def) {
     if (rng() > hitChance(atk, def)) return { hit: false, dmg: 0 };
     var dmg = Math.max(1, atk.ATK * 100 / (100 + def.DEF));
     var cr = critResolve(atk.Crit, atk.CritDmg);
-    if (rng() < cr.crit / 100) dmg *= cr.critDmg / 100;
+    if (rng() < cr.crit / 100 * (1 - toughDR(def.Tough))) dmg *= cr.critDmg / 100; // 防守方韧性削暴击率
     return { hit: true, dmg: Math.round(dmg) };
   }
 
@@ -147,6 +149,7 @@
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
     var rw = cfg.rarityWeights || (cfg.zoneIdx != null && ZONE_RARITY[cfg.zoneIdx]) || null; // 各区稀有度权重(高区掉得更好)
+    var enemyRegenPct = (0.4 + 0.12 * (cfg.zoneIdx || 0)) / 100; // 敌人每秒回血%maxHP(莱布尼茨:DPS软门槛,高区更高)
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
@@ -163,7 +166,7 @@
     var haste = 0, lastCast = null; // haste=狂暴剩余时间
     function leveledEnemy(id, lv) { // 敌人按等级缩放(占位系数,待莱布尼茨调)
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
-      return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id };
+      return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(2 * lv), Tough: Math.round(3 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨:闪避2×lv/韧性3×lv(削玩家命中暴击)
     }
     function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0 }; }
     function spawn() {
@@ -191,7 +194,7 @@
       if (!bossFight) { spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; } }
       else if (enemies.length === 0) { done = true; outcome = bossKilled ? "win" : "win"; return; }
       var i, e;
-      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } }
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } if (enemyRegenPct > 0 && e.hp > 0 && e.hp < e.hpMax) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * enemyRegenPct * dt); } // 敌人回血
       if (haste > 0) haste -= dt;
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; // 狂暴期间出手更快
       if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
@@ -225,7 +228,7 @@
     var atkEff = a.ATK * 100 / (100 + 6);
     var DPS = atkEff * (a.ATKspd / 100) * pHit * critMult;
     var eHitOnMe = cl(0.6 + (88 - a.Dodge) * 0.01, 0.3, 0.99);
-    var EHP = a.HP * (100 + a.DEF) / 100 * (1 / eHitOnMe);
+    var EHP = a.HP * (100 + a.DEF) / 100 * (1 / eHitOnMe) * (1 + toughDR(a.Tough) * 0.5); // 韧性降被暴→更耐打,计入EHP
     return Math.round(Math.sqrt(DPS * EHP) * 10);
   }
 
@@ -269,5 +272,5 @@
     if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
     return { attrs: a, abilities: ab, manaRegen: 8 };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, nextExp: nextExp, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, baseAttrs: baseAttrs };
 });
