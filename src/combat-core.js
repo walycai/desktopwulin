@@ -114,5 +114,45 @@
     };
   }
 
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, nextExp: nextExp, baseAttrs: baseAttrs };
+  // ============================================================
+  // 实时近战模型：敌人按间隔刷新→走近→近战互攻；清怪慢→堆积→多只同揍伤害骤增。
+  // createCombat(cfg).step(dt) 实时步进(线上画面用)；simulateRealtime(cfg) 无头跑到底(sim用)。
+  // ============================================================
+  function createCombat(cfg) {
+    var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
+    var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
+    var P0 = cfg.attrs;
+    var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 95;
+    var spawnInt = cfg.spawnInterval || 1.3, maxField = cfg.maxOnField || 8;
+    var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
+    var P = { hp: P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 };
+    var enemies = [], spawnCd = 0, uid = 1;
+    var kills = 0, drops = [], bag = [], potions = 0, exp = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
+    function spawn() { var id = spawnPool[Math.floor(rng() * spawnPool.length)], E = ENEMIES[id]; if (!E) return; enemies.push({ uid: uid++, id: id, hp: E.HP, hpMax: E.HP, x: lane, cd: 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, anim: "idle", at: 0 }); }
+    function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= melee + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; }
+    function killEnemy(e) {
+      e.dead = true; kills++; exp += (e.E.exp || 0);
+      if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
+      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
+    }
+    function step(dt) {
+      if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
+      spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; }
+      var i, e;
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } }
+      P.cd -= dt; lastHit = null;
+      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.x <= melee) { e.cd -= dt; if (e.cd <= 0) { var s2 = strike(rng, e.E, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; }
+      enemies = enemies.filter(function (q) { return !q.dead; });
+      if (P.hp <= 0) { done = true; outcome = "lose"; }
+    }
+    return {
+      step: step, isDone: function () { return done; },
+      state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lane: lane, melee: melee }; },
+      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
+    };
+  }
+  function simulateRealtime(cfg) { var c = createCombat(cfg), dt = cfg.dt || 0.05, n = 0, lim = (cfg.cap || 5000) / dt + 10; while (!c.isDone() && n++ < lim) c.step(dt); return c.result(); }
+
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, nextExp: nextExp, baseAttrs: baseAttrs };
 });

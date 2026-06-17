@@ -584,12 +584,7 @@
     if (stats.level >= 4) pool.push("sect_novice");
     return pool;
   }
-  function sortie() {
-    var attrs = totalAttrs();
-    // endless：持续历练直到背包满(20)或气血归零
-    var r = CORE.resolveCombat({ attrs: attrs, spawnPool: spawnPoolForLevel(), bagMax: 20, cap: 1000, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
-    startCombat(r, attrs);
-  }
+  function sortie() { startCombat(totalAttrs()); } // 实时近战：刷新→走近→互攻→堆积，直到背包满/0血
   function applyCombatResult(r) {
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
     var gained = [];
@@ -617,50 +612,31 @@
     pact.forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["p_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/protagonist_combat/" + a + ".png?_=" + Date.now(); });
     ["thug", "bandit", "sect_novice"].forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
   }
-  function startCombat(r, attrs) {
+  var PX = 150; // 主角屏幕 x
+  function startCombat(attrs) {
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
-    cst = { result: r, pHpMax: attrs.HP, pHp: attrs.HP, pAnim: "idle", pT: 0, enemyId: null, eHpMax: 1, eHp: 0, eAnim: "idle", eT: 0, enemyX: CV.W + 80, floats: [], scroll: 0, kills: 0, done: false };
-    // 构建播放步骤
-    var steps = [];
-    r.events.forEach(function (ev) {
-      if (ev.type === "spawn") steps.push({ d: 0.5, k: "spawn", id: ev.enemy });
-      else if (ev.type === "phit") steps.push({ d: 0.3, k: "phit", dmg: ev.dmg, ehp: ev.ehp });
-      else if (ev.type === "ehit") steps.push({ d: 0.3, k: "ehit", dmg: ev.dmg, hp: ev.hp });
-      else if (ev.type === "kill") steps.push({ d: 0.5, k: "kill" });
-      else if (ev.type === "potion") steps.push({ d: 0.3, k: "potion", heal: ev.heal });
-      else if (ev.type === "drop") steps.push({ d: 0.4, k: "drop", item: ev.item });
-      else if (ev.type === "death") steps.push({ d: 1.0, k: "death" });
-    });
-    steps.push({ d: 0.8, k: "end" });
-    CV.steps = steps; CV.si = -1; CV.st = 0; CV.running = true; CV.speed = 1;
-    $("combatInfo").textContent = "历练中…";
+    CV.sim = CORE.createCombat({ attrs: attrs, spawnPool: spawnPoolForLevel(), bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) });
+    cst = { floats: [], pT: 0, pAtk: 0, prevKills: 0, prevHp: attrs.HP, etime: {} };
+    CV.running = true; CV.speed = 1; CV.endTimer = 0;
     $("combatView").classList.remove("hidden");
-    nextStep();
     CV.last = 0; CV.raf = requestAnimationFrame(cvLoop);
-  }
-  function nextStep() {
-    CV.si++; CV.st = 0;
-    if (CV.si >= CV.steps.length) { endCombat(); return; }
-    var s = CV.steps[CV.si];
-    if (s.k === "spawn") { cst.enemyId = s.id; var E = CORE.ENEMIES[s.id]; cst.eHpMax = E.HP; cst.eHp = E.HP; cst.eAnim = "idle"; cst.enemyX = CV.W + 60; cst.pAnim = "advance"; }
-    else if (s.k === "phit") { cst.pAnim = "attack"; cst.eAnim = "hurt"; cst.eHp = s.ehp; if (s.dmg) addFloat(cst.enemyX, CV.ground - 70, "-" + s.dmg, "#ff7a6a"); }
-    else if (s.k === "ehit") { cst.eAnim = "attack"; cst.pAnim = "hurt"; cst.pHp = s.hp; if (s.dmg) addFloat(170, CV.ground - 70, "-" + s.dmg, "#ffd24a"); }
-    else if (s.k === "kill") { cst.eAnim = "death"; cst.kills++; }
-    else if (s.k === "potion") { cst.pAnim = "idle"; addFloat(150, CV.ground - 90, "+" + s.heal + " 回血", "#7fe0a0"); }
-    else if (s.k === "drop") { var t = EQUIP_TPL[s.item.id]; addFloat(cst.enemyX, CV.ground - 90, "拾得 " + (t ? t.name : "装备"), CORE.RARITY[s.item.rarity].color); }
-    else if (s.k === "death") { cst.pAnim = "down"; }
-    $("combatInfo").textContent = "已杀 " + cst.kills + " · 气血 " + Math.max(0, Math.round(cst.pHp)) + "/" + cst.pHpMax;
   }
   function addFloat(x, y, text, color) { cst.floats.push({ x: x, y: y, text: text, color: color, t: 0 }); }
   function cvLoop(ts) {
     if (!CV.running) return;
     var dt = Math.min(0.05, (ts - CV.last) / 1000 || 0); CV.last = ts; dt *= (CV.speed || 1);
-    CV.st += dt; cst.pT += dt; cst.eT += dt;
-    // 敌人入场移动
-    var s = CV.steps[CV.si];
-    if (s && s.k === "spawn") { cst.enemyX += (600 - cst.enemyX) * Math.min(1, dt * 5); }
+    cst.pT += dt; if (cst.pAtk > 0) cst.pAtk -= dt;
+    if (!CV.endTimer) {
+      CV.sim.step(dt);
+      var st = CV.sim.state();
+      if (st.lastHit) { addFloat(PX + st.lastHit.x, CV.ground - 92, "-" + st.lastHit.dmg, "#ff7a6a"); cst.pAtk = 0.18; }
+      if (st.kills > cst.prevKills) cst.prevKills = st.kills;
+      if (st.P.hp < cst.prevHp - 0.5) addFloat(PX, CV.ground - 100, "-" + Math.round(cst.prevHp - st.P.hp), "#ffd24a");
+      cst.prevHp = st.P.hp;
+      $("combatInfo").textContent = "已杀 " + st.kills + " · 气血 " + Math.max(0, Math.round(st.P.hp)) + "/" + st.P.hpMax + " · 场上敌 " + st.enemies.length;
+      if (CV.sim.isDone()) CV.endTimer = 1.0;
+    } else { CV.endTimer -= dt; if (CV.endTimer <= 0) { endCombat(); return; } }
     cst.floats.forEach(function (f) { f.t += dt; f.y -= dt * 30; }); cst.floats = cst.floats.filter(function (f) { return f.t < 1.0; });
-    if (CV.st >= (s ? s.d : 0)) nextStep();
     renderCombat();
     CV.raf = requestAnimationFrame(cvLoop);
   }
@@ -671,17 +647,20 @@
   }
   function bar(x, y, w, ratio, col) { var c = CV.ctx; c.fillStyle = "#000"; c.fillRect(x, y, w, 6); c.fillStyle = col; c.fillRect(x, y, w * Math.max(0, ratio), 6); }
   function renderCombat() {
-    var c = CV.ctx;
+    var c = CV.ctx, st = CV.sim.state();
     if (CV.bg && CV.bg.complete && CV.bg.naturalWidth) { var bw = CV.bg.naturalWidth * (CV.H / CV.bg.naturalHeight); for (var bx = 0; bx < CV.W; bx += bw) c.drawImage(CV.bg, bx, 0, bw, CV.H); }
     else { var g = c.createLinearGradient(0, 0, 0, CV.H); g.addColorStop(0, "#3a4a5a"); g.addColorStop(1, "#6a5a3a"); c.fillStyle = g; c.fillRect(0, 0, CV.W, CV.H); c.fillStyle = "#4a3a26"; c.fillRect(0, CV.ground, CV.W, CV.H - CV.ground); }
+    // 敌人（远→近排序，近的后画压前）
+    st.enemies.slice().sort(function (a, b) { return b.x - a.x; }).forEach(function (e) {
+      var ex = PX + e.x; if (ex > CV.W + 60) return;
+      cst.etime[e.uid] = (cst.etime[e.uid] || 0) + 0.016;
+      drawCSprite("e_" + e.id + "_" + (e.at > 0 ? "attack" : "idle"), ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3);
+      bar(ex - 22, CV.ground - 72, 44, e.hp / e.hpMax, "#bf5f5f");
+    });
     // 主角
-    drawCSprite("p_" + cst.pAnim, 170, CV.ground, false, cst.pAnim, cst.pT);
-    bar(140, CV.ground - 78, 60, cst.pHp / cst.pHpMax, "#5fbf5f");
-    // 敌人
-    if (cst.enemyId && (CV.steps[CV.si] && CV.steps[CV.si].k !== "death" || cst.eHp > 0)) {
-      drawCSprite("e_" + cst.enemyId + "_" + cst.eAnim, cst.enemyX, CV.ground, true, cst.eAnim, cst.eT);
-      if (cst.eHp > 0) bar(cst.enemyX - 30, CV.ground - 78, 60, cst.eHp / cst.eHpMax, "#bf5f5f");
-    }
+    var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
+    drawCSprite("p_" + pAnim, PX, CV.ground, false, "", cst.pT);
+    bar(PX - 30, CV.ground - 88, 60, st.P.hp / st.P.hpMax, "#5fbf5f");
     // 飘字
     c.font = "bold 16px sans-serif"; c.textAlign = "center";
     cst.floats.forEach(function (f) { c.globalAlpha = Math.max(0, 1 - f.t); c.fillStyle = f.color; c.fillText(f.text, f.x, f.y); c.globalAlpha = 1; });
@@ -689,7 +668,7 @@
   function endCombat() {
     CV.running = false; if (CV.raf) cancelAnimationFrame(CV.raf);
     $("combatView").classList.add("hidden");
-    applyCombatResult(cst.result);
+    applyCombatResult(CV.sim.result());
   }
 
   // ---- 循环 ----
@@ -716,7 +695,6 @@
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
     loadCombatAssets();
     $("sortieBtn").onclick = sortie;
-    $("combatSkip").onclick = function () { endCombat(); };
     $("meditateBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
     $("sleepBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
     $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
