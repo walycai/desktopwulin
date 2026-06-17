@@ -126,20 +126,40 @@
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
     var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
+    var spawnTypes = cfg.spawnTypes || null, lvMin = cfg.lvMin || 1, lvMax = cfg.lvMax || 1; // 分区:类型池+等级区间(带级缩放)
+    var bossFight = !!cfg.boss, bossKilled = false;
     var P = { hp: cfg.startHp != null ? Math.min(cfg.startHp, P0.HP) : P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 }; // startHp=带伤出战(负伤有代价)
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
-    function spawn() { var id = spawnPool[Math.floor(rng() * spawnPool.length)], E = ENEMIES[id]; if (!E) return; enemies.push({ uid: uid++, id: id, hp: E.HP, hpMax: E.HP, x: lane, cd: 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, anim: "idle", at: 0 }); }
+    function leveledEnemy(id, lv) { // 敌人按等级缩放(占位系数,待莱布尼茨调)
+      var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
+      return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id };
+    }
+    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0 }; }
+    function spawn() {
+      var E;
+      if (spawnTypes) { var id = spawnTypes[Math.floor(rng() * spawnTypes.length)], lv = lvMin + Math.floor(rng() * (lvMax - lvMin + 1)); E = leveledEnemy(id, lv); }
+      else { var id2 = spawnPool[Math.floor(rng() * spawnPool.length)], b = ENEMIES[id2]; if (b) E = { name: b.name, HP: b.HP, ATK: b.ATK, DEF: b.DEF, Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: b.exp, lv: 1, type: id2 }; }
+      if (E) enemies.push(mkEnemy(E, false));
+    }
+    if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8)); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); enemies.push(mkEnemy(bE, true)); }
     function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= melee + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; }
     function killEnemy(e) {
       e.dead = true; kills++; exp += (e.E.exp || 0);
+      if (e.isBoss) {
+        bossKilled = true; done = true; outcome = "win";
+        // boss 首杀必掉高品质(高稀有度,非高等级需求)
+        if (bag.length < bagMax) { var bit = rollDrop(rng, drop.equipPool); var rs = ["superior", "epic", "epic", "legend"]; bit.rarity = rs[Math.floor(rng() * rs.length)]; var rn = RARITY[bit.rarity].affixes, pp = AFFIX_POOL.slice(), af = []; for (var z = 0; z < rn && pp.length; z++) { var kk = Math.floor(rng() * pp.length), aa = pp.splice(kk, 1)[0]; af.push({ s: aa.s, v: aa.a + Math.floor(rng() * (aa.b - aa.a + 1)) }); } bit.affixes = af; bag.push(bit); drops.push(bit); }
+        return;
+      }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
       if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool); bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
       if ((capTime && t >= capTime) || (capKills && kills >= capKills)) { done = true; outcome = "win"; return; } // 封顶收兵(保留战利品)
-      spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; }
+      if (!bossFight) { spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; } }
+      else if (enemies.length === 0) { done = true; outcome = bossKilled ? "win" : "win"; return; }
       var i, e;
       for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } }
       P.cd -= dt; lastHit = null;
@@ -151,7 +171,7 @@
     return {
       step: step, isDone: function () { return done; },
       state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lane: lane, melee: melee }; },
-      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
+      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
     };
   }
   function simulateRealtime(cfg) { var c = createCombat(cfg), dt = cfg.dt || 0.05, n = 0, lim = (cfg.cap || 5000) / dt + 10; while (!c.isDone() && n++ < lim) c.step(dt); return c.result(); }

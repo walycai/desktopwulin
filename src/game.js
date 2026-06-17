@@ -582,13 +582,31 @@
   }
 
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
-  function spawnPoolForLevel() {
-    var pool = ["thug", "thug", "thug"];
-    if (stats.level >= 5) pool.push("bandit", "bandit");   // 推迟引入(莱布尼茨:消除升级断崖)
-    if (stats.level >= 9) pool.push("sect_novice");
-    return pool;
+  // ---- 历练地图：分区 ----
+  var ZONES = [
+    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 4, types: ["thug"], boss: { type: "thug", lv: 5, name: "村霸·王屠户" } },
+    { id: "milin", name: "幽密林", lvMin: 5, lvMax: 9, types: ["thug", "bandit"], boss: { type: "bandit", lv: 10, name: "密林匪首" } },
+    { id: "qingcheng", name: "青城派", lvMin: 10, lvMax: 16, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 17, name: "青城首座" } }
+  ];
+  function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
+  function sortie() { startCombat(totalAttrs(), { zone: curZone() }); }
+  function bossChallenge(zi) { var z = ZONES[zi]; startCombat(totalAttrs(), { zone: z, boss: z.boss, bossZoneIdx: zi }); $("mapModal").classList.add("hidden"); }
+  function renderZones() {
+    var w = $("zoneList"); w.innerHTML = "";
+    ZONES.forEach(function (z, i) {
+      var locked = i > (stats.unlocked || 0), cur = i === (stats.zone || 0);
+      var d = document.createElement("div"); d.className = "zone-row" + (locked ? " locked" : "") + (cur ? " current" : "");
+      var st = locked ? "🔒未解锁" : (cur ? "▶当前" : "已解锁");
+      d.innerHTML = '<span class="zn">' + z.name + '</span><span class="zm">Lv' + z.lvMin + '-' + z.lvMax + ' · ' + st + '</span>';
+      if (!locked) {
+        var b1 = document.createElement("button"); b1.className = "tb"; b1.textContent = "前往历练"; b1.onclick = function () { stats.zone = i; save(); renderZones(); toast("已切到 " + z.name); };
+        var b2 = document.createElement("button"); b2.className = "tb sortie"; b2.textContent = "挑战BOSS"; b2.onclick = function () { bossChallenge(i); };
+        d.appendChild(b1); d.appendChild(b2);
+      }
+      w.appendChild(d);
+    });
   }
-  function sortie() { startCombat(totalAttrs()); } // 实时近战：刷新→走近→互攻→堆积，直到背包满/0血
+  function openMap() { renderZones(); $("mapModal").classList.remove("hidden"); }
   function applyCombatResult(r) {
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
     var gained = [];
@@ -603,7 +621,12 @@
     body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
     if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[d.rarity].color + '">· 【' + RARITY[d.rarity].name + '】' + t.name + '</div>'; }); }
     else body += '<div>本趟无装备掉落</div>';
-    $("cmBody").innerHTML = body; $("cmTitle").textContent = r.outcome === "win" ? "历练归来" : "负伤而归";
+    var title = r.outcome === "win" ? "历练归来" : "负伤而归";
+    if (r.bossKilled && CV.bossZoneIdx != null) {
+      var ni = CV.bossZoneIdx + 1; if (ni < ZONES.length && ni > (stats.unlocked || 0)) { stats.unlocked = ni; save(); body = '<div class="lvup">🎉 击败 ' + ZONES[CV.bossZoneIdx].name + ' BOSS！解锁新区域：' + ZONES[ni].name + '</div>' + body; title = "通关 · 解锁新区"; }
+      else body = '<div class="lvup">🎉 再次击败 BOSS！</div>' + body;
+    } else if (cst.boss && r.outcome === "lose") body = '<div style="color:#ff8a7a">BOSS 未击败，整顿后再来</div>' + body;
+    $("cmBody").innerHTML = body; $("cmTitle").textContent = title;
     $("combatModal").classList.remove("hidden");
   }
 
@@ -617,10 +640,17 @@
     ["thug", "bandit", "sect_novice"].forEach(function (id) { ["idle", "attack", "hurt", "death"].forEach(function (a) { var im = new Image(); im.onload = function () { CV.sheets["e_" + id + "_" + a] = { img: im, frames: Math.max(1, Math.round(im.width / 64)) }; }; im.src = "assets/characters/enemies/" + id + "/" + a + ".png?_=" + Date.now(); }); });
   }
   var PX = 150; // 主角屏幕 x
-  function startCombat(attrs) {
+  function startCombat(attrs, opts) {
+    opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; }
-    CV.sim = CORE.createCombat({ attrs: attrs, startHp: stats.hp, spawnPool: spawnPoolForLevel(), bagMax: 20, capTime: 90, capKills: 35, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) }); // 带当前气血出战(负伤有代价);封顶90s/35杀
-    cst = { floats: [], pT: 0, pAtk: 0, prevKills: 0, prevHp: attrs.HP, etime: {} };
+    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0) };
+    if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
+    else cfg.spawnPool = ["thug"];
+    if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:不封顶,打到死或杀boss
+    else { cfg.capTime = 90; cfg.capKills = 35; }             // 普通历练封顶
+    CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
+    CV.sim = CORE.createCombat(cfg);
+    cst = { floats: [], pT: 0, pAtk: 0, prevKills: 0, prevHp: attrs.HP, etime: {}, boss: !!opts.boss };
     CV.running = true; CV.speed = 1; CV.endTimer = 0;
     $("combatView").classList.remove("hidden");
     CV.last = 0; CV.raf = requestAnimationFrame(cvLoop);
@@ -693,6 +723,10 @@
     $("selRotate").onclick = function () { if (selectedPlaced) rotatePlaced(selectedPlaced); };
     $("selRecall").onclick = function () { if (selectedPlaced) removePlaced(selectedPlaced); };
     $("dollBtn").onclick = openDoll;
+    $("mapBtn").onclick = openMap;
+    $("mapClose").onclick = function () { $("mapModal").classList.add("hidden"); };
+    $("mapModal").addEventListener("click", function (e) { if (e.target === $("mapModal")) $("mapModal").classList.add("hidden"); });
+    $("retreatBtn").onclick = function () { if (CV.running) endCombat(); }; // 撤退:收兵保留战利品
     $("helpBtn").onclick = function () { $("helpModal").classList.remove("hidden"); };
     $("helpClose").onclick = function () { $("helpModal").classList.add("hidden"); };
     $("helpModal").addEventListener("click", function (e) { if (e.target === $("helpModal")) $("helpModal").classList.add("hidden"); });
@@ -706,6 +740,7 @@
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
     if (!loadEquip()) { ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "ring_jade", "belt_iron", "wpn_steel_saber", "body_softarmor"].forEach(function (tid) { warehouse.push(rollItem(tid)); }); saveEquip(); }
     APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
+    if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);
