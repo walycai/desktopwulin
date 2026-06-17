@@ -146,6 +146,14 @@
   function quad(cx, cy, w, h) { return [v(cx, cy), v(cx + w, cy), v(cx + w, cy + h), v(cx, cy + h)]; }
   function poly(pts) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); }
   function shade(hex, f) { var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255; r = Math.max(0, Math.min(255, r * f | 0)); g = Math.max(0, Math.min(255, g * f | 0)); b = Math.max(0, Math.min(255, b * f | 0)); return "rgb(" + r + "," + g + "," + b + ")"; }
+  function validCell(cx, cy) { return Number.isFinite(cx) && Number.isFinite(cy) && cx >= 0 && cy >= 0 && cx < GW && cy < GH; }
+  function seedGhostCell(c) {
+    if (validCell(mouse.cx, mouse.cy) || !c || c.wall) return;
+    var fp = footprint(c, ghostRot);
+    mouse.cx = Math.max(0, Math.min(GW - fp.w, Math.floor((GW - fp.w) / 2)));
+    mouse.cy = Math.max(0, Math.min(GH - fp.h, Math.floor((GH - fp.h) / 2)));
+    mouse.onWall = null;
+  }
 
   function pById(uid) { for (var i = 0; i < placed.length; i++) if (placed[i].uid === uid) return placed[i]; return null; }
   function decorValid(cx, cy, fw, fh, ignoreUid) {
@@ -173,6 +181,7 @@
     return (host && isSurfaceHost(host)) ? host : null;
   }
   function canPlaceFloor(cx, cy, fw, fh, ignoreUid, isDecor) {
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return false;
     if (cx < 0 || cy < 0 || cx + fw > GW || cy + fh > GH) return false;
     if (isDecor) return decorValid(cx, cy, fw, fh, ignoreUid);
     if (overlapsPlayer(cx, cy, fw, fh)) return false;
@@ -399,7 +408,8 @@
       drawWallHang({ id: c.id, cx: mouse.wcx, cy: mouse.wrow, w: c.w, h: c.h, side: mouse.onWall });
       return;
     }
-    if (mouse.cx < 0) return;
+    seedGhostCell(c);
+    if (!validCell(mouse.cx, mouse.cy)) return;
     var fp2 = footprint(c, ghostRot);
     var ok = canPlaceFloor(mouse.cx, mouse.cy, fp2.w, fp2.h, null, c.cat === "decor");
     drawFurniture({ id: c.id, cx: mouse.cx, cy: mouse.cy, w: fp2.w, h: fp2.h, decor: c.cat === "decor" }, ok ? "ok" : "bad");
@@ -469,7 +479,7 @@
       var d = document.createElement("div"); d.className = "bag-item" + (selId === c.id ? " selected" : "") + (own <= 0 ? " dim" : "");
       d.innerHTML = '<div class="ico">' + iconHTML(c) + '</div><div class="nm">' + c.name + (c.func ? " ⚙" : "") + '</div><div class="ct">环' + c.env + ' · 拥' + own + ' · 可摆' + place + '</div>'
         + '<div class="shop"><span class="price">' + c.price + '💰</span><button class="tb buy"' + (afford ? "" : " disabled") + '>买</button></div>';
-      d.onclick = function () { if ((bag[c.id] || 0) <= 0) { toast(own > 0 ? "已全摆出，再买可加环境/多摆" : ("先购买「" + c.name + "」(" + c.price + "💰)")); return; } selId = (selId === c.id ? null : c.id); ghostRot = 0; renderItems(); };
+      d.onclick = function () { if ((bag[c.id] || 0) <= 0) { toast(own > 0 ? "已全摆出，再买可加环境/多摆" : ("先购买「" + c.name + "」(" + c.price + "💰)")); return; } selId = (selId === c.id ? null : c.id); ghostRot = 0; if (selId) seedGhostCell(c); renderItems(); };
       var bb = d.getElementsByClassName("buy")[0]; if (bb) bb.onclick = function (e) { e.stopPropagation(); buyFurniture(c.id); };
       w.appendChild(d);
     });
