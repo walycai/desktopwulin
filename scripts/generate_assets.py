@@ -1369,6 +1369,18 @@ def shift_frame(frame, dx=0, dy=0):
     return out
 
 
+def stretch_frame_content(frame, target_h=None, bottom=86):
+    bbox = frame.getchannel("A").getbbox()
+    if not bbox:
+        return frame
+    content = frame.crop(bbox)
+    if target_h:
+        content = content.resize((content.width, target_h), Image.Resampling.LANCZOS)
+    out = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+    out.alpha_composite(content, ((HOME_FW - content.width) // 2, bottom - content.height))
+    return out
+
+
 def make_generated_actor_base():
     sample = ROOT / "previews/home-protagonist-wuxia-reference-v1.png"
     if not sample.exists():
@@ -1382,7 +1394,7 @@ def make_generated_actor_base():
         "walk_a": normalize_actor_pose(src, (60, 485, 315, 878), 47, 88, 92),
         "walk_b": normalize_actor_pose(src, (390, 475, 650, 878), 47, 88, 92),
         "walk_c": normalize_actor_pose(src, (630, 485, 860, 878), 47, 88, 92),
-        "sleep": normalize_actor_pose(src, (875, 625, 1315, 870), 58, 44, 78),
+        "sleep": stretch_frame_content(normalize_actor_pose(src, (875, 625, 1315, 870), 62, 58, 86), target_h=40, bottom=86),
         "meditate": normalize_actor_pose(src, (1360, 500, 1625, 870), 58, 78, 92),
     }
 
@@ -1459,6 +1471,16 @@ def make_generated_equipment_overlay(base_sheets, tid):
     sheets = {}
     for action, sheet in base_sheets.items():
         if tid == "body_cloth":
+            if action == "sleep":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.rounded_rectangle((x + 22, 52, x + 58, 75), radius=6, fill=(218, 205, 174, 238))
+                    d.line((x + 27, 55, x + 50, 72), fill=(72, 96, 120, 210), width=2)
+                    d.line((x + 22, 64, x + 35, 69), fill=(218, 205, 174, 230), width=4)
+                sheets[action] = ov
+                continue
             if action == "meditate":
                 ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
                 d = ImageDraw.Draw(ov)
@@ -1473,6 +1495,18 @@ def make_generated_equipment_overlay(base_sheets, tid):
             else:
                 sheets[action] = recolor_region_from_base(sheet, action, (9, 34, 55, 82), (218, 205, 174, 255), (72, 96, 120, 180))
         elif tid == "body_softarmor":
+            if action == "sleep":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.rounded_rectangle((x + 23, 52, x + 58, 75), radius=6, fill=(112, 67, 48, 238))
+                    d.rectangle((x + 26, 63, x + 55, 69), fill=(62, 45, 38, 205))
+                    d.line((x + 28, 57, x + 55, 57), fill=(152, 94, 62, 190), width=1)
+                    d.line((x + 29, 72, x + 55, 72), fill=(152, 94, 62, 190), width=1)
+                    d.line((x + 22, 64, x + 35, 69), fill=(112, 67, 48, 225), width=4)
+                sheets[action] = ov
+                continue
             if action == "meditate":
                 ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
                 d = ImageDraw.Draw(ov)
@@ -1498,6 +1532,15 @@ def make_generated_equipment_overlay(base_sheets, tid):
                         d.line((x + 19, y + yy, x + 45, y + yy), fill=(152, 94, 62, 170), width=1)
             sheets[action] = ov
         elif tid == "legs_cloth":
+            if action == "sleep":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.line((x + 42, 67, x + 59, 80), fill=(208, 195, 168, 230), width=7)
+                    d.line((x + 49, 72, x + 59, 84), fill=(208, 195, 168, 210), width=5)
+                sheets[action] = ov
+                continue
             if action == "meditate":
                 ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
                 d = ImageDraw.Draw(ov)
@@ -1509,6 +1552,16 @@ def make_generated_equipment_overlay(base_sheets, tid):
             else:
                 sheets[action] = recolor_region_from_base(sheet, action, (14, 66, 50, 91), (208, 195, 168, 255))
         elif tid == "legs_guard":
+            if action == "sleep":
+                ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+                d = ImageDraw.Draw(ov)
+                for f in range(4):
+                    x = f * HOME_FW
+                    d.line((x + 42, 67, x + 59, 80), fill=(96, 80, 68, 230), width=7)
+                    d.line((x + 49, 72, x + 59, 84), fill=(96, 80, 68, 210), width=5)
+                    d.line((x + 45, 72, x + 58, 80), fill=(132, 122, 104, 190), width=2)
+                sheets[action] = ov
+                continue
             if action == "meditate":
                 ov = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
                 d = ImageDraw.Draw(ov)
@@ -1529,6 +1582,14 @@ def make_generated_equipment_overlay(base_sheets, tid):
             for row in range(rows):
                 for f in range(frames):
                     x, y = f * HOME_FW, row * HOME_FH
+                    if action == "sleep":
+                        if tid == "head_cloth":
+                            d.rounded_rectangle((x + 8, y + 49, x + 28, y + 56), radius=3, fill=(218, 205, 174, 230))
+                            d.line((x + 25, y + 55, x + 33, y + 62), fill=(164, 134, 96, 210), width=2)
+                        else:
+                            d.arc((x + 8, y + 46, x + 30, y + 62), 185, 355, fill=(144, 140, 128, 235), width=4)
+                            d.line((x + 9, y + 55, x + 28, y + 55), fill=(80, 74, 66, 225), width=2)
+                        continue
                     bbox = frame_alpha_bbox(sheet, action, f, row)
                     if not bbox:
                         continue
