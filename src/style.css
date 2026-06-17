@@ -232,4 +232,15 @@ body {
 .gfs-own { font-size: 11px; color: #7fcf8f; }
 .gfs-buy { grid-row: 1 / span 2; font-size: 11px; padding: 2px 6px; white-space: nowrap; }
 
+/* 存档位 */
+.save-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.save-slot { background: #2c2016; border: 1px solid #4f3c28; border-radius: 8px; padding: 8px 10px; }
+.save-slot.current { border-color: #ffd98a; box-shadow: 0 0 0 1px rgba(255,217,138,.3); }
+.ss-h { color: #e8c98a; font-size: 13px; font-weight: 700; }
+.ss-cur { font-size: 10px; color: #7fcf8f; border: 1px solid #4a6a3a; border-radius: 4px; padding: 0 4px; }
+.ss-info { font-size: 12px; color: #d8c8aa; margin: 3px 0 6px; }
+.ss-empty { color: #6a5a44; }
+.ss-btns { display: flex; gap: 6px; }
+.ss-btns .tb { font-size: 12px; padding: 3px 10px; }
+
 .hidden { display: none !important; }

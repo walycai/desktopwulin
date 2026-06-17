@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618u">
+<link rel="stylesheet" href="src/style.css?v=0618v">
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +23,7 @@
       <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
       <button id="helpBtn" class="tb" title="操作/快捷键">❓ 帮助</button>
+      <button id="saveBtn" class="tb" title="存档位(3个)">💾 存档</button>
       <button id="dbgBtn" class="tb" title="调试工具(测试用)">🐞 调试</button>
       <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
     </div>
@@ -92,6 +93,16 @@
       <span id="gfsClose" class="close-x">✕</span>
       <h3>功法商店 <span class="sk-tip">金币 <b id="gfsGold">0</b>💰 · 每升一阶 加成×1.5/价格×5</span></h3>
       <div id="gfsList" class="gfs-list"></div>
+    </div>
+  </div>
+
+  <!-- 存档位 -->
+  <div id="saveModal" class="modal-bg hidden">
+    <div class="combat-panel" style="width:420px;text-align:left">
+      <span id="saveClose" class="close-x">✕</span>
+      <h2 style="text-align:center">💾 存档位</h2>
+      <div class="cm-body">3 个本地存档位，互不覆盖。切换会重载到该存档。</div>
+      <div id="saveList" class="save-list"></div>
     </div>
   </div>
 
@@ -186,7 +197,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618u"></script>
-  <script src="src/game.js?v=0618u"></script>
+  <script src="src/combat-core.js?v=0618v"></script>
+  <script src="src/game.js?v=0618v"></script>
 </body>
 </html>

@@ -15,7 +15,10 @@
   var PLAYER_CELLS = 4;
   var OX = MARGIN + (GH + YARD) * HW;
   var OY = MARGIN + WALL_PX + HEAD;
-  var SAVE_KEY = "wulin_iso_v1";
+  var SAVE_BASE = "wulin_iso_v1"; // 3 存档位：位1=旧key(无后缀,老存档自动归位1)，位2/3加后缀
+  var activeSlot = (function () { var n = parseInt(localStorage.getItem("wulin_slot"), 10); return (n === 2 || n === 3) ? n : 1; })();
+  function slotKey(n) { return SAVE_BASE + (n === 1 ? "" : "_s" + n); }
+  var SAVE_KEY = slotKey(activeSlot);
 
   // 物品目录（占格 w×h，画面高度另给 zh；fixed 不可拖；func 功能件）
   var CATALOG = [
@@ -882,6 +885,24 @@
   function loadEquip() {
     try { var raw = localStorage.getItem(SAVE_KEY + "_eq"); if (!raw) return false; var d = JSON.parse(raw); equipped = d.equipped || equipped; warehouse = d.warehouse || []; equipSeq = d.seq || 1; return true; } catch (e) { return false; }
   }
+  // ---- 3 存档位 ----
+  function slotSummary(n) { try { var raw = localStorage.getItem(slotKey(n)); if (!raw) return null; var d = JSON.parse(raw), s = d.stats || {}; return { lv: s.level || 1, gold: s.gold || 0, zone: (s.unlocked || 0) + 1 }; } catch (e) { return null; } }
+  function switchSlot(n) { if (n === activeSlot) { $("saveModal").classList.add("hidden"); return; } localStorage.setItem("wulin_slot", n); location.reload(); }
+  function clearSlot(n) { if (!confirm("清空存档位 " + n + "？")) return; localStorage.removeItem(slotKey(n)); localStorage.removeItem(slotKey(n) + "_eq"); if (n === activeSlot) location.reload(); else renderSaveSlots(); }
+  function openSaveSlots() { renderSaveSlots(); $("saveModal").classList.remove("hidden"); }
+  function renderSaveSlots() {
+    var w = $("saveList"); w.innerHTML = "";
+    for (var n = 1; n <= 3; n++) { (function (n) {
+      var sm = slotSummary(n), cur = n === activeSlot;
+      var d = document.createElement("div"); d.className = "save-slot" + (cur ? " current" : "");
+      d.innerHTML = '<div class="ss-h">存档位 ' + n + (cur ? ' <span class="ss-cur">当前</span>' : '') + '</div>'
+        + '<div class="ss-info">' + (sm ? ('Lv' + sm.lv + ' · ' + sm.gold + '💰 · 解锁' + sm.zone + '区') : '<span class="ss-empty">空存档</span>') + '</div>';
+      var btns = document.createElement("div"); btns.className = "ss-btns";
+      var bsw = document.createElement("button"); bsw.className = "tb"; bsw.textContent = cur ? "当前(关闭)" : (sm ? "切换进入" : "新建进入"); bsw.onclick = function () { switchSlot(n); };
+      var bcl = document.createElement("button"); bcl.className = "tb"; bcl.textContent = "清空"; bcl.disabled = !sm; bcl.onclick = function () { clearSlot(n); };
+      btns.appendChild(bsw); btns.appendChild(bcl); d.appendChild(btns); w.appendChild(d);
+    })(n); }
+  }
 
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   // ---- 历练地图：分区 ----
@@ -1067,6 +1088,9 @@
     resetOcc(); initBag(); loadAssets();
     if (!load()) { addPlaced(byId.meditation_dais, Math.floor(GW / 2) - 6, 6, 0, false); bag.meditation_dais--; }
     renderCats(); renderItems(); updateStats(); bindInput();
+    $("saveBtn").onclick = openSaveSlots;
+    $("saveClose").onclick = function () { $("saveModal").classList.add("hidden"); };
+    $("saveModal").addEventListener("click", function (e) { if (e.target === $("saveModal")) $("saveModal").classList.add("hidden"); });
     $("dbgBtn").onclick = function () { $("dbgModal").classList.remove("hidden"); };
     $("dbgClose").onclick = function () { $("dbgModal").classList.add("hidden"); };
     $("dbgModal").addEventListener("click", function (e) { if (e.target === $("dbgModal")) $("dbgModal").classList.add("hidden"); });
