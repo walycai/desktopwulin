@@ -240,7 +240,8 @@
     { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 4, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] }
   ];
   var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 }; // 率类每阶+固定(不×1.5)
-  function gfScaleTier(o, t) { var r = {}, m = Math.pow(1.5, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
+  var GONGFA_TIER_MULT = 1.25; // 功法每阶加成倍率(WalyCai选A:数值收敛 ×1.5→×1.25, t9≈×7不再爆炸)；可调
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
   var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" };
   var GONGFA = [], GONGFA_BY = {};
   GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: Math.round(240 * Math.pow(5, t)) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
