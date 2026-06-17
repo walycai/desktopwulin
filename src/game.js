@@ -152,6 +152,7 @@
   var PLAYER_SCALE = 1.6;               // 房屋内主角放大(旧;现按显示高自适应)
   var PLAYER_DISP_H = 104;              // 主角在房内的显示高(px)，按帧高自适应缩放→换更高分辨率帧表也不变占位
   var MEDITATE_Y_LIFT = 0.34;           // 打坐时主角上抬比例(坐到台面蒲团上)，可微调
+  var SLEEP_Y_LIFT = 0.15;              // 睡觉时再上抬比例(躺到床中央而非床脚)，可微调
   var APPEAR_SLOTS = ["body", "legs", "head", "weapon"]; // 只有这些装备改外观(叠在主角上;项链/戒指/腰带不变外观)
   var equipSprites = {};                // tid -> {idle,walk,sleep,meditate} 装备外观层(与主角同帧布局 48×64)
   function loadEquipOverlay(tid) {
@@ -325,23 +326,28 @@
       var frames = SPR.frames[player.anim] || 1, rows = SPR.dirs[player.anim] || 1;
       var fw = (base.naturalWidth || base.width || (SPR.fw * frames)) / frames; // 帧宽=图宽/帧数(自适应48×64或64×96…)
       var fh = (base.naturalHeight || base.height || (SPR.fh * rows)) / rows;
-      var sc = PLAYER_DISP_H / fh, dw = fw * sc, dh = fh * sc;
-      var fi = player.state === "meditating" ? 0 : player.fi; // 打坐用静态帧,不上下漂浮(那是仙侠)
+      var resting = player.state === "meditating" || player.state === "sleeping";
+      // 睡觉是横躺图(角色占帧下部),按"宽"缩放才不会显小;其余按"高"
+      var sc = player.state === "sleeping" ? (PLAYER_DISP_H / fw) : (PLAYER_DISP_H / fh);
+      var dw = fw * sc, dh = fh * sc;
+      var fi = resting ? 0 : player.fi; // 打坐/睡觉用静态帧,不上下漂浮(那是仙侠)
       var dx = ctr.x - dw / 2, dy = ctr.y - dh;
-      if (player.state === "meditating") dy -= dh * MEDITATE_Y_LIFT; // 上抬坐到台面蒲团上(不再悬在台前下方)
+      if (player.state === "meditating") dy -= dh * MEDITATE_Y_LIFT;          // 上抬坐到台面蒲团
+      else if (player.state === "sleeping") dy = ctr.y - dh * 0.5 - dh * SLEEP_Y_LIFT; // 居中躺到床中央
       ctx.drawImage(base, fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
       APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层(按各自帧尺寸,与主角同格)
         var it = equipped[slot]; if (!it) return;
         var ov = equipSprites[it.tid] && equipSprites[it.tid][player.anim];
         if (ov) { var ofw = (ov.naturalWidth || ov.width) / frames, ofh = (ov.naturalHeight || ov.height) / rows; ctx.drawImage(ov, fi * ofw, row * ofh, ofw, ofh, dx, dy, dw, dh); }
       });
-      if (player.state === "meditating") { // 头顶动态 zzZ (武侠搞怪,替代漂浮)
+      if (resting) { // 头顶动态 zzZ (武侠搞怪,替代漂浮) —— 锚在头部上方
+        var hx = dx + dw * (player.state === "sleeping" ? 0.5 : 0.66), hy = dy + (player.state === "sleeping" ? dh * 0.2 : 6);
         var zt = (homeClock % 1.6) / 1.6; ctx.textAlign = "center";
         ctx.font = "bold 12px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - zt * 0.9).toFixed(2) + ")";
-        ctx.fillText("z", dx + dw * 0.72 + zt * 7, dy + 6 - zt * 16);
+        ctx.fillText("z", hx + 6 + zt * 7, hy - zt * 16);
         var zt2 = ((homeClock + 0.8) % 1.6) / 1.6;
         ctx.font = "bold 15px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - zt2 * 0.9).toFixed(2) + ")";
-        ctx.fillText("Z", dx + dw * 0.62 + zt2 * 7, dy + 2 - zt2 * 18);
+        ctx.fillText("Z", hx + zt2 * 7, hy - 4 - zt2 * 18);
       }
     } else {
       ctx.font = "30px sans-serif"; ctx.textAlign = "center";
