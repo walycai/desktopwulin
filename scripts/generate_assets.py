@@ -5,6 +5,8 @@ from collections import deque
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
+HOME_FW = 64
+HOME_FH = 96
 
 
 def ensure(path):
@@ -1087,14 +1089,97 @@ def apply_storage_proposals_v1():
 
 
 def actor_layout(action, frame, direction):
-    phase = math.sin(frame * math.pi / 2)
-    bob = int(phase * (1 if action == "idle" else 2))
-    step = 3 if action == "walk" and frame % 2 else -2
+    if action == "walk":
+        phase = frame / 8 * math.pi * 2
+        bob = round(math.sin(phase) * 2)
+        stride = round(math.sin(phase) * 7)
+        arm = round(math.sin(phase + math.pi) * 6)
+    else:
+        phase = frame / 4 * math.pi * 2
+        bob = round(math.sin(phase) * 1)
+        stride = 0
+        arm = 0
     if action == "sleep":
-        return {"pose": "sleep", "head": (15, 39), "body": (29, 42), "feet": (39, 45), "bob": frame % 2, "step": 0}
+        return {"pose": "sleep", "head": (21, 60), "body": (41, 62), "feet": (55, 66), "bob": frame % 2, "stride": 0, "arm": 0}
     if action == "meditate":
-        return {"pose": "meditate", "head": (24, 17 + bob), "body": (24, 38 + bob), "feet": (24, 57), "bob": bob, "step": 0}
-    return {"pose": "stand", "head": (24, 18 + bob), "body": (24, 37 + bob), "feet": (24, 59), "bob": bob, "step": step}
+        return {"pose": "meditate", "head": (32, 31 + bob), "body": (32, 57 + bob), "feet": (32, 83), "bob": bob, "stride": 0, "arm": 0}
+    return {"pose": "stand", "head": (32, 32 + bob), "body": (32, 58 + bob), "feet": (32, 87), "bob": bob, "stride": stride, "arm": arm}
+
+
+def line_poly(d, pts, fill, width=1):
+    d.line(pts + [pts[0]], fill=fill, width=width)
+
+
+def actor_draw_head(d, hx, hy, direction, skin, hair, headgear=None):
+    if headgear == "cloth":
+        cloth = (216, 203, 174, 255)
+        d.ellipse((hx - 12, hy - 15, hx + 12, hy + 10), fill=skin)
+        d.polygon([(hx - 13, hy - 13), (hx + 12, hy - 13), (hx + 10, hy - 5), (hx - 12, hy - 4)], fill=cloth)
+        d.line((hx + 8, hy - 6, hx + 18, hy + 5), fill=(164, 134, 96, 255), width=3)
+    elif headgear == "iron":
+        d.ellipse((hx - 12, hy - 15, hx + 12, hy + 10), fill=skin)
+        d.pieslice((hx - 14, hy - 18, hx + 14, hy + 5), 180, 360, fill=(134, 130, 120, 255), outline=(54, 50, 44, 255))
+        d.rectangle((hx - 13, hy - 6, hx + 13, hy + 0), fill=(92, 86, 78, 255))
+        d.line((hx - 10, hy - 3, hx + 10, hy - 3), fill=(188, 180, 156, 255), width=1)
+    else:
+        d.ellipse((hx - 12, hy - 15, hx + 12, hy + 10), fill=skin)
+        if direction == "up":
+            d.rectangle((hx - 13, hy - 16, hx + 13, hy + 7), fill=hair)
+            d.rectangle((hx - 5, hy - 25, hx + 5, hy - 15), fill=hair)
+            d.rectangle((hx - 8, hy - 29, hx + 8, hy - 24), fill=hair)
+            return
+        d.pieslice((hx - 13, hy - 18, hx + 13, hy + 2), 180, 360, fill=hair)
+        d.rectangle((hx - 12, hy - 10, hx + 12, hy - 4), fill=hair)
+        d.rectangle((hx - 4, hy - 24, hx + 4, hy - 14), fill=hair)
+        d.rectangle((hx - 9, hy - 28, hx + 9, hy - 23), fill=hair)
+    if direction != "up":
+        if direction == "left":
+            d.point((hx - 5, hy - 3), fill=(34, 24, 20, 255))
+            d.line((hx - 7, hy + 5, hx - 1, hy + 6), fill=(116, 62, 45, 255), width=1)
+        elif direction == "right":
+            d.point((hx + 5, hy - 3), fill=(34, 24, 20, 255))
+            d.line((hx + 1, hy + 6, hx + 7, hy + 5), fill=(116, 62, 45, 255), width=1)
+        else:
+            d.point((hx - 5, hy - 3), fill=(34, 24, 20, 255))
+            d.point((hx + 5, hy - 3), fill=(34, 24, 20, 255))
+            d.line((hx - 5, hy + 6, hx + 5, hy + 6), fill=(116, 62, 45, 255), width=1)
+
+
+def draw_standing_body(d, x, y, p, direction, robe, trim, outline=(18, 42, 62, 255)):
+    bx, by = x + p["body"][0], y + p["body"][1]
+    stride = p["stride"]
+    arm = p["arm"]
+    if direction in ("left", "right"):
+        side = -1 if direction == "left" else 1
+        d.ellipse((x + 17, y + 84, x + 47, y + 94), fill=(0, 0, 0, 65))
+        d.line((bx - 4, by + 13, bx - 6 + stride // 4, y + 88), fill=(28, 31, 36, 255), width=6)
+        d.line((bx + 5, by + 13, bx + 8 - stride // 4, y + 88), fill=(28, 31, 36, 255), width=5)
+        body = [(bx - 10, by - 20), (bx + 9, by - 18), (bx + 15, by + 13), (bx + 4, by + 25), (bx - 13, by + 14)]
+        d.polygon(body, fill=robe, outline=outline)
+        d.line((bx - 4, by - 17, bx + 6, by + 17), fill=trim, width=2)
+        d.line((bx - 5, by + 3, bx + 12, by + 3), fill=(88, 54, 38, 255), width=3)
+        d.line((bx - 10 * side, by - 12, bx - 16 * side + arm // 2, by + 6), fill=(32, 66, 96, 255), width=6)
+        hand_x = bx - 18 * side + arm // 2
+        d.ellipse((hand_x - 3, by + 5, hand_x + 3, by + 10), fill=(210, 154, 102, 255))
+    else:
+        d.ellipse((x + 16, y + 84, x + 48, y + 94), fill=(0, 0, 0, 65))
+        d.line((x + 26, y + 66 + p["bob"], x + 23 + stride // 2, y + 89), fill=(27, 31, 38, 255), width=6)
+        d.line((x + 38, y + 66 + p["bob"], x + 41 - stride // 2, y + 89), fill=(27, 31, 38, 255), width=6)
+        d.ellipse((x + 19 + stride // 2, y + 87, x + 29 + stride // 2, y + 92), fill=(18, 20, 24, 255))
+        d.ellipse((x + 35 - stride // 2, y + 87, x + 45 - stride // 2, y + 92), fill=(18, 20, 24, 255))
+        body = [(bx - 13, by - 23), (bx + 13, by - 23), (bx + 18, by + 15), (bx + 5, by + 27), (bx - 5, by + 27), (bx - 18, by + 15)]
+        d.polygon(body, fill=robe, outline=outline)
+        d.line((bx - 2, by - 20, bx - 8, by + 15), fill=trim, width=2)
+        d.line((bx + 2, by - 20, bx + 9, by + 14), fill=(18, 48, 72, 255), width=2)
+        d.line((bx - 12, by + 2, bx + 12, by + 2), fill=(86, 52, 36, 255), width=3)
+        if direction == "up":
+            d.line((bx - 14, by - 14, bx - 22 - arm // 3, by + 8), fill=(32, 66, 96, 255), width=6)
+            d.line((bx + 14, by - 14, bx + 22 + arm // 3, by + 8), fill=(32, 66, 96, 255), width=6)
+        else:
+            d.line((bx - 15, by - 15, bx - 20 - arm, by + 9), fill=(32, 66, 96, 255), width=6)
+            d.line((bx + 15, by - 15, bx + 20 + arm, by + 9), fill=(32, 66, 96, 255), width=6)
+            d.ellipse((bx - 24 - arm, by + 8, bx - 18 - arm, by + 14), fill=(210, 154, 102, 255))
+            d.ellipse((bx + 18 + arm, by + 8, bx + 24 + arm, by + 14), fill=(210, 154, 102, 255))
 
 
 def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=None):
@@ -1102,99 +1187,85 @@ def draw_home_actor(d, x, y, action, frame, direction, layer="base", variant=Non
     pose = p["pose"]
     hx, hy = x + p["head"][0], y + p["head"][1]
     bx, by = x + p["body"][0], y + p["body"][1]
-    skin = (204, 151, 100, 255)
-    hair = (30, 25, 23, 255)
+    skin = (212, 157, 104, 255)
+    hair = (29, 24, 22, 255)
+    robe = (38, 78, 112, 255)
+    trim = (204, 160, 82, 255)
 
     if layer == "base":
         if pose == "stand":
-            d.ellipse((x + 12, y + 55, x + 36, y + 62), fill=(0, 0, 0, 70))
-            d.line((x + 20, y + 43 + p["bob"], x + 18 + p["step"], y + 58), fill=(27, 31, 38, 255), width=4)
-            d.line((x + 28, y + 43 + p["bob"], x + 30 - p["step"], y + 58), fill=(27, 31, 38, 255), width=4)
-            d.polygon([(bx - 9, by - 12), (bx + 8, by - 12), (bx + 12, by + 12), (bx, by + 18), (bx - 12, by + 12)], fill=(38, 78, 112, 255))
-            d.line((bx, by - 11, bx - 4, by + 13), fill=(194, 154, 88, 255), width=1)
-            d.line((bx + 1, by - 11, bx + 8, by + 10), fill=(23, 53, 80, 255), width=1)
-            swing = p["step"] if action == "walk" else 0
-            d.line((bx - 10, by - 7, bx - 17 - swing, by + 6), fill=(34, 64, 96, 255), width=4)
-            d.line((bx + 10, by - 7, bx + 17 + swing, by + 6), fill=(34, 64, 96, 255), width=4)
-            d.ellipse((hx - 8, hy - 8, hx + 8, hy + 9), fill=skin)
-            if direction == "up":
-                d.rectangle((hx - 9, hy - 9, hx + 9, hy + 7), fill=hair)
-            else:
-                d.rectangle((hx - 8, hy - 10, hx + 8, hy - 3), fill=hair)
-                d.rectangle((hx - 3, hy - 15, hx + 2, hy - 9), fill=hair)
-                d.point((hx - 4, hy + 1), fill=(40, 28, 22, 255))
-                d.point((hx + 4, hy + 1), fill=(40, 28, 22, 255))
+            draw_standing_body(d, x, y, p, direction, robe, trim)
+            actor_draw_head(d, hx, hy, direction, skin, hair)
         elif pose == "sleep":
             breath = p["bob"]
-            d.ellipse((x + 7, y + 47, x + 44, y + 58), fill=(0, 0, 0, 60))
-            d.ellipse((x + 7, y + 35, x + 24, y + 50), fill=skin)
-            d.rectangle((x + 9, y + 34, x + 23, y + 39), fill=hair)
-            d.rounded_rectangle((x + 19, y + 34 - breath, x + 43, y + 49 - breath), radius=4, fill=(38, 78, 112, 255), outline=(22, 52, 78, 255), width=1)
-            d.line((x + 25, y + 36 - breath, x + 39, y + 47 - breath), fill=(194, 154, 88, 180), width=1)
-            d.line((x + 37, y + 48 - breath, x + 45, y + 53), fill=(27, 31, 38, 255), width=3)
+            d.ellipse((x + 8, y + 70, x + 60, y + 86), fill=(0, 0, 0, 55))
+            d.ellipse((x + 9, y + 53, x + 32, y + 73), fill=skin)
+            d.rectangle((x + 11, y + 49, x + 31, y + 57), fill=hair)
+            d.rounded_rectangle((x + 26, y + 51 - breath, x + 58, y + 73 - breath), radius=5, fill=robe, outline=(18, 42, 62, 255), width=1)
+            d.line((x + 31, y + 55 - breath, x + 52, y + 70 - breath), fill=trim, width=2)
+            d.line((x + 48, y + 72 - breath, x + 59, y + 79), fill=(27, 31, 38, 255), width=5)
+            d.line((x + 23, y + 64, x + 34, y + 69), fill=(210, 154, 102, 255), width=4)
+            if frame % 2:
+                d.arc((x + 36, y + 33, x + 56, y + 53), 210, 330, fill=(228, 222, 196, 160), width=1)
         else:
-            d.ellipse((x + 8, y + 52, x + 40, y + 61), fill=(0, 0, 0, 65))
-            d.arc((x + 8, y + 41, x + 40, y + 61), 178, 362, fill=(25, 31, 40, 255), width=6)
-            d.arc((x + 12, y + 44, x + 36, y + 60), 190, 350, fill=(186, 156, 86, 160), width=2)
-            d.ellipse((hx - 8, hy - 8, hx + 8, hy + 9), fill=skin)
-            d.rectangle((hx - 8, hy - 10, hx + 8, hy - 3), fill=hair)
-            d.polygon([(bx - 8, by - 10), (bx + 8, by - 10), (bx + 10, by + 8), (bx - 10, by + 8)], fill=(38, 78, 112, 255))
-            d.line((bx - 9, by - 1, bx - 17, by + 6), fill=(34, 64, 96, 255), width=3)
-            d.line((bx + 9, by - 1, bx + 17, by + 6), fill=(34, 64, 96, 255), width=3)
+            d.ellipse((x + 9, y + 79, x + 55, y + 91), fill=(0, 0, 0, 60))
+            d.arc((x + 12, y + 62, x + 52, y + 91), 178, 362, fill=(25, 31, 40, 255), width=9)
+            d.arc((x + 17, y + 67, x + 47, y + 90), 190, 350, fill=(186, 156, 86, 180), width=3)
+            d.polygon([(bx - 12, by - 17), (bx + 12, by - 17), (bx + 15, by + 9), (bx + 8, by + 16), (bx - 8, by + 16), (bx - 15, by + 9)], fill=robe, outline=(18, 42, 62, 255))
+            d.line((bx - 2, by - 15, bx - 7, by + 10), fill=trim, width=2)
+            d.line((bx - 14, by - 6, bx - 25, by + 9), fill=(32, 66, 96, 255), width=5)
+            d.line((bx + 14, by - 6, bx + 25, by + 9), fill=(32, 66, 96, 255), width=5)
+            actor_draw_head(d, hx, hy, "down", skin, hair)
             if frame % 2 == 0:
-                d.arc((x + 12, y + 13, x + 36, y + 37), 210, 330, fill=(122, 170, 188, 120), width=1)
+                d.arc((x + 17, y + 23, x + 47, y + 55), 210, 330, fill=(122, 170, 188, 120), width=2)
         return
 
     if pose == "stand":
         if layer == "body":
-            col = (214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255)
-            trim = (72, 96, 120, 255) if variant == "body_cloth" else (183, 84, 62, 255)
-            d.polygon([(bx - 10, by - 11), (bx + 10, by - 11), (bx + 12, by + 12), (bx, by + 18), (bx - 12, by + 12)], fill=col)
-            d.line((bx - 7, by - 5, bx + 7, by + 8), fill=trim, width=2)
+            col = (216, 202, 170, 255) if variant == "body_cloth" else (104, 62, 44, 255)
+            body_trim = (72, 96, 120, 255) if variant == "body_cloth" else (190, 86, 62, 255)
+            draw_standing_body(d, x, y, p, direction, col, body_trim, outline=(74, 52, 38, 255))
             if variant == "body_softarmor":
-                for yy in range(by - 6, by + 10, 5):
-                    d.line((bx - 8, yy, bx + 8, yy), fill=(132, 83, 56, 220), width=1)
+                for yy in range(by - 11, by + 16, 6):
+                    d.line((bx - 12, yy, bx + 12, yy), fill=(142, 88, 58, 210), width=1)
+                d.rectangle((bx - 14, by - 4, bx + 14, by + 2), fill=(80, 54, 42, 170))
         elif layer == "legs":
-            col = (205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255)
-            d.line((x + 20, y + 43 + p["bob"], x + 18 + p["step"], y + 58), fill=col, width=5)
-            d.line((x + 28, y + 43 + p["bob"], x + 30 - p["step"], y + 58), fill=col, width=5)
+            col = (207, 194, 166, 255) if variant == "legs_cloth" else (94, 77, 64, 255)
+            d.line((x + 26, y + 66 + p["bob"], x + 23 + p["stride"] // 2, y + 89), fill=col, width=7)
+            d.line((x + 38, y + 66 + p["bob"], x + 41 - p["stride"] // 2, y + 89), fill=col, width=7)
             if variant == "legs_guard":
-                d.rectangle((x + 15 + p["step"], y + 51, x + 21 + p["step"], y + 58), fill=(116, 109, 98, 255))
-                d.rectangle((x + 27 - p["step"], y + 51, x + 33 - p["step"], y + 58), fill=(116, 109, 98, 255))
+                d.rectangle((x + 19 + p["stride"] // 2, y + 78, x + 28 + p["stride"] // 2, y + 89), fill=(118, 110, 96, 255))
+                d.rectangle((x + 36 - p["stride"] // 2, y + 78, x + 45 - p["stride"] // 2, y + 89), fill=(118, 110, 96, 255))
         elif layer == "head":
-            if variant == "head_cloth":
-                d.rectangle((hx - 9, hy - 8, hx + 9, hy - 3), fill=(212, 198, 166, 255))
-                d.line((hx + 7, hy - 4, hx + 14, hy + 3), fill=(178, 154, 118, 255), width=2)
-            else:
-                d.pieslice((hx - 10, hy - 11, hx + 10, hy + 6), 180, 360, fill=(126, 120, 112, 255), outline=(54, 48, 42, 255))
-                d.rectangle((hx - 9, hy - 3, hx + 9, hy + 3), fill=(92, 84, 76, 255))
+            actor_draw_head(d, hx, hy, direction, (0, 0, 0, 0), (0, 0, 0, 0), headgear="cloth" if variant == "head_cloth" else "iron")
         elif layer == "weapon":
-            steel = (214, 218, 210, 255)
+            steel = (220, 224, 214, 255) if variant == "wpn_iron_sword" else (232, 225, 196, 255)
             grip = (88, 56, 35, 255)
+            blade_w = 4 if variant == "wpn_iron_sword" else 6
             if direction == "left":
-                pts = (bx - 12, by - 2, bx - 18, by - 11)
+                pts = (bx - 14, by - 7, bx - 24, by - 26)
             elif direction == "right":
-                pts = (bx + 12, by - 2, bx + 18, by - 11)
+                pts = (bx + 14, by - 7, bx + 24, by - 26)
             elif direction == "up":
-                pts = (bx + 8, by - 5, bx + 16, by - 15)
+                pts = (bx + 12, by - 10, bx + 20, by - 31)
             else:
-                pts = (bx + 9, by - 2, bx + 17, by + 6)
-            d.line(pts, fill=steel, width=3 if variant == "wpn_iron_sword" else 4)
-            d.line((pts[0], pts[1], pts[0] - 3 if pts[2] < pts[0] else pts[0] + 3, pts[1] + 4), fill=grip, width=3)
+                pts = (bx + 16, by - 8, bx + 25, by + 7)
+            d.line(pts, fill=steel, width=blade_w)
+            d.line((pts[0], pts[1], pts[0] - 5 if pts[2] < pts[0] else pts[0] + 5, pts[1] + 7), fill=grip, width=4)
     elif pose == "sleep":
         if layer == "body":
-            d.rounded_rectangle((x + 19, y + 34 - p["bob"], x + 43, y + 49 - p["bob"]), radius=4, fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
+            d.rounded_rectangle((x + 26, y + 51 - p["bob"], x + 58, y + 73 - p["bob"]), radius=5, fill=(216, 202, 170, 255) if variant == "body_cloth" else (104, 62, 44, 255))
         elif layer == "head":
-            d.rectangle((x + 9, y + 34, x + 23, y + 39), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
+            d.rectangle((x + 11, y + 49, x + 31, y + 57), fill=(216, 202, 170, 255) if variant == "head_cloth" else (134, 130, 120, 255))
         elif layer == "legs":
-            d.line((x + 35, y + 48 - p["bob"], x + 45, y + 53), fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255), width=4)
+            d.line((x + 48, y + 72 - p["bob"], x + 59, y + 79), fill=(207, 194, 166, 255) if variant == "legs_cloth" else (94, 77, 64, 255), width=6)
     elif pose == "meditate":
         if layer == "body":
-            d.polygon([(bx - 9, by - 9), (bx + 9, by - 9), (bx + 11, by + 8), (bx - 11, by + 8)], fill=(214, 199, 164, 255) if variant == "body_cloth" else (98, 58, 43, 255))
+            d.polygon([(bx - 13, by - 15), (bx + 13, by - 15), (bx + 15, by + 11), (bx - 15, by + 11)], fill=(216, 202, 170, 255) if variant == "body_cloth" else (104, 62, 44, 255))
         elif layer == "head":
-            d.rectangle((hx - 9, hy - 8, hx + 9, hy - 3), fill=(212, 198, 166, 255) if variant == "head_cloth" else (126, 120, 112, 255))
+            actor_draw_head(d, hx, hy, "down", (0, 0, 0, 0), (0, 0, 0, 0), headgear="cloth" if variant == "head_cloth" else "iron")
         elif layer == "legs":
-            d.arc((x + 6, y + 39, x + 42, y + 62), 185, 355, fill=(205, 192, 166, 255) if variant == "legs_cloth" else (92, 76, 65, 255), width=5)
+            d.arc((x + 10, y + 61, x + 54, y + 92), 185, 355, fill=(207, 194, 166, 255) if variant == "legs_cloth" else (94, 77, 64, 255), width=8)
 
 
 def make_actor_sheet(layer="base", variant=None):
@@ -1202,12 +1273,12 @@ def make_actor_sheet(layer="base", variant=None):
     dirs = ["down", "left", "right", "up"]
     sheets = {}
     for action, frames, rows in actions:
-        img = Image.new("RGBA", (48 * frames, 64 * rows), (0, 0, 0, 0))
+        img = Image.new("RGBA", (HOME_FW * frames, HOME_FH * rows), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
         for r in range(rows):
             direction = dirs[r] if rows == 4 else "down"
             for f in range(frames):
-                draw_home_actor(d, f * 48, r * 64, action, f, direction, layer, variant)
+                draw_home_actor(d, f * HOME_FW, r * HOME_FH, action, f, direction, layer, variant)
         sheets[action] = img
     return sheets
 
