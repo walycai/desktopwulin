@@ -724,7 +724,7 @@
     if (refunded) stats.sp = (stats.sp || 0) + refunded;
   }
   function neigongLv() { var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0; return CORE.neigongLevel(gf); } // 内功级别=所有功法等级之和(WalyCai重定义)
-  var NEI_HEAL_PER_LV = 0.5; // 内功功法自动回血:每点内功功法等级 +X HP/秒(WalyCai:纯加法/不百分比/不封顶——血量不影响连击效率,回血做平衡杠杆;多修炼内功后回血依然可观)
+  var NEI_HEAL_PER_LV = 0.25; // 内功功法自动回血:每点内功功法等级 +X HP/秒(WalyCai:纯加法/不百分比/不封顶。0.5→0.25:没怎么刷功法就比睡觉涨得快,减半)
   function neiHealRate() { var r = 0, g = stats.gongfa || {}; for (var id in g) { var go = gongfaById(id); if (go && go.sys === "nei") r += (g[id].lv || 0) * NEI_HEAL_PER_LV; } return r; } // 所有已修内功功法的自动回血/秒之和(加法,无上限)
   function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat;neigong 由 core 从 gongfa 内部推导,此字段已废弃保留兼容)
     var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0;
