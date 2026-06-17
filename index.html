@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618h">
+<link rel="stylesheet" href="src/style.css?v=0618i">
 </head>
 <body>
   <header class="topbar">
@@ -12,6 +12,7 @@
     <div class="stats">
       <span class="stat" title="气血">❤ <b id="hpVal">100</b>/<b id="hpMax">100</b></span>
       <span class="stat" title="内力(蓝量)">🔷 <b id="manaVal">0</b>/<b id="manaMax">0</b></span>
+      <span class="stat" title="金币">💰 <b id="goldVal">0</b></span>
       <span class="stat" title="历练等级">⚔ Lv<b id="lvVal">1</b> <span id="expTxt" class="exp-txt"></span></span>
       <span class="stat" title="内功(功法)">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
       <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
@@ -44,7 +45,8 @@
       <div class="doll-col doll-right">
         <h4>武器仓库 <span id="whCount" class="wh-count"></span></h4>
         <div id="whGrid" class="wh-grid"></div>
-        <div class="doll-tip">双击装备=直接穿戴；单击=对比属性；拖到槽位也可穿；点已穿装备=卸下。戒指可放戒指1/2。</div>
+        <div id="sellZone" class="sell-zone">💰 拖装备到此卖出 / 选中后点此</div>
+        <div class="doll-tip">双击装备=直接穿戴；单击=对比属性；拖到槽位也可穿；点已穿装备=卸下。<b>拖到 💰 区或选中点 💰 = 卖出换金币</b>。戒指可放戒指1/2。</div>
       </div>
     </div>
   </div>
@@ -58,6 +60,17 @@
       <div id="skTree" class="sk-tree"></div>
       <div id="skAttrs" class="sk-attrs"></div>
       <div class="sk-foot"><button id="skReset" class="tb">↺ 重置洗点</button><span class="sk-tip">+ 投点 / − 退点；主动技能 Phase4 实装，现暂折算为被动加成。</span></div>
+    </div>
+  </div>
+
+  <!-- 居家技能 -->
+  <div id="homeSkillModal" class="modal-bg hidden">
+    <div class="skill-panel" style="width:440px">
+      <span id="hsClose" class="close-x">✕</span>
+      <h3>居家技能</h3>
+      <div id="hsInfo" class="sk-info"></div>
+      <div id="hsList" class="hs-list"></div>
+      <div class="sk-tip">买家具摆进房间 → 涨居家环境值 → 每 50 环境得 1 居家技能点。金币靠打怪掉落 / 卖装备。</div>
     </div>
   </div>
 
@@ -134,7 +147,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618h"></script>
-  <script src="src/game.js?v=0618h"></script>
+  <script src="src/combat-core.js?v=0618i"></script>
+  <script src="src/game.js?v=0618i"></script>
 </body>
 </html>

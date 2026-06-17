@@ -59,6 +59,11 @@
     { id: "decor_floor_lamp", name: "落地灯", cat: "decor", w: 3, h: 3, zh: 28, glyph: "🪔", color: "#b09a4a" },
     { id: "decor_rug_large", name: "地毯", cat: "decor", w: 16, h: 12, zh: 2, rug: true, glyph: "▦", color: "#8a5a4a" } // 地面平铺：不阻挡、画在最底层
   ];
+  // 经济字段：环境值 env(摆放后涨居家环境) + 价格 price(金币购买)。占位公式，待莱布尼茨精调（可改为逐件赋值）
+  CATALOG.forEach(function (c) {
+    if (c.env == null) c.env = Math.max(1, Math.round(c.w * c.h / 8) + (c.func ? 5 : 0));
+    if (c.price == null) c.price = c.env * 12;
+  });
   var CATS = [{ key: "bed", label: "床" }, { key: "func", label: "功能" }, { key: "chair", label: "椅" }, { key: "table", label: "桌" }, { key: "storage", label: "收纳" }, { key: "wallhang", label: "壁挂" }, { key: "decor", label: "装饰" }];
   var $ = function (id) { return document.getElementById(id); };
   var byId = {}; CATALOG.forEach(function (c) { byId[c.id] = c; });
@@ -67,7 +72,13 @@
   var canvas, ctx, dpr = 1, CW, CH;
   var bag = {}, placed = [], occ = [], wallOcc = { left: [], right: [] };
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
-  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0 }, NG_PER_LV = 100;
+  var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0 }, NG_PER_LV = 100;
+  var ENV_PER_POINT = 50; // 居家环境值每 +50 给 1 居家技能点
+  var HOME_SKILLS = [
+    { id: "sleep_eff", name: "安眠", max: 5, desc: "睡觉回血效率 +20% / 级" },
+    { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
+    { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" }
+  ];
   var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
   var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
@@ -373,8 +384,8 @@
 
   // ---- 功能结算 ----
   function tickStats() {
-    if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0)); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
-    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; stats.ngP += (d.neigong || 0); var lv = false; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); }
+    if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
+    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; stats.ngP += (d.neigong || 0) * mm; var lv = false; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); }
     updateStats(); save();
   }
   function updateStats() {
@@ -384,20 +395,26 @@
     $("statusVal").textContent = s.length ? s.join("、") : "正常"; $("statusVal").style.color = s.length ? "#ff8a7a" : "#9fe0a0";
     if ($("lvVal")) { $("lvVal").textContent = stats.level; $("expTxt").textContent = "(" + stats.exp + "/" + CORE.nextExp(stats.level) + ")"; }
     if ($("manaVal")) { $("manaVal").textContent = Math.round(stats.mana || 0); $("manaMax").textContent = stats.manaMax || 0; }
+    if ($("goldVal")) $("goldVal").textContent = stats.gold || 0;
     var spDot = $("spDot"); if (spDot) spDot.style.display = (stats.sp || 0) > 0 ? "" : "none";
     if ($("menuSp")) { $("menuSp").textContent = stats.sp || 0; $("menuSp").style.display = (stats.sp || 0) > 0 ? "" : "none"; }
   }
 
   // ---- 仓库 UI ----
-  function initBag() { CATALOG.forEach(function (c) { bag[c.id] = (bag[c.id] || 0) + (c.func ? 2 : 3); }); }
+  var STARTER_FURN = { bed_basic: 1, table_square: 1, chair_round: 2, meditation_dais: 1 }; // 新手免费起步(加快首个居家技能点)
+  function initBag() { CATALOG.forEach(function (c) { bag[c.id] = (bag[c.id] || 0) + (STARTER_FURN[c.id] || 0); }); }
   function renderCats() { var w = $("cats"); w.innerHTML = ""; CATS.forEach(function (ct) { var d = document.createElement("div"); d.className = "cat" + (ct.key === activeCat ? " active" : ""); d.textContent = ct.label; d.onclick = function () { activeCat = ct.key; renderCats(); renderItems(); }; w.appendChild(d); }); }
   function iconHTML(c) { var src = "assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png"; return '<img src="' + src + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'"><span style="display:none;width:46px;height:46px;align-items:center;justify-content:center;background:' + c.color + ';color:#fff;border-radius:4px">' + c.glyph + '</span>'; }
   function renderItems() {
     var w = $("items"); w.innerHTML = "";
     CATALOG.filter(function (c) { return c.cat === activeCat; }).forEach(function (c) {
-      var d = document.createElement("div"); d.className = "bag-item" + (selId === c.id ? " selected" : "") + (bag[c.id] <= 0 ? " out" : "");
-      d.innerHTML = '<div class="ico">' + iconHTML(c) + '</div><div class="nm">' + c.name + (c.func ? " ⚙" : "") + '</div><div class="ct">' + c.w + "×" + c.h + " · 余" + bag[c.id] + '</div>';
-      d.onclick = function () { if (bag[c.id] <= 0) return; selId = (selId === c.id ? null : c.id); ghostRot = 0; renderItems(); }; w.appendChild(d);
+      var own = bag[c.id] || 0, afford = (stats.gold || 0) >= c.price;
+      var d = document.createElement("div"); d.className = "bag-item" + (selId === c.id ? " selected" : "") + (own <= 0 ? " dim" : "");
+      d.innerHTML = '<div class="ico">' + iconHTML(c) + '</div><div class="nm">' + c.name + (c.func ? " ⚙" : "") + '</div><div class="ct">' + c.w + "×" + c.h + " · 环" + c.env + " · 余" + own + '</div>'
+        + '<div class="shop"><span class="price">' + c.price + '💰</span><button class="tb buy"' + (afford ? "" : " disabled") + '>买</button></div>';
+      d.onclick = function () { if ((bag[c.id] || 0) <= 0) { toast("先购买「" + c.name + "」(" + c.price + "💰)"); return; } selId = (selId === c.id ? null : c.id); ghostRot = 0; renderItems(); };
+      var bb = d.getElementsByClassName("buy")[0]; if (bb) bb.onclick = function (e) { e.stopPropagation(); buyFurniture(c.id); };
+      w.appendChild(d);
     });
   }
 
@@ -509,7 +526,7 @@
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ placed: placed.map(function (p) { return { id: p.id, cx: p.cx, cy: p.cy, rot: p.rot, wall: p.wall, side: p.side }; }), bag: bag, stats: stats })); } catch (e) {} }
   function load() {
     try { var raw = localStorage.getItem(SAVE_KEY); if (!raw) return false; var d = JSON.parse(raw);
-      if (d.bag) { CATALOG.forEach(function (c) { if (d.bag[c.id] == null) d.bag[c.id] = (c.func ? 2 : 3); }); bag = d.bag; } // 新增家具补默认库存(老存档迁移)
+      if (d.bag) { CATALOG.forEach(function (c) { if (d.bag[c.id] == null) d.bag[c.id] = 0; }); bag = d.bag; } // 新家具默认0(金币商店购买)
       if (d.stats) stats = Object.assign(stats, d.stats);
       (d.placed || []).forEach(function (s) { var c = byId[s.id]; if (c) addPlaced(c, s.cx, s.cy, s.rot || 0, !!s.wall, s.side); }); return true;
     } catch (e) { return false; }
@@ -647,6 +664,46 @@
     var a = totalAttrs();
     $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 暴伤 " + a.CritDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
   }
+  // ---- 居家经济 / 居家技能 ----
+  function homeEnv() { var e = 0; placed.forEach(function (p) { var c = byId[p.id]; if (c && c.env) e += c.env; }); return e; }
+  function homeSpTotal() { return Math.floor(homeEnv() / ENV_PER_POINT); }
+  function homeSpLeft() { return Math.max(0, homeSpTotal() - (stats.homeSpSpent || 0)); }
+  function homeRank(id) { return (stats.homeSkills && stats.homeSkills[id]) || 0; }
+  function homeSpentSum() { var s = 0, h = stats.homeSkills || {}; for (var k in h) s += h[k]; return s; }
+  function buyFurniture(id) {
+    var c = byId[id]; if (!c) return;
+    if ((stats.gold || 0) < c.price) { toast("金币不足（需 " + c.price + "💰）"); return; }
+    stats.gold -= c.price; bag[id] = (bag[id] || 0) + 1; save(); renderItems(); updateStats(); toast("购入「" + c.name + "」 -" + c.price + "💰");
+  }
+  function sellPrice(it) { // 售价=稀有度基准×(1+词条数*0.15)×(1+精算技能)
+    var r = it.rarity || (EQUIP_TPL[it.tid] && "common"); var base = (CORE.SELL && CORE.SELL[r]) || 8;
+    var af = (it.affixes && it.affixes.length) || 0;
+    return Math.round(base * (1 + af * 0.15) * (1 + homeRank("sell_price") * 0.12));
+  }
+  function sellItem(uid) {
+    var i = warehouse.findIndex(function (x) { return x.uid === uid; }); if (i < 0) return;
+    var it = warehouse[i]; if (!it.rarity) it.rarity = "common"; var price = sellPrice(it);
+    warehouse.splice(i, 1); stats.gold = (stats.gold || 0) + price; dollSel = null; saveEquip(); save(); updateStats(); renderDoll(); toast("卖出「" + (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid) + "」 +" + price + "💰");
+  }
+  function openHomeSkill() { renderHomeSkill(); $("homeSkillModal").classList.remove("hidden"); }
+  function homeAdj(id, d) {
+    if (d > 0) { var n = HOME_SKILLS.filter(function (s) { return s.id === id; })[0]; if (!n) return; if (homeSpLeft() <= 0) { toast("居家技能点不足（多摆家具涨环境值）"); return; } if (homeRank(id) >= n.max) { toast("已满级"); return; } stats.homeSkills[id] = homeRank(id) + 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; }
+    else { if (homeRank(id) <= 0) return; stats.homeSkills[id] = homeRank(id) - 1; if (!stats.homeSkills[id]) delete stats.homeSkills[id]; stats.homeSpSpent = Math.max(0, (stats.homeSpSpent || 0) - 1); }
+    save(); renderHomeSkill();
+  }
+  function renderHomeSkill() {
+    $("hsInfo").innerHTML = "居家环境值 <b>" + homeEnv() + "</b> · 居家技能点 <b>" + homeSpLeft() + "</b>/" + homeSpTotal() + " · 金币 " + (stats.gold || 0) + "💰（每 " + ENV_PER_POINT + " 环境 = 1 点）";
+    var w = $("hsList"); w.innerHTML = "";
+    HOME_SKILLS.forEach(function (n) {
+      var rk = homeRank(n.id), maxed = rk >= n.max;
+      var row = document.createElement("div"); row.className = "hs-row" + (rk > 0 ? " has" : "");
+      row.innerHTML = '<div class="hs-main"><span class="hs-name">' + n.name + '</span><span class="hs-rk">' + rk + '/' + n.max + '</span></div><div class="hs-desc">' + n.desc + '</div>';
+      var btns = document.createElement("div"); btns.className = "hs-btns";
+      var mn = document.createElement("button"); mn.className = "tb sk-mini"; mn.textContent = "−"; mn.disabled = rk <= 0; mn.onclick = function () { homeAdj(n.id, -1); };
+      var pl = document.createElement("button"); pl.className = "tb sk-mini"; pl.textContent = "+"; pl.disabled = maxed || homeSpLeft() <= 0; pl.onclick = function () { homeAdj(n.id, 1); };
+      btns.appendChild(mn); btns.appendChild(pl); row.appendChild(btns); w.appendChild(row);
+    });
+  }
   function targetSlotFor(it) {
     var type = EQUIP_TPL[it.tid].type;
     if (type === "ring") return !equipped.ring1 ? "ring1" : (!equipped.ring2 ? "ring2" : "ring1");
@@ -696,6 +753,7 @@
       d.ondblclick = function () { equipItem(it, targetSlotFor(it)); };
       wh.appendChild(d);
     });
+    var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + (EQUIP_TPL[dollSel.tid] ? EQUIP_TPL[dollSel.tid].name : dollSel.tid) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
     // 属性 + 选中装备对比(穿上后 +/- 变化)
     var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
     var pv = dollSel ? previewTotals(dollSel) : null;
@@ -751,8 +809,9 @@
   function bankResult(r) { // 静默结算(用于挑战BOSS前先把本趟战利品入库)
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
     var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes }); gained.push(d); });
+    stats.gold = (stats.gold || 0) + (r.goldGained || 0); // 金币入账
     var lvups = 0; stats.exp += r.expGained; while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; stats.sp = (stats.sp || 0) + 1; } // 每级 +1 技能点
-    syncHpMax(); saveEquip(); save(); return { gained: gained, lvups: lvups };
+    syncHpMax(); saveEquip(); save(); return { gained: gained, lvups: lvups, gold: r.goldGained || 0 };
   }
   function applyCombatResult(r) {
     var bk = bankResult(r), gained = bk.gained, lvups = bk.lvups;
@@ -760,6 +819,7 @@
     var body = '<div>结果：<span class="hl">' + outTxt + '</span></div>';
     body += '<div>击杀：<span class="hl">' + r.kills + '</span> 个 · 历时 ' + r.ttk + 's</div>';
     body += '<div>获得经验：<span class="hl">+' + r.expGained + '</span>' + (lvups ? ' <span class="lvup">升级 ×' + lvups + '！现 Lv' + stats.level + '</span>' : '') + '</div>';
+    body += '<div>获得金币：<span class="hl">+' + (r.goldGained || 0) + '</span> 💰（共 ' + (stats.gold || 0) + '）</div>';
     body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
     if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[d.rarity].color + '">· 【' + RARITY[d.rarity].name + '】' + t.name + '</div>'; }); }
     else body += '<div>本趟无装备掉落</div>';
@@ -901,11 +961,15 @@
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
     // 居家左侧菜单 + 技能面板
     $("menuSkill").onclick = openSkill;
-    $("menuHomeSkill").onclick = function () { toast("居家技能 Phase 2 上线，敬请期待"); };
+    $("menuHomeSkill").onclick = openHomeSkill;
     $("menuKungfu").onclick = function () { toast("功法装备 Phase 3 上线，敬请期待"); };
     $("skClose").onclick = function () { $("skillModal").classList.add("hidden"); };
     $("skReset").onclick = resetSkills;
     $("skillModal").addEventListener("click", function (e) { if (e.target === $("skillModal")) $("skillModal").classList.add("hidden"); });
+    $("hsClose").onclick = function () { $("homeSkillModal").classList.add("hidden"); };
+    $("homeSkillModal").addEventListener("click", function (e) { if (e.target === $("homeSkillModal")) $("homeSkillModal").classList.add("hidden"); });
+    var sz = $("sellZone");
+    if (sz) { sz.addEventListener("dragover", function (e) { e.preventDefault(); sz.classList.add("over"); }); sz.addEventListener("dragleave", function () { sz.classList.remove("over"); }); sz.addEventListener("drop", function (e) { e.preventDefault(); sz.classList.remove("over"); if (dollSel) sellItem(dollSel.uid); }); sz.onclick = function () { if (dollSel) sellItem(dollSel.uid); else toast("先选中仓库里的装备"); }; }
     if (!loadEquip()) { ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "ring_jade", "belt_iron", "wpn_steel_saber", "body_softarmor"].forEach(function (tid) { warehouse.push(rollItem(tid)); }); saveEquip(); }
     APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
