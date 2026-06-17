@@ -485,6 +485,8 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
+    // 内功功法自动回血:睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)
+    if (player.state !== "meditating") { var hp = neiHealPct(); if (hp > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + stats.hpMax * hp); }
     // 打坐修炼=训练所选功法熟练度(主循环逐帧 trainGongfa)→升功法等级→抬内功级别。旧 stats.ng(打坐时间)已废弃,内功级别=Σ功法lv
     updateStats(); save();
   }
@@ -722,6 +724,8 @@
     if (refunded) stats.sp = (stats.sp || 0) + refunded;
   }
   function neigongLv() { var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0; return CORE.neigongLevel(gf); } // 内功级别=所有功法等级之和(WalyCai重定义)
+  var NEI_HEAL_PCT_PER_LV = 0.0005, NEI_HEAL_CAP = 0.01; // 内功功法自动回血:每点内功功法等级 +0.05%maxHP/秒,封顶1%/秒(莱布尼茨:%血全程相关防高级别无感,设上限防堆内功无限回)
+  function neiHealPct() { var r = 0, g = stats.gongfa || {}; for (var id in g) { var go = gongfaById(id); if (go && go.sys === "nei") r += (g[id].lv || 0) * NEI_HEAL_PCT_PER_LV; } return Math.min(NEI_HEAL_CAP, r); } // 所有已修内功功法回血%之和(封顶)
   function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat;neigong 由 core 从 gongfa 内部推导,此字段已废弃保留兼容)
     var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0;
     return { level: stats.level, neigong: stats.ng, equipped: equipped, skills: stats.skills, gongfa: gf, gongfaEquip: stats.gongfaEquip };
@@ -766,7 +770,8 @@
       el.className = "sk-node2" + (rk > 0 ? " has" : "") + (lock && rk === 0 ? " locked" : "") + (maxed ? " maxed" : "") + (n.active ? " active" : "");
       el.style.left = (SK_PAD + n.col * SK_CW) + "px"; el.style.top = (SK_PAD + n.row * SK_CH) + "px";
       el.style.width = (SK_CW - SK_PAD * 2) + "px"; el.style.height = (SK_CH - SK_PAD * 2) + "px";
-      var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '<div class="sk2-desc">' + n.desc + '</div>';
+      el.title = n.desc; // 技能说明移到悬停提示(WalyCai:描述太长撑乱节点导致按钮点不到,暂不在框内显示)
+      var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '';
       el.innerHTML = '<div class="sk2-top"><i class="sk2-ico" style="background-image:url(\'assets/ui/icons/skill_' + n.id + '.png\')"></i><span class="sk2-name">' + n.name + (n.active ? ' ⚡' : '') + '</span><span class="sk2-rk">' + rk + '/' + n.max + '</span></div>' + body
         + '<div class="sk2-btns"><button class="tb sk-mini" data-a="m">−</button><button class="tb sk-mini" data-a="p">+</button></div>';
       var bs = el.getElementsByTagName("button");
