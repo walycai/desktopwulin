@@ -70,10 +70,13 @@
   }
 
   function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); }
+  var CRIT_CAP = 50; // 暴击率有效上限(莱布尼茨)；溢出按2:1转暴伤。未来丹药/特殊技能可抬高
+  function critResolve(crit, critDmg) { var c = crit || 0, cd = critDmg || 150, eff = Math.min(CRIT_CAP, c), over = Math.max(0, c - CRIT_CAP); return { crit: eff, critDmg: cd + over * 2 }; }
   function strike(rng, atk, def) {
     if (rng() > hitChance(atk, def)) return { hit: false, dmg: 0 };
     var dmg = Math.max(1, atk.ATK * 100 / (100 + def.DEF));
-    if (rng() < Math.min(0.75, (atk.Crit || 0) / 100)) dmg *= (atk.CritDmg || 150) / 100; // 暴击率封顶75%(莱布尼茨:防刀刀暴击)
+    var cr = critResolve(atk.Crit, atk.CritDmg);
+    if (rng() < cr.crit / 100) dmg *= cr.critDmg / 100;
     return { hit: true, dmg: Math.round(dmg) };
   }
 
@@ -198,7 +201,7 @@
   // 战力(CP) = √(DPS × EHP) ×10（@莱布尼茨 公式v1，互砍验证 ρ=0.99）。相对强度指数，用于 build/换装对比。
   function combatPower(a) {
     function cl(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
-    var critMult = 1 + (Math.min(75, a.Crit) / 100) * (a.CritDmg / 100 - 1); // 暴击率封顶75%与战斗一致
+    var cr = critResolve(a.Crit, a.CritDmg); var critMult = 1 + (cr.crit / 100) * (cr.critDmg / 100 - 1); // 50封顶+溢出转暴伤,与strike一致
     var pHit = cl(0.6 + (a.Hit - 6) * 0.01, 0.3, 0.99);
     var atkEff = a.ATK * 100 / (100 + 6);
     var DPS = atkEff * (a.ATKspd / 100) * pHit * critMult;
@@ -207,5 +210,5 @@
     return Math.round(Math.sqrt(DPS * EHP) * 10);
   }
 
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, nextExp: nextExp, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, nextExp: nextExp, baseAttrs: baseAttrs };
 });

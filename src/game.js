@@ -704,7 +704,8 @@
       w.appendChild(el);
     });
     var a = totalAttrs();
-    $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 暴伤 " + a.CritDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
+    var skcr = CORE.critResolve(a.Crit, a.CritDmg);
+    $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + skcr.crit + "% · 暴伤 " + skcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
   }
   // ---- 居家经济 / 居家技能 ----
   function homeEnv() { var e = 0, o = stats.owned || {}; for (var id in o) { var c = byId[id]; if (c && c.env) e += c.env * o[id]; } return e; } // 环境值=拥有(已购)数量×env，不依赖陈列(WalyCai设计)
@@ -786,7 +787,8 @@
       btns.appendChild(bt); btns.appendChild(be); row.appendChild(btns); w.appendChild(row);
     });
     var a = totalAttrs();
-    $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0);
+    var gfcr = CORE.critResolve(a.Crit, a.CritDmg);
+    $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + gfcr.crit + "% · 暴伤 " + gfcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0);
   }
   // ---- 功法商店 ----
   function buyGongfa(id) {
@@ -880,6 +882,7 @@
       if (pv) { var dv = pv.totals[k] - a[k]; if (dv) ds = ' <span style="color:' + (dv > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dv > 0 ? "+" : "") + dv + ')</span>'; }
       al.innerHTML += '<div class="row"><span class="k">' + STAT_LABEL[k] + '</span><span class="v">' + a[k] + pct + ds + '</span></div>';
     });
+    if (a.Crit > 50) { var dcr = CORE.critResolve(a.Crit, a.CritDmg); al.innerHTML += '<div class="row" style="font-size:11px;color:#9a866a"><span class="k">有效(暴击封顶50%)</span><span class="v">暴击 ' + dcr.crit + '% · 暴伤 ' + dcr.critDmg + '%</span></div>'; }
     al.innerHTML += '<div class="row"><span class="k">内功等级</span><span class="v">' + stats.ng + '</span></div>';
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
