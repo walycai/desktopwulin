@@ -484,9 +484,11 @@
 
   // ---- 功能结算 ----
   function tickStats() {
-    if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
-    // 内功功法自动回血:睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)
-    if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
+    if (!CV.running) { // 仅在家时结算回血(战斗中走战斗自己的HP,topbar不应在战斗里被回血推高)
+      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
+      // 内功功法自动回血:在家睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)。战斗中不生效
+      if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
+    }
     // 打坐修炼=训练所选功法熟练度(主循环逐帧 trainGongfa)→升功法等级→抬内功级别。旧 stats.ng(打坐时间)已废弃,内功级别=Σ功法lv
     updateStats(); save();
   }
@@ -1100,7 +1102,7 @@
     if (!CV.endTimer) {
       CV.sim.step(dt);
       var st = CV.sim.state();
-      if (st.lastHit) { addFloat(PX + st.lastHit.x, CV.ground - 92, "-" + st.lastHit.dmg, "#ff7a6a"); cst.pAtk = 0.18; }
+      if (st.lastHit) { addFloat(PX + st.lastHit.x, CV.ground - 92, "-" + st.lastHit.dmg, "#ff7a6a"); cst.pAtk = 0.18; cst.atkX = st.lastHit.x; } // atkX=命中目标的横版位置(用于把攻击特效画到目标处,远程可见)
       if (st.lastCast) { if (st.lastCast.type === "aoe") { addFloat(PX + 120, CV.ground - 110, "旋风斩 -" + st.lastCast.dmg, "#ffce6a"); cst.aoeFx = 0.4; } else if (st.lastCast.type === "haste") addFloat(PX, CV.ground - 116, "狂暴!", "#ff8a3a"); }
       if (st.kills > cst.prevKills) cst.prevKills = st.kills;
       if (st.P.hp < cst.prevHp - 0.5) addFloat(PX, CV.ground - 100, "-" + Math.round(cst.prevHp - st.P.hp), "#ffd24a");
@@ -1148,7 +1150,15 @@
     // 主角
     var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
     drawCSprite("p_" + pAnim, PX, CV.ground, false, "", cst.pT);
-    if (cst.pAtk > 0) drawAttackEffect(PX + 56, CV.ground - 44, cst.pAtk);
+    if (cst.pAtk > 0) {
+      var axR = cst.atkX || 56;                         // 命中目标横版位置(melee≈70,更远=有射程)
+      if (axR > 90) {                                    // 远程命中:画一道气劲从主角伸向目标 + 命中处刀光,让"射程"可见
+        c.save(); c.globalAlpha = 0.55 * Math.sin(Math.max(0, Math.min(1, cst.pAtk / 0.18)) * Math.PI);
+        c.strokeStyle = "#cfe6ff"; c.lineWidth = 3; c.beginPath(); c.moveTo(PX + 30, CV.ground - 40); c.lineTo(PX + axR - 14, CV.ground - 44); c.stroke();
+        c.restore();
+        drawAttackEffect(PX + axR - 8, CV.ground - 44, cst.pAtk);
+      } else drawAttackEffect(PX + 56, CV.ground - 44, cst.pAtk);
+    }
     if (st.haste > 0) { c.save(); c.globalAlpha = 0.5 + 0.3 * Math.sin(cst.pT * 20); c.strokeStyle = "#ff8a3a"; c.lineWidth = 3; c.beginPath(); c.arc(PX, CV.ground - 32, 40, 0, 6.28); c.stroke(); c.restore(); } // 狂暴光环
     if (cst.aoeFx > 0) { c.save(); var rr = (0.4 - cst.aoeFx) / 0.4; c.globalAlpha = cst.aoeFx / 0.4 * 0.6; c.strokeStyle = "#ffe6a8"; c.lineWidth = 5; c.beginPath(); c.arc(PX, CV.ground - 30, 40 + rr * 240, 0, 6.28); c.stroke(); c.restore(); } // 旋风斩扩散环
     bar(PX - 30, CV.ground - 88, 60, st.P.hp / st.P.hpMax, "#5fbf5f");
