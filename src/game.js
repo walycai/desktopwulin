@@ -151,6 +151,7 @@
   var SPR = { fw: 48, fh: 64, frames: { idle: 4, walk: 8, sleep: 4, meditate: 4 }, fps: { idle: 6, walk: 10, sleep: 4, meditate: 6 }, dirs: { idle: 4, walk: 4, sleep: 1, meditate: 1 }, dirRow: { down: 0, left: 1, right: 2, up: 3 } };
   var PLAYER_SCALE = 1.6;               // 房屋内主角放大(旧;现按显示高自适应)
   var PLAYER_DISP_H = 104;              // 主角在房内的显示高(px)，按帧高自适应缩放→换更高分辨率帧表也不变占位
+  var MEDITATE_Y_LIFT = 0.34;           // 打坐时主角上抬比例(坐到台面蒲团上)，可微调
   var APPEAR_SLOTS = ["body", "legs", "head", "weapon"]; // 只有这些装备改外观(叠在主角上;项链/戒指/腰带不变外观)
   var equipSprites = {};                // tid -> {idle,walk,sleep,meditate} 装备外观层(与主角同帧布局 48×64)
   function loadEquipOverlay(tid) {
@@ -327,7 +328,7 @@
       var sc = PLAYER_DISP_H / fh, dw = fw * sc, dh = fh * sc;
       var fi = player.state === "meditating" ? 0 : player.fi; // 打坐用静态帧,不上下漂浮(那是仙侠)
       var dx = ctr.x - dw / 2, dy = ctr.y - dh;
-      if (player.state === "meditating") dy += dh * 0.16; // 坐落到打坐台/蒲团上,不悬空
+      if (player.state === "meditating") dy -= dh * MEDITATE_Y_LIFT; // 上抬坐到台面蒲团上(不再悬在台前下方)
       ctx.drawImage(base, fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
       APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层(按各自帧尺寸,与主角同格)
         var it = equipped[slot]; if (!it) return;
