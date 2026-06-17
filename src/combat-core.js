@@ -125,6 +125,7 @@
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 95;
     var spawnInt = cfg.spawnInterval || 1.3, maxField = cfg.maxOnField || 8;
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
+    var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
     var P = { hp: P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 };
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
@@ -137,6 +138,7 @@
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
+      if ((capTime && t >= capTime) || (capKills && kills >= capKills)) { done = true; outcome = "win"; return; } // 封顶收兵(保留战利品)
       spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; }
       var i, e;
       for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } }
