@@ -82,11 +82,23 @@
   // ---- 功法系统：内功/外功/轻功 三体系，被动(修炼即有)+主动(需装备 1内2外1轻)；打坐练熟练度1-10 ----
   var GONGFA_MAXLV = 10;
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
-  var GONGFA = [
-    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 }, desc: "内功·增气血与内力上限" }, // 莱布尼茨v2:主动≈被动3x+特效,三系均衡(Lv10装后 内694/外655/轻697)
-    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 }, desc: "外功·增攻防暴击" },
-    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 3, Hit: 3, Crit: 3, CritDmg: 6, Dodge: 2 }, desc: "轻功·增攻速命中闪避" }
+  // 30 功法 = 3系 × 10阶，按阶 加成×1.5^t / 价格 240×5^t（莱布尼茨锚点）；tier0=白功法(新手免费送)
+  var GONGFA_TIERS = ["白", "绿", "蓝", "紫", "橙", "赤", "金", "玄", "天", "绝"];
+  var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
+  var GONGFA_LINES = [
+    { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
+    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] },
+    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 3, Hit: 3, Crit: 3, CritDmg: 6, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] }
   ];
+  function gfScale(o, m) { var r = {}; for (var k in o) r[k] = Math.max(1, Math.round(o[k] * m)); return r; }
+  var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" }; // tier0保留旧id(存档兼容)
+  var GONGFA = [];
+  GONGFA_LINES.forEach(function (line) {
+    for (var t = 0; t < 10; t++) {
+      var m = Math.pow(1.5, t), price = Math.round(240 * Math.pow(5, t));
+      GONGFA.push({ id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScale(line.base.passive, m), active: gfScale(line.base.active, m), price: price });
+    }
+  });
   function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
   function gfProfReq(lv) { return Math.round(40 * lv * lv); } // lv→lv+1 熟练度(莱布尼茨v2:满1系~32分,高级别陡)
@@ -752,22 +764,49 @@
       if (g) d.onclick = function () { equipGongfa(eid); };
       es.appendChild(d);
     });
-    // 物品栏(已知功法)
+    // 功法仓库（仅已拥有：白功法免费送 + 商店购买的）
     var w = $("gfList"); w.innerHTML = "";
-    GONGFA.forEach(function (g) {
-      var st = gfState(g.id), lv = st.lv, learned = lv > 0, equipped = !!gfEquippedSlot(g.id), training = stats.trainId === g.id;
+    var owned = GONGFA.filter(function (g) { return gfState(g.id).lv > 0 || (stats.gongfa && stats.gongfa[g.id]); });
+    if (!owned.length) w.innerHTML = '<div class="gf-empty">还没有功法，点「购买功法」去功法商店</div>';
+    owned.forEach(function (g) {
+      var st = gfState(g.id), lv = st.lv, equipped = !!gfEquippedSlot(g.id), training = stats.trainId === g.id;
       var need = lv < GONGFA_MAXLV ? gfProfReq(lv) : 0, pct = need ? Math.min(100, Math.round(st.prof / need * 100)) : 100;
       var row = document.createElement("div"); row.className = "gf-row gf-" + g.sys + (equipped ? " equipped" : "");
-      row.innerHTML = '<div class="gf-top"><span class="gf-nm"><i class="gf-ico" style="background-image:url(\'assets/ui/gongfa/book_' + g.id + '.png\')"></i>' + g.name + ' <span class="gf-sys">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tier + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
+      row.innerHTML = '<div class="gf-top"><span class="gf-nm"><i class="gf-ico" style="background-image:url(\'assets/ui/gongfa/book_' + g.id + '.png\')"></i>' + g.name + ' <span class="gf-sys" style="color:' + g.color + '">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tierName + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
         + '<div class="gf-bar"><i style="width:' + pct + '%"></i></div>'
         + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + fmtEff(g.active, lv || 1) + '（需装备）</div>';
       var btns = document.createElement("div"); btns.className = "gf-btns";
       var bt = document.createElement("button"); bt.className = "tb sk-mini"; bt.textContent = training ? "修炼中" : "修炼"; bt.disabled = training; bt.onclick = function () { setTrain(g.id); };
-      var be = document.createElement("button"); be.className = "tb sk-mini"; be.textContent = equipped ? "卸下" : "装备"; be.disabled = !learned; be.onclick = function () { equipGongfa(g.id); };
+      var be = document.createElement("button"); be.className = "tb sk-mini"; be.textContent = equipped ? "卸下" : "装备"; be.disabled = lv <= 0; be.onclick = function () { equipGongfa(g.id); };
       btns.appendChild(bt); btns.appendChild(be); row.appendChild(btns); w.appendChild(row);
     });
     var a = totalAttrs();
     $("gfAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 内力 " + (a.Mana || 0);
+  }
+  // ---- 功法商店 ----
+  function buyGongfa(id) {
+    var g = gongfaById(id); if (!g) return;
+    if (stats.gongfa[id]) { toast("已拥有「" + g.name + "」"); return; }
+    if ((stats.gold || 0) < g.price) { toast("金币不足（需 " + g.price + "💰）"); return; }
+    stats.gold -= g.price; stats.gongfa[id] = { lv: 1, prof: 0 }; syncHpMax(); save(); updateStats(); renderGfShop(); toast("购得「" + g.name + "」（" + g.tierName + "阶）-" + g.price + "💰");
+  }
+  function openGfShop() { renderGfShop(); $("gfShopModal").classList.remove("hidden"); }
+  function renderGfShop() {
+    $("gfsGold").textContent = stats.gold || 0;
+    var w = $("gfsList"); w.innerHTML = "";
+    ["nei", "wai", "qing"].forEach(function (sys) {
+      var col = document.createElement("div"); col.className = "gfs-col";
+      col.innerHTML = '<div class="gfs-h">' + (sys === "nei" ? "内功" : sys === "wai" ? "外功" : "轻功") + '</div>';
+      GONGFA.filter(function (g) { return g.sys === sys; }).forEach(function (g) {
+        var own = !!stats.gongfa[g.id], afford = (stats.gold || 0) >= g.price;
+        var d = document.createElement("div"); d.className = "gfs-item";
+        d.innerHTML = '<span class="gfs-nm" style="color:' + g.color + '">' + g.tierName + ' ' + g.name + '</span><span class="gfs-eff">主' + fmtEff(g.active, 1) + '</span>'
+          + (own ? '<span class="gfs-own">已拥有</span>' : '<button class="tb sk-mini gfs-buy"' + (afford ? "" : " disabled") + '>' + g.price + '💰</button>');
+        if (!own) { var b = d.getElementsByClassName("gfs-buy")[0]; if (b) b.onclick = function () { buyGongfa(g.id); }; }
+        col.appendChild(d);
+      });
+      w.appendChild(col);
+    });
   }
   function targetSlotFor(it) {
     var type = EQUIP_TPL[it.tid].type;
@@ -1064,6 +1103,9 @@
     $("menuHomeSkill").onclick = openHomeSkill;
     $("menuKungfu").onclick = openKungfu;
     $("kfClose").onclick = function () { $("kungfuModal").classList.add("hidden"); };
+    $("gfShopBtn").onclick = openGfShop;
+    $("gfsClose").onclick = function () { $("gfShopModal").classList.add("hidden"); };
+    $("gfShopModal").addEventListener("click", function (e) { if (e.target === $("gfShopModal")) $("gfShopModal").classList.add("hidden"); });
     $("kungfuModal").addEventListener("click", function (e) { if (e.target === $("kungfuModal")) $("kungfuModal").classList.add("hidden"); });
     $("skClose").onclick = function () { $("skillModal").classList.add("hidden"); };
     $("skReset").onclick = resetSkills;
@@ -1080,7 +1122,7 @@
     var owed = Math.max(0, (stats.level || 1) - 1) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed;
     // 功法迁移/初始化：白色功法默认已习得 Lv1
     if (!stats.gongfa) stats.gongfa = {}; if (!stats.gongfaEquip) stats.gongfaEquip = { nei: null, wai1: null, wai2: null, qing: null };
-    GONGFA.forEach(function (g) { if (g.tier === "白" && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; });
+    GONGFA.forEach(function (g) { if (g.tier === 0 && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; }); // 白功法新手免费送
     if (!stats.trainId) stats.trainId = "nei_tuna";
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });

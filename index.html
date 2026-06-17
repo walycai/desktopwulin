@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618t">
+<link rel="stylesheet" href="src/style.css?v=0618u">
 </head>
 <body>
   <header class="topbar">
@@ -79,9 +79,19 @@
       <h3>功法 · 装备</h3>
       <div class="sk-info">打坐修炼所选功法熟练度（1-10级）。<b>被动</b>修炼即生效；<b>主动</b>需装备（1内功 / 2外功 / 1轻功）。</div>
       <div id="gfEquip" class="gf-equip"></div>
+      <div class="gf-whead"><span>功法仓库</span><button id="gfShopBtn" class="tb">🛒 购买功法</button></div>
       <div id="gfList" class="gf-list"></div>
       <div id="gfAttrs" class="sk-attrs"></div>
-      <div class="sk-tip">点「修炼」选择打坐时修炼的功法；点「装备」上阵享受主动效果。</div>
+      <div class="sk-tip">点「修炼」选择打坐时修炼的功法；点「装备」上阵享受主动效果。更多功法去功法商店购买。</div>
+    </div>
+  </div>
+
+  <!-- 功法商店 -->
+  <div id="gfShopModal" class="modal-bg hidden">
+    <div class="skill-panel" style="width:720px">
+      <span id="gfsClose" class="close-x">✕</span>
+      <h3>功法商店 <span class="sk-tip">金币 <b id="gfsGold">0</b>💰 · 每升一阶 加成×1.5/价格×5</span></h3>
+      <div id="gfsList" class="gfs-list"></div>
     </div>
   </div>
 
@@ -176,7 +186,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618t"></script>
-  <script src="src/game.js?v=0618t"></script>
+  <script src="src/combat-core.js?v=0618u"></script>
+  <script src="src/game.js?v=0618u"></script>
 </body>
 </html>
