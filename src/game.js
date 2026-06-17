@@ -48,9 +48,18 @@
     { id: "decor_books", name: "书堆", cat: "decor", w: 3, h: 2, zh: 8, glyph: "📚", color: "#6a5a8a" },
     { id: "decor_wine", name: "酒坛", cat: "decor", w: 3, h: 3, zh: 12, glyph: "🍶", color: "#5a6a5a" },
     { id: "decor_screen", name: "屏风", cat: "decor", w: 11, h: 3, zh: 30, glyph: "🪟", color: "#7a6a5a" },
-    { id: "decor_ruyi", name: "如意", cat: "decor", w: 5, h: 2, zh: 4, glyph: "🦴", color: "#9a8a5a" }
+    { id: "decor_ruyi", name: "如意", cat: "decor", w: 5, h: 2, zh: 4, glyph: "🦴", color: "#9a8a5a" },
+    // ---- B 类收纳/居家（吴冠中 2026-06-17）----
+    { id: "storage_wardrobe", name: "衣柜", cat: "storage", w: 8, h: 5, zh: 34, glyph: "🚪", color: "#6a4a30" },
+    { id: "storage_shelf", name: "博古架", cat: "storage", w: 9, h: 4, zh: 32, glyph: "🗄", color: "#7a5636" },
+    { id: "storage_chest", name: "木箱", cat: "storage", w: 8, h: 5, zh: 12, glyph: "🧰", color: "#6a4a2e" },
+    { id: "storage_medicine_cabinet", name: "药柜", cat: "storage", w: 8, h: 4, zh: 30, glyph: "🗃", color: "#5a4a3a" },
+    { id: "decor_food_box", name: "食盒", cat: "decor", w: 5, h: 3, zh: 10, glyph: "🍱", color: "#8a6a4a" },
+    { id: "decor_wash_basin", name: "洗漱盆", cat: "decor", w: 5, h: 5, zh: 14, glyph: "🪣", color: "#7a8a8a" },
+    { id: "decor_floor_lamp", name: "落地灯", cat: "decor", w: 3, h: 3, zh: 28, glyph: "🪔", color: "#b09a4a" },
+    { id: "decor_rug_large", name: "地毯", cat: "decor", w: 16, h: 12, zh: 2, rug: true, glyph: "▦", color: "#8a5a4a" } // 地面平铺：不阻挡、画在最底层
   ];
-  var CATS = [{ key: "bed", label: "床" }, { key: "func", label: "功能" }, { key: "chair", label: "椅" }, { key: "table", label: "桌" }, { key: "wallhang", label: "壁挂" }, { key: "decor", label: "装饰" }];
+  var CATS = [{ key: "bed", label: "床" }, { key: "func", label: "功能" }, { key: "chair", label: "椅" }, { key: "table", label: "桌" }, { key: "storage", label: "收纳" }, { key: "wallhang", label: "壁挂" }, { key: "decor", label: "装饰" }];
   var $ = function (id) { return document.getElementById(id); };
   var byId = {}; CATALOG.forEach(function (c) { byId[c.id] = c; });
 
@@ -129,7 +138,7 @@
   // ---- 摆放 ----
   function addPlaced(c, cx, cy, rot, wall, side) {
     var fp = footprint(c, rot);
-    var p = { uid: uidSeq++, id: c.id, cx: cx, cy: cy, w: fp.w, h: fp.h, rot: rot, wall: wall, side: side || "right", decor: (c.cat === "decor" && !wall) };
+    var p = { uid: uidSeq++, id: c.id, cx: cx, cy: cy, w: fp.w, h: fp.h, rot: rot, wall: wall, side: side || "right", decor: (c.cat === "decor" && !wall), rug: !!c.rug };
     placed.push(p); fillCells(p); return p;
   }
   function fillCells(p) {
@@ -280,10 +289,12 @@
   function render() {
     ctx.clearRect(0, 0, CW, CH);
     drawCourtyard(); drawFloor(); drawWalls();
+    // 地毯：地面平铺，画在家具/主角之下(floor 之上)
+    placed.filter(function (p) { return p.rug; }).forEach(function (p) { drawFurniture(p); });
     // 壁挂(在墙上，靠后)
     placed.filter(function (p) { return p.wall; }).forEach(drawWallHang);
     // 地面可绘制(家具+主角) 深度排序：anchor 深度 = cx+cy+w/2+h/2(取前角)
-    var drawables = placed.filter(function (p) { return !p.wall; }).map(function (p) { return { p: p, depth: (p.cx + p.w) + (p.cy + p.h), kind: "f" }; });
+    var drawables = placed.filter(function (p) { return !p.wall && !p.rug; }).map(function (p) { return { p: p, depth: (p.cx + p.w) + (p.cy + p.h), kind: "f" }; });
     var pDepth = (player.cx + PLAYER_CELLS / 2) + (player.cy + PLAYER_CELLS / 2);
     if ((player.state === "sleeping" || player.state === "meditating") && player.actUid) { var host = pById(player.actUid); if (host) pDepth = (host.cx + host.w) + (host.cy + host.h) + 0.5; } // 躺/坐在家具上→画在家具之上
     drawables.push({ depth: pDepth, kind: "p" });
@@ -478,7 +489,8 @@
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ placed: placed.map(function (p) { return { id: p.id, cx: p.cx, cy: p.cy, rot: p.rot, wall: p.wall, side: p.side }; }), bag: bag, stats: stats })); } catch (e) {} }
   function load() {
     try { var raw = localStorage.getItem(SAVE_KEY); if (!raw) return false; var d = JSON.parse(raw);
-      if (d.bag) bag = d.bag; if (d.stats) stats = Object.assign(stats, d.stats);
+      if (d.bag) { CATALOG.forEach(function (c) { if (d.bag[c.id] == null) d.bag[c.id] = (c.func ? 2 : 3); }); bag = d.bag; } // 新增家具补默认库存(老存档迁移)
+      if (d.stats) stats = Object.assign(stats, d.stats);
       (d.placed || []).forEach(function (s) { var c = byId[s.id]; if (c) addPlaced(c, s.cx, s.cy, s.rot || 0, !!s.wall, s.side); }); return true;
     } catch (e) { return false; }
   }
