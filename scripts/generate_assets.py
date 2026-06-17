@@ -585,6 +585,61 @@ def cut_sample_to_alpha(crop, pad=24):
     return out
 
 
+def cut_chroma_to_alpha(crop, pad=18):
+    """Remove flat green imagegen sheet background and keep the main nearby components."""
+    crop = crop.convert("RGBA")
+    pix = crop.load()
+    w, h = crop.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pix[x, y]
+            if a and g > 145 and r < 135 and b < 135 and g > r * 1.25 and g > b * 1.25:
+                pix[x, y] = (0, 0, 0, 0)
+    seen = [[False] * w for _ in range(h)]
+    comps = []
+    for sy in range(h):
+        for sx in range(w):
+            if seen[sy][sx] or pix[sx, sy][3] == 0:
+                continue
+            q = deque([(sx, sy)])
+            seen[sy][sx] = True
+            pts = []
+            while q:
+                x, y = q.popleft()
+                pts.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and not seen[ny][nx] and pix[nx, ny][3] > 0:
+                        seen[ny][nx] = True
+                        q.append((nx, ny))
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            comps.append({"pts": pts, "area": len(pts), "bbox": (min(xs), min(ys), max(xs) + 1, max(ys) + 1)})
+    if comps:
+        comps.sort(key=lambda c: c["area"], reverse=True)
+        main = comps[0]["bbox"]
+        margin = max(20, int(max(main[2] - main[0], main[3] - main[1]) * 0.22))
+        expanded = (main[0] - margin, main[1] - margin, main[2] + margin, main[3] + margin)
+
+        def overlaps(a, b):
+            return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
+
+        keep = set()
+        for comp in comps:
+            if comp["area"] >= 10 and overlaps(comp["bbox"], expanded):
+                keep.update(comp["pts"])
+        for y in range(h):
+            for x in range(w):
+                if pix[x, y][3] > 0 and (x, y) not in keep:
+                    pix[x, y] = (0, 0, 0, 0)
+    bbox = crop.getbbox()
+    if not bbox:
+        return crop
+    cut = crop.crop(bbox)
+    out = Image.new("RGBA", (cut.width + pad * 2, cut.height + pad * 2), (0, 0, 0, 0))
+    out.alpha_composite(cut, (pad, pad))
+    return out
+
+
 def apply_approved_style_sample():
     """Cut approved AI style sample into first production assets."""
     sample = ROOT / "previews/style-sample-gufeng-pixel-v1.png"
@@ -604,6 +659,26 @@ def apply_approved_style_sample():
         save(cut_sample_to_alpha(src.crop(box)), rel)
 
 
+def apply_home_asset_sheet_v2():
+    """Cut the second approved-direction home sheet into currently wired catalog assets."""
+    sample = ROOT / "previews/home-asset-sheet-v2.png"
+    if not sample.exists():
+        return
+    src = Image.open(sample).convert("RGBA")
+    crops = {
+        "furniture/bed/bed_advanced.png": (50, 24, 405, 290),
+        "furniture/table/table_desk.png": (450, 28, 790, 285),
+        "furniture/table/table_tea.png": (820, 34, 1160, 262),
+        "furniture/chair/chair_round.png": (1200, 24, 1454, 270),
+        "furniture/chair/chair_taishi.png": (74, 286, 315, 522),
+        "furniture/chair/chair_bench.png": (404, 284, 784, 516),
+        "furniture/decor/decor_censer.png": (78, 756, 296, 1014),
+        "furniture/decor/decor_candle.png": (1204, 520, 1390, 770),
+    }
+    for rel, box in crops.items():
+        save(cut_chroma_to_alpha(src.crop(box)), rel)
+
+
 def main():
     environment_assets()
     furniture()
@@ -612,6 +687,7 @@ def main():
     ui_assets()
     refine_priority_assets()
     apply_approved_style_sample()
+    apply_home_asset_sheet_v2()
 
 
 if __name__ == "__main__":
