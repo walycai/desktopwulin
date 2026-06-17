@@ -149,23 +149,25 @@ body {
 .sm-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; background: #c0392b; color: #fff; border-radius: 9px; font-size: 11px; line-height: 18px; text-align: center; padding: 0 4px; box-shadow: 0 0 0 2px #2a2016; }
 
 /* 技能树面板 */
-.skill-panel { position: relative; background: linear-gradient(rgba(47,36,24,.96),rgba(36,26,16,.98)); border: 2px solid #6a5238; border-radius: 14px; padding: 18px 22px; width: 720px; max-width: 94vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 50px rgba(0,0,0,.6); }
+.skill-panel { position: relative; background: linear-gradient(rgba(47,36,24,.96),rgba(36,26,16,.98)); border: 2px solid #6a5238; border-radius: 14px; padding: 18px 22px; width: 730px; max-width: 96vw; max-height: 92vh; overflow: auto; box-shadow: 0 12px 50px rgba(0,0,0,.6); }
 .skill-panel h3 { color: #e8c98a; margin-bottom: 6px; }
-.sk-info { font-size: 13px; color: #d8c8aa; margin-bottom: 12px; }
+.sk-info { font-size: 13px; color: #d8c8aa; margin-bottom: 10px; }
 .sk-info b { color: #ffd98a; font-size: 15px; }
-.sk-tree { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-.sk-tier { background: #2c2016; border: 1px solid #4a3826; border-radius: 10px; padding: 8px 10px; }
-.sk-tier-h { color: #e8c98a; font-size: 13px; font-weight: 700; margin-bottom: 6px; border-bottom: 1px dashed #4a3826; padding-bottom: 4px; }
-.sk-node { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 1px 8px; padding: 5px 0; border-bottom: 1px dashed #3a2c1e; }
-.sk-node.has { background: rgba(255,210,120,.06); }
-.sk-n-main { display: flex; justify-content: space-between; align-items: center; }
-.sk-n-name { color: #f0e6d2; font-size: 13px; }
-.sk-act { font-size: 10px; color: #ffce6a; border: 1px solid #8a6a40; border-radius: 4px; padding: 0 3px; margin-left: 4px; }
-.sk-n-rk { color: #ffd98a; font-size: 12px; }
-.sk-n-desc { color: #9a866a; font-size: 11px; grid-column: 1; }
-.sk-n-btns { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; align-items: center; }
-.sk-mini { padding: 2px 9px; font-size: 15px; line-height: 1; }
-.sk-mini:disabled { opacity: .35; cursor: default; }
+.sk-tree { margin: 0 auto; }
+/* 树状节点 */
+.sk-node2 { position: absolute; background: #2c2016; border: 1px solid #5a4630; border-radius: 9px; padding: 5px 7px; display: flex; flex-direction: column; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.sk-node2.has { border-color: #b89a4a; background: #36291a; box-shadow: 0 0 0 1px rgba(255,210,120,.3), 0 2px 6px rgba(0,0,0,.4); }
+.sk-node2.maxed { border-color: #ffce6a; box-shadow: 0 0 8px rgba(255,206,106,.4); }
+.sk-node2.locked { opacity: .62; border-style: dashed; }
+.sk-node2.active { background: linear-gradient(180deg,#33231a,#2a1d2a); }
+.sk2-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+.sk2-name { color: #f0e6d2; font-size: 12px; font-weight: 600; }
+.sk2-rk { color: #ffd98a; font-size: 11px; white-space: nowrap; }
+.sk2-desc { color: #9a866a; font-size: 10px; line-height: 1.25; margin: 2px 0; flex: 1; }
+.sk2-lock { color: #c98a6a; font-size: 10px; line-height: 1.25; margin: 2px 0; flex: 1; }
+.sk2-btns { display: flex; gap: 4px; justify-content: flex-end; }
+.sk-mini { padding: 1px 9px; font-size: 14px; line-height: 1.2; }
+.sk-mini:disabled { opacity: .3; cursor: default; }
 .sk-attrs { margin: 12px 0 8px; padding: 8px 10px; background: #2c2016; border: 1px solid #4a3826; border-radius: 8px; font-size: 12px; color: #d8c8aa; }
 .sk-attrs b { color: #ffd98a; font-size: 14px; }
 .sk-foot { display: flex; align-items: center; gap: 12px; }

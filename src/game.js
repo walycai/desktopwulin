@@ -523,37 +523,47 @@
   function itemStats(it) { var t = EQUIP_TPL[it.tid], s = {}; for (var k in t.base) s[k] = (s[k] || 0) + t.base[k]; it.affixes.forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
   function baseAttrs() { return CORE.baseAttrs(stats.level, stats.ng); }
   // ---- 人物技能树：力量战士（草案数值，待莱布尼茨平衡）----
+  // ---- 人物技能树：力量战士（树状·串联+级别+投点 门槛；Salt & Sanctuary / Titan Quest 风）----
+  // 5列×5行；prereq=前置(需≥1级) reqPts=树内已投点门槛 reqLv=人物等级门槛
   var SKILL_TREE = {
-    id: "warrior", name: "力量战士",
-    tiers: [
-      { name: "基础三维", nodes: [
-        { id: "str_hp", name: "强健体魄", max: 5, desc: "气血 +30 / 级" },
-        { id: "str_atk", name: "千钧之力", max: 5, desc: "攻击 +4 / 级" },
-        { id: "str_def", name: "铜皮铁骨", max: 5, desc: "防御 +3 / 级" }
-      ] },
-      { name: "武器精通", nodes: [
-        { id: "crit", name: "致命强击", max: 5, desc: "暴击率 +2% / 级" },
-        { id: "critdmg", name: "狂暴打击", max: 5, desc: "暴击伤害 +10% / 级" },
-        { id: "weapon_mastery", name: "重兵精通", max: 5, desc: "总攻击 +3% / 级" }
-      ] },
-      { name: "装备协同", nodes: [
-        { id: "equip_atk", name: "力压千钧", max: 3, desc: "装备攻击 +5% / 级" },
-        { id: "equip_def", name: "披坚执锐", max: 3, desc: "装备防御 +5% / 级" },
-        { id: "equip_hp", name: "负重前行", max: 3, desc: "装备气血 +5% / 级" }
-      ] },
-      { name: "战技", nodes: [
-        { id: "hit", name: "百战之身", max: 3, desc: "命中 +3 / 级" },
-        { id: "atkspd", name: "疾风步", max: 3, desc: "攻速 +3 / 级" }
-      ] },
-      { name: "主动 · 战斗自动释放（Phase4 实装，暂折算被动）", nodes: [
-        { id: "whirlwind", name: "旋风斩", max: 3, desc: "群攻；暂折算总攻击 +6% / 级", active: true },
-        { id: "berserk", name: "狂暴", max: 1, desc: "限时狂暴；暂折算攻速 +5%", active: true }
-      ] }
+    id: "warrior", name: "力量战士", totalPts: 49,
+    nodes: [
+      { id: "foundation", name: "武者根基", max: 3, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "气血 +15、攻击 +2 / 级（根基）" },
+      // 力 branch (col0)
+      { id: "str_atk", name: "千钧之力", max: 5, row: 1, col: 0, reqPts: 3, reqLv: 2, prereq: ["foundation"], desc: "攻击 +4 / 级" },
+      { id: "crit", name: "致命强击", max: 5, row: 2, col: 0, reqPts: 10, reqLv: 5, prereq: ["str_atk"], desc: "暴击率 +2% / 级" },
+      { id: "critdmg", name: "狂暴打击", max: 5, row: 3, col: 0, reqPts: 18, reqLv: 8, prereq: ["crit"], desc: "暴击伤害 +10% / 级" },
+      { id: "whirlwind", name: "旋风斩", max: 3, row: 4, col: 0, reqPts: 28, reqLv: 12, prereq: ["critdmg"], active: true, desc: "群攻（Phase4 实装）；暂折算总攻击 +6% / 级" },
+      // 械 branch (col2 中)
+      { id: "weapon_mastery", name: "重兵精通", max: 5, row: 1, col: 2, reqPts: 3, reqLv: 3, prereq: ["foundation"], desc: "总攻击 +3% / 级" },
+      { id: "hit", name: "百战之身", max: 3, row: 2, col: 1, reqPts: 10, reqLv: 5, prereq: ["weapon_mastery"], desc: "命中 +3 / 级" },
+      { id: "atkspd", name: "疾风步", max: 3, row: 2, col: 3, reqPts: 10, reqLv: 6, prereq: ["weapon_mastery"], desc: "攻速 +3 / 级" },
+      { id: "equip_atk", name: "力压千钧", max: 3, row: 3, col: 2, reqPts: 18, reqLv: 8, prereq: ["hit"], desc: "装备攻击 +5% / 级" },
+      // 体 branch (col4)
+      { id: "str_hp", name: "强健体魄", max: 5, row: 1, col: 4, reqPts: 3, reqLv: 2, prereq: ["foundation"], desc: "气血 +30 / 级" },
+      { id: "str_def", name: "铜皮铁骨", max: 5, row: 2, col: 4, reqPts: 10, reqLv: 5, prereq: ["str_hp"], desc: "防御 +3 / 级" },
+      { id: "equip_hp", name: "负重前行", max: 3, row: 3, col: 4, reqPts: 18, reqLv: 8, prereq: ["str_def"], desc: "装备气血 +5% / 级" },
+      { id: "berserk", name: "狂暴", max: 1, row: 4, col: 4, reqPts: 28, reqLv: 12, prereq: ["equip_hp"], active: true, desc: "限时狂暴（Phase4 实装）；暂折算攻速 +5%" }
     ]
   };
-  function skillNodeById(id) { for (var t = 0; t < SKILL_TREE.tiers.length; t++) { var ns = SKILL_TREE.tiers[t].nodes; for (var i = 0; i < ns.length; i++) if (ns[i].id === id) return ns[i]; } return null; }
+  function skillNodeById(id) { for (var i = 0; i < SKILL_TREE.nodes.length; i++) if (SKILL_TREE.nodes[i].id === id) return SKILL_TREE.nodes[i]; return null; }
   function skillRank(id) { return (stats.skills && stats.skills[id]) || 0; }
   function skillSpent() { var s = 0, sk = stats.skills || {}; for (var k in sk) s += sk[k]; return s; }
+  function nodeLockReason(n) { // 可投点返回 null，否则返回未解锁原因
+    if (stats.level < n.reqLv) return "需等级 Lv" + n.reqLv;
+    if (skillSpent() < n.reqPts) return "需树内已投 " + n.reqPts + " 点";
+    for (var i = 0; i < n.prereq.length; i++) if (skillRank(n.prereq[i]) < 1) { var pn = skillNodeById(n.prereq[i]); return "需先学「" + (pn ? pn.name : n.prereq[i]) + "」"; }
+    return null;
+  }
+  function refundBlocked(id) { // 退到0会断链则禁止：存在已学节点把它当前置
+    for (var i = 0; i < SKILL_TREE.nodes.length; i++) { var m = SKILL_TREE.nodes[i]; if (skillRank(m.id) > 0 && m.prereq.indexOf(id) >= 0) return m; }
+    return null;
+  }
+  function validateSkills() { // 树改版迁移：清理无效/超额技能，点数退回 sp
+    var sk = stats.skills || {}, refunded = 0;
+    for (var id in sk) { var n = skillNodeById(id); if (!n) { refunded += sk[id]; delete sk[id]; } else if (sk[id] > n.max) { refunded += sk[id] - n.max; sk[id] = n.max; } }
+    if (refunded) stats.sp = (stats.sp || 0) + refunded;
+  }
   function totalAttrs() {
     var a = baseAttrs();
     var sk = stats.skills || {};
@@ -561,11 +571,12 @@
     var eq = {};
     SLOT_DEFS.forEach(function (sd) { var it = equipped[sd.key]; if (it) { var s = itemStats(it); for (var k in s) eq[k] = (eq[k] || 0) + s[k]; } });
     if (eq.ATK) eq.ATK *= 1 + (sk.equip_atk || 0) * 0.05;
-    if (eq.DEF) eq.DEF *= 1 + (sk.equip_def || 0) * 0.05;
     if (eq.HP) eq.HP *= 1 + (sk.equip_hp || 0) * 0.05;
     for (var k in eq) a[k] = (a[k] || 0) + eq[k];
-    // 技能：基础三维 flat
-    a.HP += (sk.str_hp || 0) * 30; a.ATK += (sk.str_atk || 0) * 4; a.DEF += (sk.str_def || 0) * 3;
+    // 技能：基础三维 flat（根基 + 三维节点）
+    a.HP += (sk.foundation || 0) * 15 + (sk.str_hp || 0) * 30;
+    a.ATK += (sk.foundation || 0) * 2 + (sk.str_atk || 0) * 4;
+    a.DEF += (sk.str_def || 0) * 3;
     a.Crit += (sk.crit || 0) * 2; a.CritDmg += (sk.critdmg || 0) * 10;
     a.Hit += (sk.hit || 0) * 3; a.ATKspd += (sk.atkspd || 0) * 3;
     // 技能：总攻击%（重兵精通 + 旋风斩折算） / 攻速%（狂暴折算）
@@ -577,25 +588,48 @@
   function syncHpMax() { var a = totalAttrs(); stats.hpMax = a.HP; if (stats.hp > stats.hpMax) stats.hp = stats.hpMax; if (stats.hp <= 0) stats.hp = stats.hpMax; stats.manaMax = a.Mana || 0; if (stats.mana == null) stats.mana = stats.manaMax; if (stats.mana > stats.manaMax) stats.mana = stats.manaMax; updateStats(); }
   // ---- 人物技能面板 ----
   function openSkill() { renderSkill(); $("skillModal").classList.remove("hidden"); }
-  function spendSkill(id) { var n = skillNodeById(id); if (!n) return; if ((stats.sp || 0) <= 0) { toast("没有可用技能点"); return; } if (skillRank(id) >= n.max) { toast("已满级"); return; } stats.skills[id] = skillRank(id) + 1; stats.sp--; syncHpMax(); save(); renderSkill(); }
-  function refundSkill(id) { if (skillRank(id) <= 0) return; stats.skills[id] = skillRank(id) - 1; if (!stats.skills[id]) delete stats.skills[id]; stats.sp = (stats.sp || 0) + 1; syncHpMax(); save(); renderSkill(); }
+  function spendSkill(id) {
+    var n = skillNodeById(id); if (!n) return;
+    if ((stats.sp || 0) <= 0) { toast("没有可用技能点"); return; }
+    if (skillRank(id) >= n.max) { toast("已满级"); return; }
+    var lr = nodeLockReason(n); if (lr) { toast(lr); return; }
+    stats.skills[id] = skillRank(id) + 1; stats.sp--; syncHpMax(); save(); renderSkill();
+  }
+  function refundSkill(id) {
+    if (skillRank(id) <= 0) return;
+    if (skillRank(id) === 1) { var blk = refundBlocked(id); if (blk) { toast("「" + blk.name + "」依赖它，需先退它"); return; } }
+    stats.skills[id] = skillRank(id) - 1; if (!stats.skills[id]) delete stats.skills[id]; stats.sp = (stats.sp || 0) + 1; syncHpMax(); save(); renderSkill();
+  }
   function resetSkills() { var sp = skillSpent(); if (!sp) { toast("还没投入技能点"); return; } stats.sp = (stats.sp || 0) + sp; stats.skills = {}; syncHpMax(); save(); renderSkill(); toast("已重置全部技能点"); }
+  var SK_COLS = 5, SK_ROWS = 5, SK_CW = 134, SK_CH = 92, SK_PAD = 9;
   function renderSkill() {
-    $("skInfo").innerHTML = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 已投入 " + skillSpent() + "/49";
-    var w = $("skTree"); w.innerHTML = "";
-    SKILL_TREE.tiers.forEach(function (tier) {
-      var g = document.createElement("div"); g.className = "sk-tier";
-      g.innerHTML = '<div class="sk-tier-h">' + tier.name + '</div>';
-      tier.nodes.forEach(function (n) {
-        var rk = skillRank(n.id), maxed = rk >= n.max;
-        var row = document.createElement("div"); row.className = "sk-node" + (rk > 0 ? " has" : "");
-        row.innerHTML = '<div class="sk-n-main"><span class="sk-n-name">' + n.name + (n.active ? ' <span class="sk-act">主动</span>' : '') + '</span><span class="sk-n-rk">' + rk + '/' + n.max + '</span></div><div class="sk-n-desc">' + n.desc + '</div>';
-        var btns = document.createElement("div"); btns.className = "sk-n-btns";
-        var minus = document.createElement("button"); minus.className = "tb sk-mini"; minus.textContent = "−"; minus.disabled = rk <= 0; minus.onclick = function () { refundSkill(n.id); };
-        var plus = document.createElement("button"); plus.className = "tb sk-mini"; plus.textContent = "+"; plus.disabled = maxed || (stats.sp || 0) <= 0; plus.onclick = function () { spendSkill(n.id); };
-        btns.appendChild(minus); btns.appendChild(plus); row.appendChild(btns); g.appendChild(row);
+    $("skInfo").innerHTML = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 已投入 " + skillSpent() + "/" + SKILL_TREE.totalPts + " · 串联+级别+投点解锁";
+    var w = $("skTree"); var width = SK_COLS * SK_CW, height = SK_ROWS * SK_CH;
+    w.style.position = "relative"; w.style.width = width + "px"; w.style.height = height + "px";
+    function cx(col) { return SK_PAD + col * SK_CW + (SK_CW - SK_PAD * 2) / 2; }
+    function cy(row) { return SK_PAD + row * SK_CH + (SK_CH - SK_PAD * 2) / 2; }
+    var svg = '<svg width="' + width + '" height="' + height + '" style="position:absolute;left:0;top:0;pointer-events:none">';
+    SKILL_TREE.nodes.forEach(function (n) {
+      n.prereq.forEach(function (pid) {
+        var p = skillNodeById(pid); if (!p) return;
+        var lit = skillRank(pid) > 0, col = lit ? (skillRank(n.id) > 0 ? "#ffce6a" : "#b89a4a") : "#4a3826";
+        svg += '<line x1="' + cx(p.col) + '" y1="' + cy(p.row) + '" x2="' + cx(n.col) + '" y2="' + cy(n.row) + '" stroke="' + col + '" stroke-width="' + (lit ? 3 : 2) + '"/>';
       });
-      w.appendChild(g);
+    });
+    svg += '</svg>'; w.innerHTML = svg;
+    SKILL_TREE.nodes.forEach(function (n) {
+      var rk = skillRank(n.id), maxed = rk >= n.max, lock = nodeLockReason(n);
+      var el = document.createElement("div");
+      el.className = "sk-node2" + (rk > 0 ? " has" : "") + (lock && rk === 0 ? " locked" : "") + (maxed ? " maxed" : "") + (n.active ? " active" : "");
+      el.style.left = (SK_PAD + n.col * SK_CW) + "px"; el.style.top = (SK_PAD + n.row * SK_CH) + "px";
+      el.style.width = (SK_CW - SK_PAD * 2) + "px"; el.style.height = (SK_CH - SK_PAD * 2) + "px";
+      var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '<div class="sk2-desc">' + n.desc + '</div>';
+      el.innerHTML = '<div class="sk2-top"><span class="sk2-name">' + n.name + (n.active ? ' ⚡' : '') + '</span><span class="sk2-rk">' + rk + '/' + n.max + '</span></div>' + body
+        + '<div class="sk2-btns"><button class="tb sk-mini" data-a="m">−</button><button class="tb sk-mini" data-a="p">+</button></div>';
+      var bs = el.getElementsByTagName("button");
+      bs[0].disabled = rk <= 0; bs[0].onclick = function () { refundSkill(n.id); };
+      bs[1].disabled = maxed || (stats.sp || 0) <= 0 || !!lock; bs[1].onclick = function () { spendSkill(n.id); };
+      w.appendChild(el);
     });
     var a = totalAttrs();
     $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + a.Crit + "% · 暴伤 " + a.CritDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);
@@ -863,6 +897,7 @@
     APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等
+    validateSkills(); // 树改版：清理旧无效技能id，点数退回
     var owed = Math.max(0, (stats.level || 1) - 1) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed;
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
