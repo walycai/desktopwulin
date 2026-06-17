@@ -583,7 +583,7 @@ def cut_sample_to_alpha(crop, pad=24):
     return out
 
 
-def cut_chroma_to_alpha(crop, pad=18):
+def cut_chroma_to_alpha(crop, pad=18, key="green"):
     """Remove flat green imagegen sheet background and keep the main nearby components."""
     crop = crop.convert("RGBA")
     pix = crop.load()
@@ -591,7 +591,12 @@ def cut_chroma_to_alpha(crop, pad=18):
     for y in range(h):
         for x in range(w):
             r, g, b, a = pix[x, y]
-            if a and g > 145 and r < 135 and b < 135 and g > r * 1.25 and g > b * 1.25:
+            is_key = False
+            if key == "magenta":
+                is_key = r > 145 and b > 145 and g < 135 and r > g * 1.25 and b > g * 1.25
+            else:
+                is_key = g > 145 and r < 135 and b < 135 and g > r * 1.25 and g > b * 1.25
+            if a and is_key:
                 pix[x, y] = (0, 0, 0, 0)
     seen = [[False] * w for _ in range(h)]
     comps = []
@@ -781,12 +786,12 @@ def apply_combat_sources_v1():
             save(make_combat_sheet(poses[eid], action, frames), f"characters/enemies/{eid}/{action}.png")
 
 
-def boss_pose(src, box):
-    pose = cut_chroma_to_alpha(src.crop(box), pad=8)
+def boss_pose(src, box, key="green", max_size=62):
+    pose = cut_chroma_to_alpha(src.crop(box), pad=8, key=key)
     bbox = pose.getchannel("A").getbbox()
     if bbox:
         pose = pose.crop(bbox)
-    scale = min(62 / pose.height, 62 / pose.width)
+    scale = min(max_size / pose.height, max_size / pose.width)
     pose = pose.resize((max(1, round(pose.width * scale)), max(1, round(pose.height * scale))), Image.Resampling.LANCZOS)
     frame = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     frame.alpha_composite(pose, ((64 - pose.width) // 2, 63 - pose.height))
@@ -794,18 +799,40 @@ def boss_pose(src, box):
 
 
 def apply_boss_sources_v1():
-    """Cut AI-approved boss source art into 64x64 combat sheets.
+    """Cut AI-approved boss/enemy source art into 64x64 combat sheets.
 
-    Enemy rendering mirrors source frames at draw time, so source boss poses face right.
+    Enemy rendering mirrors source frames at draw time, so source poses face right.
     """
-    sample = ROOT / "previews/boss-shanzeiwang-source-v1.png"
-    if not sample.exists():
-        return
-    src = Image.open(sample).convert("RGBA")
-    pose = boss_pose(src, (40, 35, 1225, 1225))
+    bosses = {
+        "shanzeiwang": ("previews/boss-shanzeiwang-source-v1.png", "green"),
+        "youlinguiying": ("previews/boss-youlinguiying-source-v1.png", "magenta"),
+        "qingchengnitu": ("previews/boss-qingchengnitu-source-v1.png", "green"),
+        "xuedaolaozu": ("previews/boss-xuedaolaozu-source-v1.png", "green"),
+        "tianmojiaozhu": ("previews/boss-tianmojiaozhu-source-v1.png", "green"),
+    }
     boss_specs = {"idle": 4, "attack": 6}
-    for action, frames in boss_specs.items():
-        save(make_combat_sheet(pose, action, frames), f"characters/bosses/shanzeiwang/{action}.png")
+    for bid, (rel, key) in bosses.items():
+        sample = ROOT / rel
+        if not sample.exists():
+            continue
+        src = Image.open(sample).convert("RGBA")
+        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=62)
+        for action, frames in boss_specs.items():
+            save(make_combat_sheet(pose, action, frames), f"characters/bosses/{bid}/{action}.png")
+
+    enemies = {
+        "xie_jiao": ("previews/enemy-xie_jiao-source-v1.png", "green"),
+        "mo_jiao": ("previews/enemy-mo_jiao-source-v1.png", "green"),
+    }
+    enemy_specs = {"idle": 4, "attack": 6, "hurt": 3, "death": 4}
+    for eid, (rel, key) in enemies.items():
+        sample = ROOT / rel
+        if not sample.exists():
+            continue
+        src = Image.open(sample).convert("RGBA")
+        pose = boss_pose(src, (40, 35, src.width - 30, src.height - 20), key=key, max_size=58)
+        for action, frames in enemy_specs.items():
+            save(make_combat_sheet(pose, action, frames), f"characters/enemies/{eid}/{action}.png")
 
 
 def actor_layout(action, frame, direction):
