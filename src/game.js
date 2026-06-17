@@ -83,13 +83,13 @@
   var GONGFA_MAXLV = 10;
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
   var GONGFA = [
-    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 7, Mana: 5 }, active: { HP: 11, DEF: 2 }, desc: "内功·增气血与内力上限" }, // 莱布尼茨均衡v1
-    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 2, Crit: 1, CritDmg: 3 }, desc: "外功·增攻防暴击" },
-    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 2, Hit: 1 }, active: { ATKspd: 3, Crit: 2, Dodge: 1 }, desc: "轻功·增攻速命中闪避" }
+    { id: "nei_tuna", name: "基础吐纳功", sys: "nei", tier: "白", passive: { HP: 7, Mana: 5 }, active: { HP: 21, Mana: 15, DEF: 3 }, desc: "内功·增气血与内力上限" }, // 主动≈被动3x+额外(WalyCai)，待莱布尼茨复核三系
+    { id: "wai_quan", name: "基础拳经", sys: "wai", tier: "白", passive: { ATK: 1 }, active: { ATK: 3, Crit: 2, CritDmg: 6 }, desc: "外功·增攻防暴击" },
+    { id: "qing_shen", name: "基础身法", sys: "qing", tier: "白", passive: { ATKspd: 2, Hit: 1 }, active: { ATKspd: 6, Hit: 3, Crit: 3, Dodge: 2 }, desc: "轻功·增攻速命中闪避" }
   ];
   function gongfaById(id) { for (var i = 0; i < GONGFA.length; i++) if (GONGFA[i].id === id) return GONGFA[i]; return null; }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
-  function gfProfReq(lv) { return lv * 120; } // lv→lv+1 所需熟练度(占位,待莱布尼茨)
+  function gfProfReq(lv) { return Math.round(100 * lv * lv); } // lv→lv+1 熟练度(二次曲线:高级别大幅变慢,待莱布尼茨精调)
   function gfEquippedSlot(id) { for (var i = 0; i < GONGFA_SLOTS.length; i++) { var k = GONGFA_SLOTS[i].key; if (stats.gongfaEquip[k] === id) return k; } return null; }
   function trainGongfa(amt) {
     var id = stats.trainId; if (!id) return; var g = gongfaById(id); if (!g) return;
@@ -410,8 +410,8 @@
   function updateStats() {
     $("hpVal").textContent = Math.round(stats.hp); $("hpMax").textContent = stats.hpMax; $("neigong").textContent = stats.ng;
     var bar = $("ngBar"); if (!bar.firstChild) bar.innerHTML = "<i></i>"; bar.firstChild.style.width = Math.round(stats.ngP / NG_PER_LV * 100) + "%";
-    var s = []; if (stats.poison) s.push("中毒"); if (stats.weak) s.push("虚弱");
-    $("statusVal").textContent = s.length ? s.join("、") : "正常"; $("statusVal").style.color = s.length ? "#ff8a7a" : "#9fe0a0";
+    if ($("statusVal")) { var s = []; if (stats.poison) s.push("中毒"); if (stats.weak) s.push("虚弱"); $("statusVal").textContent = s.length ? s.join("、") : "正常"; } // 状态暂隐藏(WalyCai)
+    if ($("cpVal")) $("cpVal").textContent = CORE.combatPower(totalAttrs()); // 主页面战斗力
     if ($("lvVal")) { $("lvVal").textContent = stats.level; $("expTxt").textContent = "(" + stats.exp + "/" + CORE.nextExp(stats.level) + ")"; }
     if ($("manaVal")) { $("manaVal").textContent = Math.round(stats.mana || 0); $("manaMax").textContent = stats.manaMax || 0; }
     if ($("goldVal")) $("goldVal").textContent = stats.gold || 0;
@@ -1012,8 +1012,6 @@
     resetOcc(); initBag(); loadAssets();
     if (!load()) { addPlaced(byId.meditation_dais, Math.floor(GW / 2) - 6, 6, 0, false); bag.meditation_dais--; }
     renderCats(); renderItems(); updateStats(); bindInput();
-    $("dbgPoison").onclick = function () { stats.poison = true; updateStats(); toast("中了毒！去睡觉解毒"); };
-    $("dbgWeak").onclick = function () { stats.weak = true; updateStats(); toast("陷入虚弱！去睡觉恢复"); };
     $("dbgHurt").onclick = function () { stats.hp = Math.max(0, stats.hp - 30); updateStats(); toast("受伤 -30 气血"); };
     $("resetBtn").onclick = function () { if (confirm("清空房间与存档？")) { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(SAVE_KEY + "_eq"); location.reload(); } };
     $("recallAll").onclick = function () { moveMode = null; placed.slice().forEach(function (p) { if (!byId[p.id].fixed) { freeCells(p); bag[p.id]++; } }); placed = placed.filter(function (p) { return byId[p.id].fixed; }); backToWander(); deselect(); renderItems(); save(); toast("已收回全部可移动物品"); };

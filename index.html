@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618q">
+<link rel="stylesheet" href="src/style.css?v=0618r">
 </head>
 <body>
   <header class="topbar">
@@ -15,7 +15,7 @@
       <span class="stat" title="金币">💰 <b id="goldVal">0</b></span>
       <span class="stat" title="历练等级">⚔ Lv<b id="lvVal">1</b> <span id="expTxt" class="exp-txt"></span></span>
       <span class="stat" title="内功(功法)">☯ 内功 <b id="neigong">1</b> 级 <span id="ngBar" class="mini"></span></span>
-      <span class="stat" id="statusWrap" title="负面状态">状态：<b id="statusVal">正常</b></span>
+      <span class="stat" title="战斗力（面板静态战力）">💪 战力 <b id="cpVal">—</b></span>
     </div>
     <div class="topbtns">
       <button id="sortieBtn" class="tb sortie" title="出门历练(选择区域)">⚔ 出战历练</button>
@@ -23,8 +23,6 @@
       <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
       <button id="helpBtn" class="tb" title="操作/快捷键">❓ 帮助</button>
-      <button id="dbgPoison" class="tb" title="调试：施加中毒">中毒</button>
-      <button id="dbgWeak" class="tb" title="调试：施加虚弱">虚弱</button>
       <button id="dbgHurt" class="tb" title="调试：扣血">受伤</button>
       <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
     </div>
@@ -160,7 +158,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618q"></script>
-  <script src="src/game.js?v=0618q"></script>
+  <script src="src/combat-core.js?v=0618r"></script>
+  <script src="src/game.js?v=0618r"></script>
 </body>
 </html>
