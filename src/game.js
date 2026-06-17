@@ -1016,12 +1016,28 @@
     updatePlayer(dt); render(); requestAnimationFrame(loop);
   }
 
+  // ---- 调试工具（WalyCai 手动测试用：快速到 Lv50 试技能树/功法/经济）----
+  function dbgAddLevel(n) { for (var i = 0; i < n && stats.level < 50; i++) { stats.level++; stats.sp = (stats.sp || 0) + 1; } stats.exp = 0; syncHpMax(); save(); updateStats(); toast("等级 → Lv" + stats.level + "（技能点 " + (stats.sp || 0) + "）"); }
+  function dbgGold(n) { stats.gold = (stats.gold || 0) + n; save(); updateStats(); toast("金币 +" + n); }
+  function dbgGongfaMax() { var id = stats.trainId; if (!id) return; stats.gongfa[id] = { lv: 10, prof: 0 }; syncHpMax(); save(); toast("「" + (gongfaById(id) ? gongfaById(id).name : id) + "」直接练满 Lv10"); if (!$("kungfuModal").classList.contains("hidden")) renderKungfu(); }
+  function dbgUnlockZones() { stats.unlocked = ZONES.length - 1; save(); toast("已解锁全部历练区"); }
+  function dbgGear() { for (var i = 0; i < 5; i++) { var pool = CORE.DROP.equipPool, tid = pool[Math.floor(Math.random() * pool.length)]; warehouse.push(rollItem(tid)); } saveEquip(); toast("仓库 +5 随机装备"); if (!$("dollModal").classList.contains("hidden")) renderDoll(); }
+
   function init() {
     canvas = $("canvas"); ctx = canvas.getContext("2d"); resize();
     resetOcc(); initBag(); loadAssets();
     if (!load()) { addPlaced(byId.meditation_dais, Math.floor(GW / 2) - 6, 6, 0, false); bag.meditation_dais--; }
     renderCats(); renderItems(); updateStats(); bindInput();
-    $("dbgHurt").onclick = function () { stats.hp = Math.max(0, stats.hp - 30); updateStats(); toast("受伤 -30 气血"); };
+    $("dbgBtn").onclick = function () { $("dbgModal").classList.remove("hidden"); };
+    $("dbgClose").onclick = function () { $("dbgModal").classList.add("hidden"); };
+    $("dbgModal").addEventListener("click", function (e) { if (e.target === $("dbgModal")) $("dbgModal").classList.add("hidden"); });
+    $("dbgLv5").onclick = function () { dbgAddLevel(5); };
+    $("dbgLv50").onclick = function () { dbgAddLevel(50); };
+    $("dbgGold").onclick = function () { dbgGold(50000); };
+    $("dbgGf").onclick = dbgGongfaMax;
+    $("dbgZone").onclick = dbgUnlockZones;
+    $("dbgGearBtn").onclick = dbgGear;
+    $("dbgHurtBtn").onclick = function () { stats.hp = Math.max(0, stats.hp - 30); updateStats(); toast("受伤 -30 气血"); };
     $("resetBtn").onclick = function () { if (confirm("清空房间与存档？")) { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(SAVE_KEY + "_eq"); location.reload(); } };
     $("recallAll").onclick = function () { moveMode = null; placed.slice().forEach(function (p) { if (!byId[p.id].fixed) { freeCells(p); bag[p.id]++; } }); placed = placed.filter(function (p) { return byId[p.id].fixed; }); backToWander(); deselect(); renderItems(); save(); toast("已收回全部可移动物品"); };
     $("selMove").onclick = function () { if (selectedPlaced) enterMove(selectedPlaced); };

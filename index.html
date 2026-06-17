@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0618s">
+<link rel="stylesheet" href="src/style.css?v=0618t">
 </head>
 <body>
   <header class="topbar">
@@ -23,7 +23,7 @@
       <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
       <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
       <button id="helpBtn" class="tb" title="操作/快捷键">❓ 帮助</button>
-      <button id="dbgHurt" class="tb" title="调试：扣血">受伤</button>
+      <button id="dbgBtn" class="tb" title="调试工具(测试用)">🐞 调试</button>
       <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
     </div>
   </header>
@@ -82,6 +82,24 @@
       <div id="gfList" class="gf-list"></div>
       <div id="gfAttrs" class="sk-attrs"></div>
       <div class="sk-tip">点「修炼」选择打坐时修炼的功法；点「装备」上阵享受主动效果。</div>
+    </div>
+  </div>
+
+  <!-- 调试工具 -->
+  <div id="dbgModal" class="modal-bg hidden">
+    <div class="combat-panel" style="width:380px;text-align:left">
+      <span id="dbgClose" class="close-x">✕</span>
+      <h2 style="text-align:center">🐞 调试工具</h2>
+      <div class="cm-body">测试用：快速到 Lv50 体验技能树/功法/经济。</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+        <button id="dbgLv5" class="tb">+5 级</button>
+        <button id="dbgLv50" class="tb">直升 Lv50</button>
+        <button id="dbgGold" class="tb">+5万 金币</button>
+        <button id="dbgGf" class="tb">当前功法练满</button>
+        <button id="dbgZone" class="tb">解锁全部区</button>
+        <button id="dbgGearBtn" class="tb">+5 随机装备</button>
+        <button id="dbgHurtBtn" class="tb">扣 30 血</button>
+      </div>
     </div>
   </div>
 
@@ -158,7 +176,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0618s"></script>
-  <script src="src/game.js?v=0618s"></script>
+  <script src="src/combat-core.js?v=0618t"></script>
+  <script src="src/game.js?v=0618t"></script>
 </body>
 </html>
