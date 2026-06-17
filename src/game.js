@@ -163,8 +163,9 @@
   // ---- 承载面 surface 机制(雅各布 最小版:桌面 + 博古架顶层) ----
   function isSurfaceHost(p) { var c = byId[p.id]; return !!c && (c.cat === "table" || p.id === "storage_shelf"); } // 可承载摆件的家具
   function surfLift(p) { return byId[p.id].zh || 0; } // 承载面高度=家具z高(顶面)
-  function decorHost(p) { // 摆件正下方的承载家具(桌/博古架顶);纯地面或宿主已移除则 null(自愈)
+  function decorHost(p) { // 摆件正下方的承载家具(桌/博古架顶);纯地面/越界/宿主已移除则 null(自愈)
     if (!p.decor || p.rug) return null;
+    if (p.cx < 0 || p.cy < 0 || p.cx + p.w > GW || p.cy + p.h > GH) return null; // 越界(含放置预览拖到房间边缘)→无宿主,避免 occ 越界崩溃
     var u = 0;
     for (var y = p.cy; y < p.cy + p.h; y++) for (var x = p.cx; x < p.cx + p.w; x++) { var c = occ[y][x]; if (c) { if (u && u !== c) return null; u = c; } }
     if (!u) return null;
