@@ -1679,6 +1679,127 @@ def apply_meditation_dais_replacement_v2():
     save(img, "furniture/func/meditation_dais.png")
 
 
+def remove_low_islands(img, min_area=180, low_ratio=0.78):
+    """Remove tiny detached fragments near the bottom without deleting shelf contents."""
+    px = img.load()
+    w, h = img.size
+    seen = set()
+    out = img.copy()
+    out_px = out.load()
+    for sy in range(h):
+        for sx in range(w):
+            if (sx, sy) in seen or px[sx, sy][3] <= 8:
+                continue
+            q = deque([(sx, sy)])
+            seen.add((sx, sy))
+            comp = []
+            minx = maxx = sx
+            miny = maxy = sy
+            while q:
+                x, y = q.popleft()
+                comp.append((x, y))
+                minx = min(minx, x); maxx = max(maxx, x)
+                miny = min(miny, y); maxy = max(maxy, y)
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if nx < 0 or ny < 0 or nx >= w or ny >= h or (nx, ny) in seen:
+                        continue
+                    if px[nx, ny][3] > 8:
+                        seen.add((nx, ny))
+                        q.append((nx, ny))
+            low_fragment = miny > h * low_ratio and len(comp) < min_area
+            if low_fragment:
+                for x, y in comp:
+                    out_px[x, y] = (0, 0, 0, 0)
+    return out
+
+
+def save_direction_variants(rel, axis=False):
+    """Write optional _r1/_r2/_r3 files consumed by the home renderer."""
+    path = ASSETS / rel
+    if not path.exists():
+        return
+    img = Image.open(path).convert("RGBA")
+    mirrored = ImageOps.mirror(img)
+    base = rel[:-4]
+    if axis:
+        save(mirrored, base + "_r1.png")
+        save(img.copy(), base + "_r2.png")
+        save(mirrored, base + "_r3.png")
+    else:
+        save(mirrored, base + "_r1.png")
+        save(img.copy(), base + "_r2.png")
+        save(mirrored, base + "_r3.png")
+
+
+def repaint_clean_desk_top():
+    """Clear source-sheet clutter from the desk so tabletop placement reads cleanly."""
+    path = ASSETS / "furniture/table/table_desk.png"
+    if not path.exists():
+        return
+    img = Image.open(path).convert("RGBA")
+    d = ImageDraw.Draw(img)
+    top = [(52, 96), (171, 68), (291, 96), (171, 126)]
+    d.polygon(top, fill=(139, 77, 38, 255), outline=(66, 39, 24, 255))
+    for off, col in [(8, (162, 94, 46, 230)), (18, (105, 58, 33, 210)), (28, (167, 104, 54, 210))]:
+        d.line((72, 98 + off // 5, 171, 75 + off // 6, 270, 98 + off // 5), fill=col, width=2)
+    d.line((66, 103, 171, 130, 278, 103), fill=(82, 47, 28, 240), width=3)
+    d.line((76, 90, 171, 111, 267, 90), fill=(182, 112, 58, 210), width=1)
+    save(img, "furniture/table/table_desk.png")
+
+
+def apply_surface_furniture_pass_v1():
+    """Art pass for tabletop/shelf placement: clean carrying surfaces and variants."""
+    # Recut clipped tabletop objects with larger source boxes.
+    decor_src = ROOT / "previews/home-decor-source-v1.png"
+    if decor_src.exists():
+        src = Image.open(decor_src).convert("RGBA")
+        for rel, box in {
+            "furniture/decor/decor_weiqi.png": (624, 364, 902, 620),
+            "furniture/decor/decor_books.png": (610, 620, 915, 870),
+        }.items():
+            save(cut_chroma_to_alpha(src.crop(box), pad=18), rel)
+
+    sheet2 = ROOT / "previews/home-asset-sheet-v2.png"
+    if sheet2.exists():
+        src2 = Image.open(sheet2).convert("RGBA")
+        save(cut_chroma_to_alpha(src2.crop((832, 770, 1142, 1015)), pad=18), "furniture/decor/decor_food_box.png")
+
+    # Remove bottom debris called out in the audit, then refresh their variants.
+    for rel, min_area in (
+        ("furniture/storage/storage_shelf.png", 1200),
+        ("furniture/storage/storage_wardrobe.png", 420),
+    ):
+        path = ASSETS / rel
+        if path.exists():
+            save(remove_low_islands(Image.open(path).convert("RGBA"), min_area=min_area), rel)
+
+    repaint_clean_desk_top()
+
+    # Axis-sensitive long objects need mirrored variants instead of identical copies.
+    for rel in (
+        "furniture/chair/chair_bench.png",
+        "furniture/table/table_long.png",
+        "furniture/table/table_desk.png",
+    ):
+        save_direction_variants(rel, axis=True)
+
+    # Top/shelf-capable small decor needs explicit variants; mirror is enough for
+    # current renderer and avoids fallback distortion while full four-face art evolves.
+    for rel in (
+        "furniture/decor/decor_brush.png",
+        "furniture/decor/decor_teaset.png",
+        "furniture/decor/decor_guqin.png",
+        "furniture/decor/decor_books.png",
+        "furniture/decor/decor_ruyi.png",
+        "furniture/decor/decor_inkstone.png",
+        "furniture/decor/decor_weiqi.png",
+        "furniture/decor/decor_food_box.png",
+        "furniture/storage/storage_shelf.png",
+        "furniture/storage/storage_wardrobe.png",
+    ):
+        save_direction_variants(rel)
+
+
 def main():
     environment_assets()
     furniture()
@@ -1698,6 +1819,7 @@ def main():
     apply_home_actor_layers_v2()
     apply_bed_table_replacement_v2()
     apply_meditation_dais_replacement_v2()
+    apply_surface_furniture_pass_v1()
 
 
 if __name__ == "__main__":
