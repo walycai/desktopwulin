@@ -52,6 +52,13 @@
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
   var GOLD_PER_EXP = 0.43; // 金币掉落=敌人经验×此系数（占位，待莱布尼茨按"金币/分钟"反推）
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
+  // ---- 内功附魔流(第二树) 数值常量 —— 占位,待莱布尼茨精调+验平衡 ----
+  var RANGE_BASE = 40, RANGE_COEF = 8; // 射程(像素) = 基数 + 系数×内功级别;内功级别=Σ功法lv。学了根技能 range 才生效
+  var ENCH = { // 附魔 on-hit debuff:根技能给基础值,进阶节点按 rank 叠加。每线4节点:根/伤害(或移速)/时长(或攻速命中)/收尾增幅
+    burn:   { chance: 0.5, dpsRoot: 6, dpsPer: 4, durRoot: 3, durPer: 0.5, ampPer: 0.15 },  // 炎:fire_ignite根;fire_blaze +dps/级;fire_inferno +时长/级;fire_conflag 灼烧伤害×(1+amp/级)
+    poison: { chance: 0.6, dpsRoot: 4, dpsPer: 3, durRoot: 4, durPer: 0.6, ampPer: 0.15 },  // 毒:poison_venom根;poison_toxin +dps/级;poison_plague +时长/级;poison_corrode 中毒伤害×(1+amp/级)
+    chill:  { chance: 0.5, mvRoot: 0.15, asRoot: 0.10, hitRoot: 0.05, mvPer: 0.04, deepPer: 0.05, dur: 3, durPer: 0.4, chancePer: 0.08 } // 冰:ice_frost根;ice_glacier +移速减/级;ice_freeze +攻速命中减/级;ice_permafrost +时长&几率/级。⚠️减速实时模型很强,克制
+  };
   var SELL = { common: 8, fine: 20, superior: 55, epic: 150, legend: 400 }; // 装备售价基准(按稀有度,占位待莱布尼茨调)
   // 稀有度独立加权 roll（脱离模板，D2 风；@莱布尼茨 平衡报告①）
   var RARITY_WEIGHTS = [["common", 64], ["fine", 28], ["superior", 7], ["epic", 0.8], ["legend", 0.2]]; // 新手村(莱布尼茨报告②); 超高=绝品+秘传≈1%
@@ -154,6 +161,7 @@
     var enemyRegenPct = (0.2 + 0.05 * (cfg.zoneIdx || 0)) / 100; // 敌人每秒回血%maxHP(莱布尼茨温和版:轻DPS软底,挂机轻松盖过)
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
+    var enchant = cfg.enchant || {}, reach = melee + (cfg.playerRange || 0); // 附魔流:on-hit debuff + 射程(玩家攻击触及距离,>melee=远程先手)
     var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
     var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
@@ -170,7 +178,7 @@
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
       return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(0.8 * lv), Tough: Math.round(0.8 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨温和版(前10层挂机向):闪避/韧性 0.8×lv
     }
-    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0 }; }
+    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0, deb: { burnDps: 0, burnT: 0, poiDps: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
     function spawn() {
       var E;
       if (spawnTypes) { var id = spawnTypes[Math.floor(rng() * spawnTypes.length)], lv = lvMin + Math.floor(rng() * (lvMax - lvMin + 1)); E = leveledEnemy(id, lv); }
@@ -178,7 +186,12 @@
       if (E) enemies.push(mkEnemy(E, false));
     }
     if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8) * BOSS_HP_MULT); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); var bm = mkEnemy(bE, true); bm.bossId = cfg.boss.bossId; enemies.push(bm); }
-    function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= melee + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; }
+    function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= reach + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; } // 玩家触及 reach(含射程),敌人进场途中即可被打
+    function applyEnchant(tg) { // 玩家命中→按附魔流概率施加 debuff(刷新时长,取较强值)
+      if (enchant.burn && rng() < enchant.burn.chance) { tg.deb.burnDps = Math.max(tg.deb.burnDps, enchant.burn.dps); tg.deb.burnT = enchant.burn.dur; }
+      if (enchant.poison && rng() < enchant.poison.chance) { tg.deb.poiDps = Math.max(tg.deb.poiDps, enchant.poison.dps); tg.deb.poiT = enchant.poison.dur; }
+      if (enchant.chill && rng() < enchant.chill.chance) { tg.deb.chillMv = enchant.chill.mv; tg.deb.chillAs = enchant.chill.as; tg.deb.chillHit = enchant.chill.hit; tg.deb.chillT = enchant.chill.dur; }
+    }
     function killEnemy(e) {
       e.dead = true; kills++; exp += (e.E.exp || 0); gold += Math.round((e.E.exp || 0) * GOLD_PER_EXP * (e.isBoss ? 2 : 1)); // 金币=经验×系数(boss额外2x)，待莱布尼茨调
       if (e.isBoss) {
@@ -196,10 +209,19 @@
       if (!bossFight) { spawnCd -= dt; if (spawnCd <= 0 && enemies.length < maxField) { spawn(); spawnCd = spawnInt; } }
       else if (enemies.length === 0) { done = true; outcome = bossKilled ? "win" : "win"; return; }
       var i, e;
-      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt); e.anim = "idle"; } if (enemyRegenPct > 0 && e.hp > 0 && e.hp < e.hpMax) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * enemyRegenPct * dt); } // 敌人回血
+      for (i = 0; i < enemies.length; i++) {
+        e = enemies[i]; if (e.dead) continue;
+        var mvMul = e.deb.chillT > 0 ? (1 - e.deb.chillMv) : 1;                 // 冰冻减移速
+        if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt * mvMul); e.anim = "idle"; }
+        if (enemyRegenPct > 0 && e.hp > 0 && e.hp < e.hpMax) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * enemyRegenPct * dt); // 敌人回血
+        if (e.deb.burnT > 0) { var bd = e.deb.burnDps * dt; e.hp -= bd; dmgDealt += bd; e.deb.burnT -= dt; }   // 灼烧DoT
+        if (e.deb.poiT > 0) { var pd = e.deb.poiDps * dt; e.hp -= pd; dmgDealt += pd; e.deb.poiT -= dt; }      // 中毒DoT
+        if (e.deb.chillT > 0) e.deb.chillT -= dt;
+        if (e.hp <= 0 && !e.dead) killEnemy(e);                                  // DoT 可致死
+      }
       if (haste > 0) haste -= dt;
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; // 狂暴期间出手更快
-      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
+      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
       // 主动技能：蓝量回满后释放一个"最久未放"的就绪技能（避免低耗技能饿死高耗技能）
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
       if (mana >= manaMax && enemies.length) {
@@ -210,7 +232,7 @@
           mana -= pick.cost; pick.cdT = pick.cd; pick.lastT = t;
         }
       }
-      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.x <= melee) { e.cd -= dt; if (e.cd <= 0) { var s2 = strike(rng, e.E, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; }
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.x <= melee) { var chilled = e.deb.chillT > 0; e.cd -= dt * (chilled ? (1 - e.deb.chillAs) : 1); if (e.cd <= 0) { var atkE = chilled && e.deb.chillHit ? { name: e.E.name, ATK: e.E.ATK, DEF: e.E.DEF, Crit: e.E.Crit, CritDmg: e.E.CritDmg, Hit: e.E.Hit * (1 - e.deb.chillHit), Dodge: e.E.Dodge, Tough: e.E.Tough } : e.E; var s2 = strike(rng, atkE, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; } // 冰冻:减敌攻速(cd走得慢)+减敌命中
       enemies = enemies.filter(function (q) { return !q.dead; });
       if (P.hp <= 0) { done = true; outcome = "lose"; }
     }
@@ -257,9 +279,11 @@
   function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var s = {}, m = 1 + GEAR_LV_SCALE * ((it.lv || 1) - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * m); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
   // ==== build → 实战(单一源)：game.js totalAttrs/abilities 与 @莱布尼茨 sim 共用 ====
   // build = {level, neigong, equipped:{slot:{tid,affixes,lv}}, skills:{nodeId:rank}, gongfa:{id:lv}, gongfaEquip:{nei,wai1,wai2,qing}}
+  function neigongLevel(gf) { var s = 0; for (var gid in (gf || {})) s += gf[gid] || 0; return s; } // 内功级别=所有功法等级之和(WalyCai重定义,不再用打坐时间)
   function buildToCombat(b) {
     b = b || {}; var sk = b.skills || {}, gf = b.gongfa || {}, ge = b.gongfaEquip || {};
-    var a = baseAttrs(b.level || 1, b.neigong || 1);
+    var ngLv = neigongLevel(gf);
+    var a = baseAttrs(b.level || 1, ngLv);
     var eq = {}, eqp = b.equipped || {}; for (var slot in eqp) { var it = eqp[slot]; if (!it) continue; var s = itemStats(it); for (var k in s) eq[k] = (eq[k] || 0) + s[k]; }
     if (eq.ATK) eq.ATK *= 1 + (sk.equip_atk || 0) * 0.05; if (eq.HP) eq.HP *= 1 + (sk.equip_hp || 0) * 0.05;
     for (var k2 in eq) a[k2] = (a[k2] || 0) + eq[k2];
@@ -272,7 +296,13 @@
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
     if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
-    return { attrs: a, abilities: ab, manaRegen: 8 };
+    // ---- 内功附魔流:on-hit debuff + 射程(第二树) ----
+    var ench = {};
+    if ((sk.fire_ignite || 0) > 0) ench.burn = { chance: ENCH.burn.chance, dps: (ENCH.burn.dpsRoot + (sk.fire_blaze || 0) * ENCH.burn.dpsPer) * (1 + (sk.fire_conflag || 0) * ENCH.burn.ampPer), dur: ENCH.burn.durRoot + (sk.fire_inferno || 0) * ENCH.burn.durPer };
+    if ((sk.poison_venom || 0) > 0) ench.poison = { chance: ENCH.poison.chance, dps: (ENCH.poison.dpsRoot + (sk.poison_toxin || 0) * ENCH.poison.dpsPer) * (1 + (sk.poison_corrode || 0) * ENCH.poison.ampPer), dur: ENCH.poison.durRoot + (sk.poison_plague || 0) * ENCH.poison.durPer };
+    if ((sk.ice_frost || 0) > 0) ench.chill = { chance: ENCH.chill.chance + (sk.ice_permafrost || 0) * ENCH.chill.chancePer, mv: ENCH.chill.mvRoot + (sk.ice_glacier || 0) * ENCH.chill.mvPer, as: ENCH.chill.asRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, hit: ENCH.chill.hitRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, dur: ENCH.chill.dur + (sk.ice_permafrost || 0) * ENCH.chill.durPer };
+    var playerRange = (sk.range || 0) > 0 ? Math.round(RANGE_BASE + RANGE_COEF * ngLv) : 0;
+    return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, baseAttrs: baseAttrs };
 });

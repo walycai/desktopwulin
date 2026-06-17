@@ -440,12 +440,13 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
-    else if (player.state === "meditating") { var d = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var mm = 1 + homeRank("meditate_eff") * 0.2; var lv = false; stats.ngP += (d.neigong || 0) * mm; while (stats.ngP >= NG_PER_LV) { stats.ngP -= NG_PER_LV; stats.ng++; lv = true; toast("内功提升到 " + stats.ng + " 级！"); } if (lv) syncHpMax(); } // 旧内功ng(功法熟练度改为主循环逐帧练,见loop)
+    // 打坐修炼=训练所选功法熟练度(主循环逐帧 trainGongfa)→升功法等级→抬内功级别。旧 stats.ng(打坐时间)已废弃,内功级别=Σ功法lv
     updateStats(); save();
   }
   function updateStats() {
-    $("hpVal").textContent = Math.round(stats.hp); $("hpMax").textContent = stats.hpMax; $("neigong").textContent = stats.ng;
-    var bar = $("ngBar"); if (!bar.firstChild) bar.innerHTML = "<i></i>"; bar.firstChild.style.width = Math.round(stats.ngP / NG_PER_LV * 100) + "%";
+    $("hpVal").textContent = Math.round(stats.hp); $("hpMax").textContent = stats.hpMax; $("neigong").textContent = neigongLv(); // 内功级别=Σ功法lv
+    var bar = $("ngBar"); if (!bar.firstChild) bar.innerHTML = "<i></i>"; // 进度条=当前打坐修炼功法的熟练度进度
+    var tid = stats.trainId, ts = tid && gfState(tid), prog = 0; if (ts && ts.lv > 0 && ts.lv < CORE.GONGFA_MAXLV) prog = ts.prof / CORE.gfProfReq(ts.lv); bar.firstChild.style.width = Math.round(Math.max(0, Math.min(1, prog)) * 100) + "%";
     if ($("statusVal")) { var s = []; if (stats.poison) s.push("中毒"); if (stats.weak) s.push("虚弱"); $("statusVal").textContent = s.length ? s.join("、") : "正常"; } // 状态暂隐藏(WalyCai)
     if ($("cpVal")) $("cpVal").textContent = CORE.combatPower(totalAttrs()); // 主页面战斗力
     if ($("lvVal")) { $("lvVal").textContent = stats.level; $("expTxt").textContent = "(" + stats.exp + "/" + CORE.nextExp(stats.level) + ")"; }
@@ -612,7 +613,7 @@
   // ---- 人物技能树：力量战士（草案数值，待莱布尼茨平衡）----
   // ---- 人物技能树：力量战士（树状·串联+级别+投点 门槛；Salt & Sanctuary / Titan Quest 风）----
   // 5列×5行；prereq=前置(需≥1级) reqPts=树内已投点门槛 reqLv=人物等级门槛
-  var SKILL_TREE = {
+  var SKILL_TREES = [{
     id: "warrior", name: "力量战士", totalPts: 49,
     nodes: [
       { id: "foundation", name: "武者根基", max: 3, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "气血 +15、攻击 +2 / 级（根基）" },
@@ -632,18 +633,42 @@
       { id: "equip_hp", name: "负重前行", max: 3, row: 3, col: 4, reqPts: 18, reqLv: 8, prereq: ["str_def"], desc: "装备气血 +5% / 级" },
       { id: "berserk", name: "狂暴", max: 1, row: 4, col: 4, reqPts: 28, reqLv: 12, prereq: ["equip_hp"], active: true, desc: "主动·战斗中蓝量满自动进入狂暴(出手大幅加快)" }
     ]
-  };
-  function skillNodeById(id) { for (var i = 0; i < SKILL_TREE.nodes.length; i++) if (SKILL_TREE.nodes[i].id === id) return SKILL_TREE.nodes[i]; return null; }
+  }, {
+    // ---- 第二树：内功附魔流(WalyCai 2026-06-18)。与战士共存,共用sp池,各树按本树已投点解锁。数值待莱布尼茨精调 ----
+    id: "enchant", name: "内功附魔流", totalPts: 53,
+    nodes: [
+      { id: "range", name: "内功射程", max: 5, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "射程 = 基数 + 系数 × 内功级别（内功级别=所有功法等级之和）。远程先手、敌人进场途中就开始挨打" },
+      // 炎线 col0：点燃→灼烧 DoT
+      { id: "fire_ignite", name: "点燃", max: 3, row: 1, col: 0, reqPts: 3, reqLv: 3, prereq: ["range"], desc: "命中几率点燃，灼烧持续掉血(DoT)" },
+      { id: "fire_blaze", name: "烈焰", max: 5, row: 2, col: 0, reqPts: 8, reqLv: 8, prereq: ["fire_ignite"], desc: "灼烧每秒伤害 +/级" },
+      { id: "fire_inferno", name: "燎原", max: 5, row: 3, col: 0, reqPts: 16, reqLv: 15, prereq: ["fire_blaze"], desc: "灼烧持续时间 +/级" },
+      { id: "fire_conflag", name: "焚天", max: 3, row: 4, col: 0, reqPts: 24, reqLv: 22, prereq: ["fire_inferno"], desc: "灼烧伤害额外增幅 ×/级" },
+      // 冰线 col2：冰冻减速
+      { id: "ice_frost", name: "冰霜", max: 3, row: 1, col: 2, reqPts: 3, reqLv: 3, prereq: ["range"], desc: "命中几率冰冻：减敌移速/攻速/命中" },
+      { id: "ice_glacier", name: "玄冰", max: 5, row: 2, col: 2, reqPts: 8, reqLv: 8, prereq: ["ice_frost"], desc: "冰冻减敌移速 +/级" },
+      { id: "ice_freeze", name: "凝寒", max: 5, row: 3, col: 2, reqPts: 16, reqLv: 15, prereq: ["ice_glacier"], desc: "冰冻额外减敌攻速/命中 +/级" },
+      { id: "ice_permafrost", name: "万载玄冰", max: 3, row: 4, col: 2, reqPts: 24, reqLv: 22, prereq: ["ice_freeze"], desc: "冰冻持续时间 & 触发几率 +/级" },
+      // 毒线 col4：中毒 DoT
+      { id: "poison_venom", name: "淬毒", max: 3, row: 1, col: 4, reqPts: 3, reqLv: 3, prereq: ["range"], desc: "命中几率中毒，持续掉血(DoT)" },
+      { id: "poison_toxin", name: "剧毒", max: 5, row: 2, col: 4, reqPts: 8, reqLv: 8, prereq: ["poison_venom"], desc: "中毒每秒伤害 +/级" },
+      { id: "poison_plague", name: "瘟疫", max: 5, row: 3, col: 4, reqPts: 16, reqLv: 15, prereq: ["poison_toxin"], desc: "中毒持续时间 +/级" },
+      { id: "poison_corrode", name: "腐蚀", max: 3, row: 4, col: 4, reqPts: 24, reqLv: 22, prereq: ["poison_plague"], desc: "中毒伤害额外增幅 ×/级" }
+    ]
+  }];
+  var SK_NODE_TREE = {}; SKILL_TREES.forEach(function (tr) { tr.nodes.forEach(function (n) { SK_NODE_TREE[n.id] = tr; }); }); // 节点→所属树
+  function treeOfNode(id) { return SK_NODE_TREE[id] || SKILL_TREES[0]; }
+  function skillNodeById(id) { for (var t = 0; t < SKILL_TREES.length; t++) { var ns = SKILL_TREES[t].nodes; for (var i = 0; i < ns.length; i++) if (ns[i].id === id) return ns[i]; } return null; }
   function skillRank(id) { return (stats.skills && stats.skills[id]) || 0; }
-  function skillSpent() { var s = 0, sk = stats.skills || {}; for (var k in sk) s += sk[k]; return s; }
+  function skillSpent(tree) { var s = 0, sk = stats.skills || {}; for (var k in sk) { if (!tree || treeOfNode(k) === tree) s += sk[k]; } return s; } // 不传=全部;传树=该树已投点
   function nodeLockReason(n) { // 可投点返回 null，否则返回未解锁原因
     if (stats.level < n.reqLv) return "需等级 Lv" + n.reqLv;
-    if (skillSpent() < n.reqPts) return "需树内已投 " + n.reqPts + " 点";
+    if (skillSpent(treeOfNode(n.id)) < n.reqPts) return "需本树已投 " + n.reqPts + " 点";
     for (var i = 0; i < n.prereq.length; i++) if (skillRank(n.prereq[i]) < 1) { var pn = skillNodeById(n.prereq[i]); return "需先学「" + (pn ? pn.name : n.prereq[i]) + "」"; }
     return null;
   }
-  function refundBlocked(id) { // 退到0会断链则禁止：存在已学节点把它当前置
-    for (var i = 0; i < SKILL_TREE.nodes.length; i++) { var m = SKILL_TREE.nodes[i]; if (skillRank(m.id) > 0 && m.prereq.indexOf(id) >= 0) return m; }
+  function refundBlocked(id) { // 退到0会断链则禁止：存在已学节点把它当前置(同树内)
+    var tr = treeOfNode(id);
+    for (var i = 0; i < tr.nodes.length; i++) { var m = tr.nodes[i]; if (skillRank(m.id) > 0 && m.prereq.indexOf(id) >= 0) return m; }
     return null;
   }
   function validateSkills() { // 树改版迁移：清理无效/超额技能，点数退回 sp
@@ -651,7 +676,8 @@
     for (var id in sk) { var n = skillNodeById(id); if (!n) { refunded += sk[id]; delete sk[id]; } else if (sk[id] > n.max) { refunded += sk[id] - n.max; sk[id] = n.max; } }
     if (refunded) stats.sp = (stats.sp || 0) + refunded;
   }
-  function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat)
+  function neigongLv() { var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0; return CORE.neigongLevel(gf); } // 内功级别=所有功法等级之和(WalyCai重定义)
+  function curBuild() { // 当前玩家 build 描述(给 core.buildToCombat;neigong 由 core 从 gongfa 内部推导,此字段已废弃保留兼容)
     var gf = {}, g = stats.gongfa || {}; for (var id in g) gf[id] = g[id].lv || 0;
     return { level: stats.level, neigong: stats.ng, equipped: equipped, skills: stats.skills, gongfa: gf, gongfaEquip: stats.gongfaEquip };
   }
@@ -673,14 +699,14 @@
   }
   function resetSkills() { var sp = skillSpent(); if (!sp) { toast("还没投入技能点"); return; } stats.sp = (stats.sp || 0) + sp; stats.skills = {}; syncHpMax(); save(); renderSkill(); toast("已重置全部技能点"); }
   var SK_COLS = 5, SK_ROWS = 5, SK_CW = 134, SK_CH = 92, SK_PAD = 9;
-  function renderSkill() {
-    $("skInfo").innerHTML = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 已投入 " + skillSpent() + "/" + SKILL_TREE.totalPts + " · 串联+级别+投点解锁";
-    var w = $("skTree"); var width = SK_COLS * SK_CW, height = SK_ROWS * SK_CH;
+  function treeRows(tree) { var r = 0; tree.nodes.forEach(function (n) { if (n.row + 1 > r) r = n.row + 1; }); return r; }
+  function renderSkillTree(tree, w) { // 渲染单棵树到容器 w(已定位)
+    var rows = treeRows(tree), width = SK_COLS * SK_CW, height = rows * SK_CH;
     w.style.position = "relative"; w.style.width = width + "px"; w.style.height = height + "px";
     function cx(col) { return SK_PAD + col * SK_CW + (SK_CW - SK_PAD * 2) / 2; }
     function cy(row) { return SK_PAD + row * SK_CH + (SK_CH - SK_PAD * 2) / 2; }
     var svg = '<svg width="' + width + '" height="' + height + '" style="position:absolute;left:0;top:0;pointer-events:none">';
-    SKILL_TREE.nodes.forEach(function (n) {
+    tree.nodes.forEach(function (n) {
       n.prereq.forEach(function (pid) {
         var p = skillNodeById(pid); if (!p) return;
         var lit = skillRank(pid) > 0, col = lit ? (skillRank(n.id) > 0 ? "#ffce6a" : "#b89a4a") : "#4a3826";
@@ -688,7 +714,7 @@
       });
     });
     svg += '</svg>'; w.innerHTML = svg;
-    SKILL_TREE.nodes.forEach(function (n) {
+    tree.nodes.forEach(function (n) {
       var rk = skillRank(n.id), maxed = rk >= n.max, lock = nodeLockReason(n);
       var el = document.createElement("div");
       el.className = "sk-node2" + (rk > 0 ? " has" : "") + (lock && rk === 0 ? " locked" : "") + (maxed ? " maxed" : "") + (n.active ? " active" : "");
@@ -701,6 +727,19 @@
       bs[0].disabled = rk <= 0; bs[0].onclick = function () { refundSkill(n.id); };
       bs[1].disabled = maxed || (stats.sp || 0) <= 0 || !!lock; bs[1].onclick = function () { spendSkill(n.id); };
       w.appendChild(el);
+    });
+  }
+  function renderSkill() {
+    $("skInfo").innerHTML = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 内功级别 <b>" + neigongLv() + "</b> · 多流派可共存，共用技能点";
+    var host = $("skTree"); host.style.position = ""; host.style.width = ""; host.style.height = ""; host.innerHTML = "";
+    SKILL_TREES.forEach(function (tree) {
+      var block = document.createElement("div"); block.className = "sk-tree-block";
+      var head = document.createElement("div"); head.className = "sk-tree-head";
+      head.innerHTML = "<b>" + tree.name + "</b> <span class=\"sk-tree-pts\">已投 " + skillSpent(tree) + "/" + tree.totalPts + "</span>";
+      block.appendChild(head);
+      var canvas = document.createElement("div"); block.appendChild(canvas);
+      host.appendChild(block);
+      renderSkillTree(tree, canvas);
     });
     var a = totalAttrs();
     var skcr = CORE.critResolve(a.Crit, a.CritDmg);
@@ -885,7 +924,7 @@
       al.innerHTML += '<div class="row"><span class="k">' + STAT_LABEL[k] + '</span><span class="v">' + a[k] + pct + ds + '</span></div>';
     });
     if (a.Crit > 50) { var dcr = CORE.critResolve(a.Crit, a.CritDmg); al.innerHTML += '<div class="row" style="font-size:11px;color:#9a866a"><span class="k">有效(暴击封顶50%)</span><span class="v">暴击 ' + dcr.crit + '% · 暴伤 ' + dcr.critDmg + '%</span></div>'; }
-    al.innerHTML += '<div class="row"><span class="k">内功等级</span><span class="v">' + stats.ng + '</span></div>';
+    al.innerHTML += '<div class="row"><span class="k">内功级别</span><span class="v">' + neigongLv() + '</span></div>';
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
   function saveEquip() { try { localStorage.setItem(SAVE_KEY + "_eq", JSON.stringify({ equipped: equipped, warehouse: warehouse, seq: equipSeq })); } catch (e) {} }
@@ -914,17 +953,17 @@
   // ---- 出战历练（即时结算版；横版动画后续用同一 resolveCombat 回放）----
   // ---- 历练地图：分区 ----
   var ZONES = [
-    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 1, types: ["thug"], boss: { type: "thug", lv: 2, hpMult: 10, atkMult: 0.8, name: "山贼王", bossId: "shanzeiwang" } },
-    { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 10, atkMult: 0.8, name: "幽林鬼影", bossId: "youlinguiying" } },
-    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 10, atkMult: 0.8, name: "青城逆徒", bossId: "qingchengnitu" } },
-    { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 10, atkMult: 0.8, name: "血刀老祖", bossId: "xuedaolaozu" } },
-    { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 10, atkMult: 0.8, name: "天魔教主", bossId: "tianmojiaozhu" } },
+    { id: "niujia", name: "牛家村", lvMin: 1, lvMax: 1, types: ["thug"], boss: { type: "thug", lv: 2, hpMult: 20, atkMult: 1.5, name: "山贼王", bossId: "shanzeiwang" } },
+    { id: "milin", name: "幽密林", lvMin: 3, lvMax: 5, types: ["thug", "bandit"], boss: { type: "bandit", lv: 6, hpMult: 20, atkMult: 1.5, name: "幽林鬼影", bossId: "youlinguiying" } },
+    { id: "qingcheng", name: "青城派", lvMin: 6, lvMax: 8, types: ["bandit", "sect_novice"], boss: { type: "sect_novice", lv: 9, hpMult: 20, atkMult: 1.5, name: "青城逆徒", bossId: "qingchengnitu" } },
+    { id: "xuedao", name: "血刀门", lvMin: 9, lvMax: 12, types: ["sect_novice", "xie_jiao"], boss: { type: "xie_jiao", lv: 13, hpMult: 20, atkMult: 1.5, name: "血刀老祖", bossId: "xuedaolaozu" } },
+    { id: "mojiao", name: "魔教总坛", lvMin: 13, lvMax: 17, types: ["xie_jiao", "mo_jiao"], boss: { type: "mo_jiao", lv: 18, hpMult: 20, atkMult: 1.5, name: "天魔教主", bossId: "tianmojiaozhu" } },
     // 新增5图(WalyCai)：图1难度不变，从图2起等级带"增幅递增"(间隔 +6→+8→+11→+14→+18)，难度超线性追上CP速增；数值待莱布尼茨重调锁
-    { id: "huangquan", name: "黄泉古道", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 10, atkMult: 0.8, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
-    { id: "luosha", name: "罗刹海市", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 10, atkMult: 0.8, name: "罗刹女君", bossId: "luoshanvjun" } },
-    { id: "yaolin", name: "妖兽森林", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 10, atkMult: 0.8, name: "妖兽之王", bossId: "yaoshouwang" } },
-    { id: "jiuyou", name: "九幽魔渊", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 10, atkMult: 0.8, name: "九幽魔尊", bossId: "jiuyoumozun" } },
-    { id: "tianwai", name: "天外魔域", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 10, atkMult: 0.8, name: "万古魔神", bossId: "wangumoshen" } }
+    { id: "huangquan", name: "黄泉古道", lvMin: 18, lvMax: 24, types: ["mo_jiao", "gui_zu"], boss: { type: "gui_zu", lv: 25, hpMult: 20, atkMult: 1.5, name: "黄泉鬼王", bossId: "huangquanguiwang" } },
+    { id: "luosha", name: "罗刹海市", lvMin: 25, lvMax: 33, types: ["gui_zu", "yao_xiu"], boss: { type: "yao_xiu", lv: 34, hpMult: 20, atkMult: 1.5, name: "罗刹女君", bossId: "luoshanvjun" } },
+    { id: "yaolin", name: "妖兽森林", lvMin: 34, lvMax: 45, types: ["yao_xiu", "mo_jiang"], boss: { type: "mo_jiang", lv: 46, hpMult: 20, atkMult: 1.5, name: "妖兽之王", bossId: "yaoshouwang" } },
+    { id: "jiuyou", name: "九幽魔渊", lvMin: 46, lvMax: 60, types: ["mo_jiang", "gu_mo"], boss: { type: "gu_mo", lv: 61, hpMult: 20, atkMult: 1.5, name: "九幽魔尊", bossId: "jiuyoumozun" } },
+    { id: "tianwai", name: "天外魔域", lvMin: 61, lvMax: 80, types: ["gu_mo", "mo_jiang"], boss: { type: "gu_mo", lv: 82, hpMult: 20, atkMult: 1.5, name: "万古魔神", bossId: "wangumoshen" } }
   ];
   function curZone() { return ZONES[Math.min(stats.zone || 0, ZONES.length - 1)]; }
   function goZone(i) { stats.zone = i; save(); $("mapModal").classList.add("hidden"); startCombat(totalAttrs(), { zone: ZONES[i], zoneIdx: i }); } // 前往该区历练
@@ -1053,7 +1092,8 @@
       var sh = CV.sheets[bkey], srcScale = sh && sh.fw > 64 ? 1 : (e.isBoss ? 2.0 : 1), uiScale = ((sh && sh.fw) || 64) * srcScale / 64;
       drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, srcScale);
       bar(ex - 22 * uiScale, CV.ground - 72 * uiScale, 44 * uiScale, e.hp / e.hpMax, "#bf5f5f");
-      if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * uiScale - 6); }
+      if (e.deb) { var dbs = ""; if (e.deb.burnT > 0) dbs += "🔥"; if (e.deb.chillT > 0) dbs += "❄"; if (e.deb.poiT > 0) dbs += "☠"; if (dbs) { c.font = "13px sans-serif"; c.textAlign = "center"; c.fillText(dbs, ex, CV.ground - 72 * uiScale - 8); } } // 附魔流 debuff 状态:灼烧/冰冻/中毒
+      if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * uiScale - 24); }
     });
     // 主角
     var pAnim = (CV.sim.isDone() && st.P.hp <= 0) ? "down" : (cst.pAtk > 0 ? "attack" : "idle");
