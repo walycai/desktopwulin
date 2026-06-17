@@ -710,6 +710,7 @@
   }
   function resetSkills() { var sp = skillSpent(); if (!sp) { toast("还没投入技能点"); return; } stats.sp = (stats.sp || 0) + sp; stats.skills = {}; syncHpMax(); save(); renderSkill(); toast("已重置全部技能点"); }
   var SK_COLS = 5, SK_ROWS = 5, SK_CW = 134, SK_CH = 92, SK_PAD = 9;
+  var activeTreeIdx = 0; // 当前显示的技能树 tab(力量战士/内功附魔流 并列标签页)
   function treeRows(tree) { var r = 0; tree.nodes.forEach(function (n) { if (n.row + 1 > r) r = n.row + 1; }); return r; }
   function renderSkillTree(tree, w) { // 渲染单棵树到容器 w(已定位)
     var rows = treeRows(tree), width = SK_COLS * SK_CW, height = rows * SK_CH;
@@ -741,17 +742,15 @@
     });
   }
   function renderSkill() {
-    $("skInfo").innerHTML = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 内功级别 <b>" + neigongLv() + "</b> · 多流派可共存，共用技能点";
+    if (activeTreeIdx >= SKILL_TREES.length) activeTreeIdx = 0;
+    var info = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 内功级别 <b>" + neigongLv() + "</b> · 两流派可共存，共用技能点";
+    var tabs = SKILL_TREES.map(function (tr, i) { return '<button class="sk-tab' + (i === activeTreeIdx ? " active" : "") + '" data-i="' + i + '">' + tr.name + ' <span class="sk-tab-pts">' + skillSpent(tr) + '/' + tr.totalPts + '</span></button>'; }).join("");
+    $("skInfo").innerHTML = info + '<div class="sk-tabs">' + tabs + '</div>';
+    var tabEls = $("skInfo").getElementsByClassName("sk-tab");
+    for (var ti = 0; ti < tabEls.length; ti++) tabEls[ti].onclick = (function (idx) { return function () { activeTreeIdx = idx; renderSkill(); }; })(ti);
     var host = $("skTree"); host.style.position = ""; host.style.width = ""; host.style.height = ""; host.innerHTML = "";
-    SKILL_TREES.forEach(function (tree) {
-      var block = document.createElement("div"); block.className = "sk-tree-block";
-      var head = document.createElement("div"); head.className = "sk-tree-head";
-      head.innerHTML = "<b>" + tree.name + "</b> <span class=\"sk-tree-pts\">已投 " + skillSpent(tree) + "/" + tree.totalPts + "</span>";
-      block.appendChild(head);
-      var canvas = document.createElement("div"); block.appendChild(canvas);
-      host.appendChild(block);
-      renderSkillTree(tree, canvas);
-    });
+    var canvas = document.createElement("div"); host.appendChild(canvas);
+    renderSkillTree(SKILL_TREES[activeTreeIdx], canvas); // 只渲染当前 tab 的树
     var a = totalAttrs();
     var skcr = CORE.critResolve(a.Crit, a.CritDmg);
     $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + skcr.crit + "% · 暴伤 " + skcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0);

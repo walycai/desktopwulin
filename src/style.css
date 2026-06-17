@@ -178,9 +178,12 @@ body {
 #skillModal .skill-panel { display: flex; flex-direction: column; overflow: hidden; }
 #skillModal #skTree { flex: 1 1 auto; min-height: 0; overflow: auto; }
 #skillModal #skAttrs, #skillModal .sk-foot { flex: 0 0 auto; }
-.sk-tree-block { margin-bottom: 18px; }
-.sk-tree-head { color: #e8c98a; font-size: 14px; margin: 4px 0 10px; border-bottom: 1px solid #4a3826; padding-bottom: 4px; }
-.sk-tree-pts { color: #9a866a; font-size: 12px; margin-left: 8px; font-weight: normal; }
+/* 流派 tab 标签页(力量战士 / 内功附魔流 并列,WalyCai 2026-06-18) */
+.sk-tabs { display: flex; gap: 8px; margin-top: 10px; }
+.sk-tab { flex: 0 0 auto; padding: 7px 16px; font-size: 14px; color: #c8b08a; background: #2c2016; border: 1px solid #5a4630; border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; }
+.sk-tab:hover { color: #f0e6d2; }
+.sk-tab.active { color: #ffd98a; background: #3a2c1a; border-color: #b89a4a; font-weight: 600; box-shadow: 0 -2px 8px rgba(255,206,106,.15); }
+.sk-tab-pts { color: #9a866a; font-size: 12px; margin-left: 4px; font-weight: normal; }
 .sk-foot { display: flex; align-items: center; gap: 12px; }
 .sk-tip { font-size: 11px; color: #9a866a; }
 
