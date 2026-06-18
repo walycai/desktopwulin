@@ -943,7 +943,9 @@
       var btns = document.createElement("div"); btns.className = "hs-btns";
       var mn = document.createElement("button"); mn.className = "tb sk-mini"; mn.textContent = "−"; mn.disabled = rk <= 0; mn.onclick = function () { homeAdj(n.id, -1); };
       var pl = document.createElement("button"); pl.className = "tb sk-mini"; pl.textContent = "+"; pl.disabled = maxed || homeSpLeft() <= 0; pl.onclick = function () { homeAdj(n.id, 1); };
-      btns.appendChild(mn); btns.appendChild(pl); row.appendChild(btns); w.appendChild(row);
+      btns.appendChild(mn); btns.appendChild(pl);
+      if (n.id === "spawn_speed" && rk > 0) { var tg = document.createElement("button"); var on = !stats.spawnSpeedOff; tg.className = "tb sk-mini" + (on ? " auto-on" : ""); tg.textContent = on ? "● 开" : "○ 关"; tg.title = "诱敌开关:关掉则本次历练不加快刷怪(避免被怪堆)"; tg.onclick = function () { stats.spawnSpeedOff = !stats.spawnSpeedOff; save(); renderHomeSkill(); }; btns.appendChild(tg); } // 诱敌开关(WalyCai)
+      row.appendChild(btns); w.appendChild(row);
     });
     // 自动化技能:学习→开关
     var sep = document.createElement("div"); sep.className = "hs-sep"; sep.textContent = "⚙ 自动挂机" + (autoStats.runs ? "（本次累计 " + autoStats.runs + " 趟 · " + autoStats.kills + " 杀 · +" + autoStats.exp + " exp · +" + autoStats.gold + " 金 · " + autoStats.loot + " 装备）" : ""); w.appendChild(sep);
@@ -1240,7 +1242,7 @@
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
     cfg.eliteChance = homeRank("elite_chance") * 0.03;        // 居家技能:精英怪概率(莱布尼茨终版:满级15%,~16%死不过swingy)
     cfg.dropQuality = homeRank("drop_quality") * 0.2;         // 居家技能:掉落高品率(占位)
-    cfg.spawnInterval = 1.8 * Math.max(0.4, 1 - homeRank("spawn_speed") * 0.1); // 居家技能:刷怪速度(占位,封底0.4)
+    cfg.spawnInterval = 1.8 * Math.max(0.4, 1 - (stats.spawnSpeedOff ? 0 : homeRank("spawn_speed") * 0.05)); // 诱敌:刷怪速度(莱布尼茨减半0.1→0.05;有开关,关则不提速)
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
     // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
     CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
