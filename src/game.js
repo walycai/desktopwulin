@@ -1277,7 +1277,7 @@
       var uiScale = ((sh && sh.fw) || 64) * srcScale / 64;
       drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, srcScale);
       bar(ex - 22 * uiScale, CV.ground - 72 * uiScale, 44 * uiScale, e.hp / e.hpMax, e.elite ? "#d98a3a" : "#bf5f5f");
-      if (e.deb) { var dbs = ""; if (e.deb.burnT > 0) dbs += "🔥"; if (e.deb.chillT > 0) dbs += "❄"; if (e.deb.poiT > 0) dbs += "☠"; if (dbs) { c.font = "13px sans-serif"; c.textAlign = "center"; c.fillText(dbs, ex, CV.ground - 72 * uiScale - 8); } } // 附魔流 debuff 状态:灼烧/冰冻/中毒
+      if (e.deb) { var dbs = ""; if (e.deb.burnT > 0) dbs += "🔥"; if (e.deb.chillT > 0) dbs += "❄"; if (e.deb.poiT > 0) dbs += "☠" + (e.deb.poiStacks > 1 ? "×" + e.deb.poiStacks : ""); if (dbs) { c.font = "13px sans-serif"; c.textAlign = "center"; c.fillText(dbs, ex, CV.ground - 72 * uiScale - 8); } } // 附魔流 debuff:灼烧/冰冻/中毒(带层数)
       if (e.elite && !e.isBoss) { c.fillStyle = "#ffba5a"; c.font = "bold 12px sans-serif"; c.textAlign = "center"; c.fillText("✦ 精英", ex, CV.ground - 72 * uiScale - 8 - (e.deb ? 14 : 0)); } // 精英标记
       if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * uiScale - 24); }
     });
