@@ -49,6 +49,42 @@ def white_to_alpha(im):
     return im
 
 
+def remove_small_fragments(im, min_area=20):
+    alpha = im.getchannel("A")
+    w, h = im.size
+    pix = alpha.load()
+    seen = set()
+    comps = []
+    for y in range(h):
+        for x in range(w):
+            if pix[x, y] <= 8 or (x, y) in seen:
+                continue
+            stack = [(x, y)]
+            seen.add((x, y))
+            pts = []
+            while stack:
+                px, py = stack.pop()
+                pts.append((px, py))
+                for nx in (px - 1, px, px + 1):
+                    for ny in (py - 1, py, py + 1):
+                        if nx < 0 or ny < 0 or nx >= w or ny >= h or (nx, ny) in seen:
+                            continue
+                        if pix[nx, ny] > 8:
+                            seen.add((nx, ny))
+                            stack.append((nx, ny))
+            comps.append(pts)
+    keep = set()
+    for pts in comps:
+        if len(pts) >= min_area:
+            keep.update(pts)
+    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    src = im.load()
+    dst = out.load()
+    for x, y in keep:
+        dst[x, y] = src[x, y]
+    return out
+
+
 def strip_edge_alpha(im):
     px = im.load()
     w, h = im.size
@@ -62,7 +98,7 @@ def strip_edge_alpha(im):
 
 
 def fit_frame(crop, size=64, pad=3):
-    crop = white_to_alpha(crop)
+    crop = remove_small_fragments(white_to_alpha(crop))
     bbox = crop.getchannel("A").getbbox()
     out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     if not bbox:
@@ -73,7 +109,7 @@ def fit_frame(crop, size=64, pad=3):
     nh = max(1, int(spr.height * scale))
     spr = spr.resize((nw, nh), Image.Resampling.LANCZOS)
     out.alpha_composite(spr, ((size - nw) // 2, size - pad - nh))
-    return strip_edge_alpha(out)
+    return strip_edge_alpha(remove_small_fragments(out))
 
 
 def join(frames):
