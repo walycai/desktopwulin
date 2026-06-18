@@ -157,14 +157,14 @@ BOSSES = {
     },
     "jiuyoumozun": {
         "base": "assets/characters/bosses/tianmojiaozhu",
-        "palette": ("#080611", "#32214f", "#d1c6ff", "#8868ff"),
-        "glow": "#8868ff",
+        "palette": ("#050712", "#17214a", "#b8d6ff", "#4f77ff"),
+        "glow": "#4f77ff",
         "theme": "demon_lord",
     },
     "wangumoshen": {
         "base": "assets/characters/bosses/tianmojiaozhu",
-        "palette": ("#03040a", "#251d3b", "#f0cc72", "#6e5cff"),
-        "glow": "#6e5cff",
+        "palette": ("#030303", "#32100c", "#f0c566", "#b51f18"),
+        "glow": "#b51f18",
         "theme": "ancient_god",
     },
 }
@@ -193,6 +193,33 @@ def upsize_to_128(fr):
     return out
 
 
+def center_scale(frame, factor):
+    if factor == 1:
+        return frame
+    size = max(1, int(frame.width * factor))
+    small = frame.resize((size, size), Image.Resampling.NEAREST)
+    out = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+    out.alpha_composite(small, ((frame.width - size) // 2, frame.height - size - 4))
+    return out
+
+
+def fit_alpha_margin(frame, margin=6):
+    bbox = frame.getchannel("A").getbbox()
+    if not bbox:
+        return frame
+    max_w = frame.width - margin * 2
+    max_h = frame.height - margin * 2
+    bw = bbox[2] - bbox[0]
+    bh = bbox[3] - bbox[1]
+    scale = min(1.0, max_w / bw, max_h / bh)
+    cropped = frame.crop(bbox)
+    if scale < 1:
+        cropped = cropped.resize((max(1, int(bw * scale)), max(1, int(bh * scale))), Image.Resampling.NEAREST)
+    out = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+    out.alpha_composite(cropped, ((frame.width - cropped.width) // 2, frame.height - margin - cropped.height))
+    return out
+
+
 def boss_marks(fr, theme, phase=0):
     d = ImageDraw.Draw(fr)
     if theme == "ghost_king":
@@ -208,16 +235,22 @@ def boss_marks(fr, theme, phase=0):
         d.polygon([(84, 38), (108, 24), (78, 50)], fill=rgba("#e3cf83", 220))
         d.arc((18, 24, 110, 118), 205, 335, fill=rgba("#a8e36d", 130), width=4)
     elif theme == "demon_lord":
-        d.polygon([(45, 32), (52, 12), (62, 34)], fill=rgba("#d5c8ff", 225))
-        d.polygon([(75, 32), (86, 12), (84, 38)], fill=rgba("#d5c8ff", 225))
-        d.arc((21, 31, 112, 121), 198, 345, fill=rgba("#9474ff", 160), width=5)
-        d.line((84, 35, 119, 18 + phase), fill=rgba("#b6a8ff", 210), width=3)
+        d.polygon([(43, 34), (51, 15), (61, 35)], fill=rgba("#c8ddff", 225))
+        d.polygon([(74, 34), (84, 15), (84, 39)], fill=rgba("#c8ddff", 225))
+        d.arc((25, 35, 106, 116), 202, 338, fill=rgba("#5f89ff", 155), width=4)
+        d.line((82, 36, 113, 20 + phase), fill=rgba("#b9d2ff", 215), width=3)
+        d.line((89, 53, 116, 48 + phase), fill=rgba("#6c91ff", 165), width=2)
+        d.ellipse((52, 24, 76, 48), outline=rgba("#9fc1ff", 125), width=2)
     elif theme == "ancient_god":
-        d.polygon([(54, 28), (64, 8), (74, 28), (69, 39), (59, 39)], fill=rgba("#f0cc72", 235))
-        d.ellipse((47, 20, 82, 55), outline=rgba("#806dff", 175), width=3)
-        d.arc((12, 19, 118, 124), 185, 355, fill=rgba("#6e5cff", 175), width=6)
-        d.line((21, 99, 8, 120), fill=rgba("#f0cc72", 145), width=3)
-        d.line((108, 98, 121, 120), fill=rgba("#f0cc72", 145), width=3)
+        d.ellipse((22, 17, 106, 105), outline=rgba("#d9a83d", 135), width=5)
+        d.ellipse((35, 29, 93, 91), outline=rgba("#7d1614", 155), width=4)
+        d.polygon([(47, 33), (56, 13), (64, 31), (73, 13), (83, 34), (68, 45), (58, 43)], fill=rgba("#f0c566", 235))
+        d.polygon([(33, 50), (15, 43), (37, 68)], fill=rgba("#d9a83d", 185))
+        d.polygon([(91, 50), (113, 35 + phase), (95, 69)], fill=rgba("#8d1c16", 205))
+        d.line((76, 58, 113, 82 + phase), fill=rgba("#f0c566", 205), width=4)
+        d.line((79, 61, 110, 104), fill=rgba("#8d1c16", 170), width=3)
+        d.line((24, 95, 14, 114), fill=rgba("#d9a83d", 125), width=3)
+        d.line((103, 92, 114, 112), fill=rgba("#d9a83d", 125), width=3)
     return fr
 
 
@@ -226,12 +259,17 @@ def boss_frames(boss_id, anim):
     frames = [upsize_to_128(fr) for fr in split_sheet(f"{cfg['base']}/{anim}.png")]
     out = []
     for i, fr in enumerate(frames):
+        if cfg["theme"] in ("demon_lord", "ancient_god"):
+            fr = center_scale(fr, 0.9)
         fr = recolor(fr, *[rgba(c) for c in cfg["palette"]], strength=0.88)
         fr = alpha_glow(fr, rgba(cfg["glow"]), radius=3, strength=110)
         if cfg["theme"] == "ancient_god":
-            fr = alpha_glow(fr, rgba("#f0cc72"), radius=1, strength=70)
+            fr = alpha_glow(fr, rgba("#f0c566"), radius=1, strength=82)
         phase = 10 if anim == "attack" and i >= len(frames) // 2 else 0
-        out.append(boss_marks(fr, cfg["theme"], phase))
+        fr = boss_marks(fr, cfg["theme"], phase)
+        if cfg["theme"] in ("demon_lord", "ancient_god"):
+            fr = fit_alpha_margin(fr, 6)
+        out.append(fr)
     return out
 
 
