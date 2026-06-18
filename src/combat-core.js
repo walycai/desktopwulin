@@ -75,7 +75,7 @@
   var ENCH = {
     range:    { base: 165, coef: 0.5 }, // 射程(像素)=base+coef×内功级别(WalyCai/莱布尼茨:基数≈3身位先手,系数小→功法多也缓慢加不爆炸。内功级0→reach235)。学了 range 根技能才生效
     chillCap: 0.5,                   // 冰冻减速/减命中封顶(防冰流无敌)
-    burn:   { chance: 0.3, dpsRoot: 0.02, dpsPer: 0.004, durRoot: 3, durPer: 1, ampPer: 0.2, canCrit: true, ngScale: 0.02 }, // 炎=爆发输出系(内功树):dps=%maxHP/s,可暴击,随内力级别放大(×(1+内力级×ngScale))。WalyCai:和内力挂钩+暴击。fire_blaze堆dps爆发向
+    burn:   { chance: 0.3, fireFlatPer: 1.5, dpsPer: 0.12, durRoot: 3, durPer: 1, ampPer: 0.2, canCrit: true }, // 炎=内功树输出系:灼烧dps=**内力等级×fireFlatPer 的定值真伤**(WalyCai:不带百分比掉血,和内力挂钩;无视防御;可暴击)。fire_blaze +dpsPer/级。对boss几乎无效=故意(boss交给毒)。fireFlatPer 待莱布尼茨sim校
     poison: { chance: 0.4, dpsRoot: 0.01, dpsPer: 0.003, durRoot: 6, durPer: 1.5, ampPer: 0.2, maxStacks: 5 }, // 毒=攻坚系:每层%maxHP/s,可叠最多5层(防无限秒boss),并抑制中毒敌回血。poison_plague堆时长持久向
     chill:  { chance: 0.3, mvRoot: 0.15, asRoot: 0.10, hitRoot: 0.10, mvPer: 0.04, deepPer: 0.04, dur: 3, durPer: 0.4, chancePer: 0.04 } // 冰:ice_frost根;ice_glacier +移速减/级;ice_freeze +攻速命中减/级;ice_permafrost +时长&几率/级。封顶 ENCH.chillCap
   };
@@ -201,7 +201,7 @@
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
       return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(0.8 * lv), Tough: Math.round(0.8 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨温和版(前10层挂机向):闪避/韧性 0.8×lv
     }
-    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, elite: !!E.elite, anim: "idle", at: 0, deb: { burnPct: 0, burnT: 0, poiStacks: 0, poiDps: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
+    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, elite: !!E.elite, anim: "idle", at: 0, deb: { burnDps: 0, burnT: 0, poiStacks: 0, poiDps: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
     function makeElite(E) { // 精英化:血/攻防经验提升,标记 elite(渲染放大)
       return { name: "精英·" + E.name, HP: Math.round(E.HP * ELITE.hpMult), ATK: Math.round(E.ATK * ELITE.atkMult), DEF: Math.round((E.DEF || 0) * ELITE.defMult), Crit: E.Crit, CritDmg: E.CritDmg, Hit: E.Hit, Dodge: E.Dodge, Tough: E.Tough, ATKspd: E.ATKspd, exp: Math.round((E.exp || 0) * ELITE.expMult), lv: E.lv, type: E.type, elite: true };
     }
@@ -214,7 +214,7 @@
     if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8) * BOSS_HP_MULT); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); var bm = mkEnemy(bE, true); bm.bossId = cfg.boss.bossId; enemies.push(bm); }
     function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= reach + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; } // 玩家触及 reach(含射程),敌人进场途中即可被打
     function applyEnchant(tg) { // 玩家命中→按附魔流概率施加 debuff(刷新时长,取较强值)
-      if (enchant.burn && rng() < enchant.burn.chance) { var bd = enchant.burn.dps; if (enchant.burn.canCrit) { var cr = critResolve(P0.Crit || 0, P0.CritDmg || 0); if (rng() * 100 < cr.crit) bd *= (1 + cr.critDmg / 100); } tg.deb.burnPct = Math.max(tg.deb.burnPct, bd); tg.deb.burnT = enchant.burn.dur; } // 炎:可暴击(吃玩家暴击/暴伤)
+      if (enchant.burn && rng() < enchant.burn.chance) { var bd = enchant.burn.dps; if (enchant.burn.canCrit) { var cr = critResolve(P0.Crit || 0, P0.CritDmg || 0); if (rng() * 100 < cr.crit) bd *= (1 + cr.critDmg / 100); } tg.deb.burnDps = Math.max(tg.deb.burnDps, bd); tg.deb.burnT = enchant.burn.dur; } // 炎:定值伤害,可暴击(吃玩家暴击/暴伤)
       if (enchant.poison && rng() < enchant.poison.chance) { tg.deb.poiStacks = Math.min(enchant.poison.maxStacks || 5, (tg.deb.poiStacks || 0) + 1); tg.deb.poiDps = enchant.poison.dps; tg.deb.poiT = enchant.poison.dur; } // 毒:叠层(封顶)
       if (enchant.chill && rng() < enchant.chill.chance) { var cc = ENCH.chillCap; tg.deb.chillMv = Math.min(cc, enchant.chill.mv); tg.deb.chillAs = Math.min(cc, enchant.chill.as); tg.deb.chillHit = Math.min(cc, enchant.chill.hit); tg.deb.chillT = enchant.chill.dur; }
     }
@@ -241,7 +241,7 @@
         var mvMul = e.deb.chillT > 0 ? (1 - e.deb.chillMv) : 1;                 // 冰冻减移速
         if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt * mvMul); e.anim = "idle"; }
         if (enemyRegenPct > 0 && e.hp > 0 && e.hp < e.hpMax && e.deb.poiT <= 0) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * enemyRegenPct * dt); // 敌人回血(中毒时被抑制)
-        if (e.deb.burnT > 0) { var bd = e.hpMax * e.deb.burnPct * dt; e.hp -= bd; dmgDealt += bd; e.deb.burnT -= dt; }   // 灼烧DoT(%maxHP/s,可暴击)
+        if (e.deb.burnT > 0) { var bd = e.deb.burnDps * dt; e.hp -= bd; dmgDealt += bd; e.deb.burnT -= dt; }   // 灼烧DoT(定值/s,非百分比血,可暴击)
         if (e.deb.poiT > 0) { var pd = e.hpMax * e.deb.poiDps * e.deb.poiStacks * dt; e.hp -= pd; dmgDealt += pd; e.deb.poiT -= dt; if (e.deb.poiT <= 0) e.deb.poiStacks = 0; } // 中毒DoT(每层%maxHP/s×层数,封顶;到期清层)
         if (e.deb.chillT > 0) e.deb.chillT -= dt;
         if (e.hp <= 0 && !e.dead) killEnemy(e);                                  // DoT 可致死
@@ -362,7 +362,7 @@
     if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
     // ---- 内功附魔流:on-hit debuff + 射程(第二树) ----
     var ench = {};
-    if ((sk.fire_ignite || 0) > 0) ench.burn = { chance: ENCH.burn.chance, dps: (ENCH.burn.dpsRoot + (sk.fire_blaze || 0) * ENCH.burn.dpsPer) * (1 + (sk.fire_conflag || 0) * ENCH.burn.ampPer) * (1 + ngLv * ENCH.burn.ngScale), dur: ENCH.burn.durRoot + (sk.fire_inferno || 0) * ENCH.burn.durPer, canCrit: ENCH.burn.canCrit }; // 炎:随内力级别放大+可暴击
+    if ((sk.fire_ignite || 0) > 0) ench.burn = { chance: ENCH.burn.chance, dps: ngLv * ENCH.burn.fireFlatPer * (1 + (sk.fire_blaze || 0) * ENCH.burn.dpsPer) * (1 + (sk.fire_conflag || 0) * ENCH.burn.ampPer), dur: ENCH.burn.durRoot + (sk.fire_inferno || 0) * ENCH.burn.durPer, canCrit: ENCH.burn.canCrit }; // 炎:定值真伤=内力等级×fireFlatPer(非百分比血),可暴击
     if ((sk.poison_venom || 0) > 0) ench.poison = { chance: ENCH.poison.chance, dps: (ENCH.poison.dpsRoot + (sk.poison_toxin || 0) * ENCH.poison.dpsPer) * (1 + (sk.poison_corrode || 0) * ENCH.poison.ampPer), dur: ENCH.poison.durRoot + (sk.poison_plague || 0) * ENCH.poison.durPer, maxStacks: ENCH.poison.maxStacks }; // 毒:每层dps,可叠 maxStacks 层
     if ((sk.ice_frost || 0) > 0) ench.chill = { chance: ENCH.chill.chance + (sk.ice_permafrost || 0) * ENCH.chill.chancePer, mv: ENCH.chill.mvRoot + (sk.ice_glacier || 0) * ENCH.chill.mvPer, as: ENCH.chill.asRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, hit: ENCH.chill.hitRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, dur: ENCH.chill.dur + (sk.ice_permafrost || 0) * ENCH.chill.durPer };
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
