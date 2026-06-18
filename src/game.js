@@ -1164,7 +1164,7 @@
     var bgKey = (opts.zone && opts.zone.bg) || "bg_wulin";
     CV.bg = new Image(); CV.bg.src = "assets/combat/" + bgKey + ".png?_=" + Date.now();
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
-    cfg.eliteChance = homeRank("elite_chance") * 0.04;        // 居家技能:精英怪概率(占位系数,待莱布尼茨)
+    cfg.eliteChance = homeRank("elite_chance") * 0.03;        // 居家技能:精英怪概率(莱布尼茨终版:满级15%,~16%死不过swingy)
     cfg.dropQuality = homeRank("drop_quality") * 0.2;         // 居家技能:掉落高品率(占位)
     cfg.spawnInterval = 1.8 * Math.max(0.4, 1 - homeRank("spawn_speed") * 0.1); // 居家技能:刷怪速度(占位,封底0.4)
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
