@@ -25,7 +25,20 @@
     legs_guard: { name: "护腿", type: "legs", rarity: "fine", reqLv: 3, glyph: "🦵", base: { DEF: 6, HP: 18 } },
     neck_lock: { name: "长命锁", type: "neck", rarity: "fine", reqLv: 3, glyph: "📿", base: { HP: 25, Crit: 2 } },
     ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", reqLv: 6, glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
-    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", reqLv: 3, glyph: "🎗", base: { DEF: 5, HP: 12 } }
+    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", reqLv: 3, glyph: "🎗", base: { DEF: 5, HP: 12 } },
+    // ---- 套装装备(专属稀有掉落,Phase1三套·名字/数值待统一调,本阶段做逻辑) ----
+    set_chixue_wpn: { name: "赤血刀", type: "weapon", rarity: "epic", reqLv: 9, glyph: "🗡", base: { ATK: 20 } },
+    set_chixue_body: { name: "赤血战甲", type: "body", rarity: "epic", reqLv: 9, glyph: "🥋", base: { HP: 40, DEF: 8 } },
+    set_chixue_legs: { name: "赤血护腿", type: "legs", rarity: "epic", reqLv: 9, glyph: "🦵", base: { DEF: 9, HP: 24 } },
+    set_chixue_belt: { name: "赤血腰带", type: "belt", rarity: "epic", reqLv: 9, glyph: "🎗", base: { HP: 30, DEF: 6 } },
+    set_youlong_wpn: { name: "游龙剑", type: "weapon", rarity: "epic", reqLv: 6, glyph: "⚔", base: { ATK: 16, Crit: 3 } },
+    set_youlong_head: { name: "游龙冠", type: "head", rarity: "epic", reqLv: 6, glyph: "⛑", base: { Crit: 3, Hit: 4 } },
+    set_youlong_neck: { name: "游龙佩", type: "neck", rarity: "epic", reqLv: 6, glyph: "📿", base: { Crit: 3, ATKspd: 4 } },
+    set_youlong_ring: { name: "游龙戒", type: "ring", rarity: "epic", reqLv: 6, glyph: "💍", base: { Crit: 4, CritDmg: 12 } },
+    set_yantian_wpn: { name: "焰天杖", type: "weapon", rarity: "epic", reqLv: 13, glyph: "🪄", base: { ATK: 22, Mana: 15 } },
+    set_yantian_body: { name: "焰天袍", type: "body", rarity: "epic", reqLv: 13, glyph: "👘", base: { HP: 45, Mana: 20 } },
+    set_yantian_head: { name: "焰天冠", type: "head", rarity: "epic", reqLv: 13, glyph: "👑", base: { Mana: 25, DEF: 5 } },
+    set_yantian_ring: { name: "焰天戒", type: "ring", rarity: "epic", reqLv: 13, glyph: "💍", base: { ATK: 12, Mana: 18 } }
   };
   var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
 
@@ -54,8 +67,14 @@
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
   var ELITE = { hpMult: 2.5, atkMult: 1.5, defMult: 1.5, expMult: 2.5, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪(莱布尼茨终版):血×2.5·攻×1.5·防×1.5·经验×2.5·掉率×2.5·稀有度权重提升(高血低攻=可生还的高奖励赌注)
   // 套装:按穿戴件数触发加成(占位分组+数值,待莱布尼茨设计各档梯度)。更多装备加入后可扩更多套
-  // 套装=专门的一组稀有掉落套装装备(WalyCai),不是把现有基础装备同级凑套。待莱布尼茨「套装主题地图」+ 专属套装装备(EQUIP_TPL)+ 成套掉落机制做好再填。框架(activeSets/skillGrant 2/4/6阈值)已就绪
-  var SET_DEFS = [];
+  // 套装=专属稀有掉落(从源区低概率掉本套件)。Phase1三套·4件套(占weapon+3槽,抢槽=构建取舍)。2/4 bonus占位待莱布尼茨CP pass;6件marquee待200树触发设计
+  var SET_DEFS = [
+    { id: "chixue", name: "赤血战甲", line: "warrior_force", zone: 3, pieces: ["set_chixue_wpn", "set_chixue_body", "set_chixue_legs", "set_chixue_belt"], bonuses: { 2: { ATK: 12 }, 4: { CritDmg: 20 } } },
+    { id: "youlong", name: "百兵游龙", line: "warrior_arms", zone: 2, pieces: ["set_youlong_wpn", "set_youlong_head", "set_youlong_neck", "set_youlong_ring"], bonuses: { 2: { Crit: 3 }, 4: { ATKspd: 8 } } },
+    { id: "yantian", name: "赤焰天罗", line: "enchant_fire", zone: 4, pieces: ["set_yantian_wpn", "set_yantian_body", "set_yantian_head", "set_yantian_ring"], bonuses: { 2: { ATK: 10 }, 4: { Mana: 25 } } }
+  ];
+  var SET_DROP_RATE = 0.15; // 在套装源区,掉落的装备有此概率是本套套件(占位待莱布尼茨)
+  function setForZone(zi) { for (var i = 0; i < SET_DEFS.length; i++) if (SET_DEFS[i].zone === zi) return SET_DEFS[i]; return null; }
   function activeSets(equipped) { // 返回 [{set, count, applied:{stat}, grants:[{ext,lv}]}] 当前生效套装。skillGrant=6件marquee:某系技能+N(突破上限)
     var eqTids = {}, e = equipped || {}; for (var s in e) if (e[s]) eqTids[e[s].tid] = 1;
     var out = [];
@@ -106,6 +125,7 @@
     var r = rng() * tot; for (i = 0; i < W.length; i++) { if (r < W[i][1]) return W[i][0]; r -= W[i][1]; }
     return "common";
   }
+  function mkAffixes(rng, rarity) { var n = RARITY[rarity].affixes, p = AFFIX_POOL.slice(), af = []; for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; af.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); } return af; } // 按稀有度生成词缀(套装/掉落共用)
   function rollDrop(rng, pool, weights) {
     var tid = pool[Math.floor(rng() * pool.length)];
     var rarity = rollRarity(rng, weights);         // 稀有度独立加权(可按区)，脱离模板
@@ -226,7 +246,7 @@
       }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
       var eqRate = drop.equipRate * (e.elite ? ELITE.dropMult : 1), qb = (e.elite ? ELITE.qualityBonus : 0) + dropQuality; // 精英:掉率↑+品质↑;居家技能掉落高品率也提品质
-      if (rng() < eqRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, qualityWeights(qb)); it.lv = e.lv || 1; bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
+      if (rng() < eqRate) { if (bag.length < bagMax) { var zs = (cfg.zoneIdx != null) ? setForZone(cfg.zoneIdx) : null, it; if (zs && rng() < SET_DROP_RATE) { var stid = zs.pieces[Math.floor(rng() * zs.pieces.length)]; it = { id: stid, rarity: "epic", affixes: mkAffixes(rng, "epic"), lv: e.lv || 1 }; } else { it = rollDrop(rng, drop.equipPool, qualityWeights(qb)); it.lv = e.lv || 1; } bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } } // 套装源区:概率掉本套套件
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
