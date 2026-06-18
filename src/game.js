@@ -471,8 +471,10 @@
   // ---- 自动化居家技能 ----
   var autoStats = { kills: 0, exp: 0, gold: 0, runs: 0, loot: 0 }; // 过夜挂机累计(本次会话,给醒来看增量)
   function autoOn(id) { return homeRank(id) > 0 && stats.autoOn && stats.autoOn[id]; } // 已学习且开关打开
+  function anyModalOpen() { var ms = document.getElementsByClassName("modal-bg"); for (var i = 0; i < ms.length; i++) if (ms[i].classList && !ms[i].classList.contains("hidden")) return true; return false; } // 任意面板打开
   function autoTick() { // 每秒在家结算:受伤自动睡→满血自动打坐/历练
     if (CV.running || player.state === "walking") return;     // 战斗中/移动中不打断
+    if (anyModalOpen()) return;                                // 打开任意面板时暂停自动,让玩家能操作(防被拽进战斗)
     if (stats.hp < stats.hpMax) {
       if (autoOn("auto_sleep") && player.state !== "sleeping") { var bed = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (bed) goAction(bed, "sleeping"); }
       return;
@@ -524,6 +526,7 @@
     if ($("goldVal")) $("goldVal").textContent = stats.gold || 0;
     var spDot = $("spDot"); if (spDot) spDot.style.display = (stats.sp || 0) > 0 ? "" : "none";
     if ($("menuSp")) { $("menuSp").textContent = stats.sp || 0; $("menuSp").style.display = (stats.sp || 0) > 0 ? "" : "none"; }
+    updateAutoFloat();
   }
 
   // ---- 仓库 UI ----
@@ -857,7 +860,15 @@
     if (!stats.autoOn) stats.autoOn = {};
     var on = !stats.autoOn[id]; stats.autoOn[id] = on;
     if (on) { var n = HOME_AUTO.filter(function (s) { return s.id === id; })[0]; if (n && n.excl) stats.autoOn[n.excl] = false; } // 互斥:开一个关另一个
-    save(); renderHomeSkill();
+    save(); renderHomeSkill(); updateAutoFloat();
+  }
+  function updateAutoFloat() { // 自动历练总开关浮钮:学了就常显置顶,随时可关(防死循环)
+    var el = $("autoFloat"); if (!el) return;
+    var learned = homeRank("auto_sortie") > 0;
+    if (!learned) { el.classList.add("hidden"); return; }
+    var on = !!(stats.autoOn && stats.autoOn.auto_sortie);
+    el.classList.remove("hidden"); el.classList.toggle("on", on);
+    el.textContent = "⚙ 自动历练：" + (on ? "开（点此停）" : "关");
   }
   function renderHomeSkill() {
     $("hsInfo").innerHTML = "居家环境值 <b>" + homeEnv() + "</b> · 居家技能点 <b>" + homeSpLeft() + "</b>/" + homeSpTotal() + " · 金币 " + (stats.gold || 0) + "💰（每 " + ENV_PER_POINT + " 环境 = 1 点）";
@@ -1312,6 +1323,7 @@
     if (!stats.trainId) stats.trainId = "nei_tuna";
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
+    $("autoFloat").onclick = function () { toggleAuto("auto_sortie"); toast((stats.autoOn && stats.autoOn.auto_sortie) ? "自动历练已开启" : "自动历练已停止"); }; updateAutoFloat();
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);
     requestAnimationFrame(loop);
   }
