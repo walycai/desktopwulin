@@ -1323,7 +1323,15 @@
     if (!stats.trainId) stats.trainId = "nei_tuna";
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
-    $("autoFloat").onclick = function () { toggleAuto("auto_sortie"); toast((stats.autoOn && stats.autoOn.auto_sortie) ? "自动历练已开启" : "自动历练已停止"); }; updateAutoFloat();
+    (function () { // 自动历练浮钮:短按=开关,长按(350ms)=拖拽移动位置,位置存档
+      var el = $("autoFloat"), holdT = null, dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+      function place(x, y) { el.style.left = Math.max(0, Math.min((window.innerWidth || 1200) - el.offsetWidth, x)) + "px"; el.style.top = Math.max(0, Math.min((window.innerHeight || 800) - el.offsetHeight, y)) + "px"; el.style.right = "auto"; }
+      if (stats.autoFloatPos) place(stats.autoFloatPos.x, stats.autoFloatPos.y);
+      el.addEventListener("pointerdown", function (e) { e.preventDefault(); moved = false; sx = e.clientX; sy = e.clientY; var r = el.getBoundingClientRect(); ox = r.left; oy = r.top; holdT = setTimeout(function () { dragging = true; el.classList.add("dragging"); try { el.setPointerCapture(e.pointerId); } catch (_) {} }, 350); });
+      el.addEventListener("pointermove", function (e) { if (!dragging) return; moved = true; place(ox + (e.clientX - sx), oy + (e.clientY - sy)); });
+      el.addEventListener("pointerup", function () { clearTimeout(holdT); if (dragging) { dragging = false; el.classList.remove("dragging"); if (moved) { stats.autoFloatPos = { x: parseInt(el.style.left) || 0, y: parseInt(el.style.top) || 0 }; save(); } } else { toggleAuto("auto_sortie"); toast((stats.autoOn && stats.autoOn.auto_sortie) ? "自动历练已开启" : "自动历练已停止"); } });
+    })();
+    updateAutoFloat();
     setInterval(tickStats, 1000); setInterval(wanderTick, 2200);
     requestAnimationFrame(loop);
   }
