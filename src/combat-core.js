@@ -40,22 +40,23 @@
     set_yantian_head: { name: "焰天冠", type: "head", rarity: "epic", reqLv: 13, glyph: "👑", base: { Mana: 25, DEF: 5 } },
     set_yantian_ring: { name: "焰天戒", type: "ring", rarity: "epic", reqLv: 13, glyph: "💍", base: { ATK: 12, Mana: 18 } }
   };
+  (function () { var FLAT = { ATK: 1, DEF: 1, HP: 1, Mana: 1 }; for (var tid in EQUIP_TPL) { var b = EQUIP_TPL[tid].base; for (var k in b) if (FLAT[k]) b[k] = Math.round(b[k] * 1.5); } })(); // 莱布尼茨:装备基础属性×1.5(仅flat ATK/DEF/HP/Mana,率类不碰)→gear为CP主力
   var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
 
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
   var ENEMIES = {
     thug: { name: "小混混", HP: 24, ATK: 6, DEF: 2, Crit: 3, CritDmg: 130, Hit: 80, Dodge: 5, ATKspd: 70, exp: 10 },
-    bandit: { name: "土匪", HP: 40, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 25 },
-    sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 50 },
-    xie_jiao: { name: "邪教教众", HP: 90, ATK: 30, DEF: 13, Crit: 10, CritDmg: 155, Hit: 92, Dodge: 10, ATKspd: 115, exp: 85 }, // 占位值，待莱布尼茨整体重调
-    mo_jiao: { name: "魔教精英", HP: 130, ATK: 42, DEF: 18, Crit: 12, CritDmg: 160, Hit: 94, Dodge: 12, ATKspd: 120, exp: 130 }, // 占位值，待莱布尼茨整体重调
-    gui_zu: { name: "黄泉鬼卒", HP: 190, ATK: 60, DEF: 24, Crit: 12, CritDmg: 165, Hit: 96, Dodge: 13, ATKspd: 120, exp: 200 },   // 5-6区(占位)
-    yao_xiu: { name: "罗刹妖修", HP: 280, ATK: 88, DEF: 32, Crit: 14, CritDmg: 170, Hit: 98, Dodge: 15, ATKspd: 125, exp: 300 }, // 6-7区
-    mo_jiang: { name: "九幽魔将", HP: 420, ATK: 130, DEF: 44, Crit: 15, CritDmg: 175, Hit: 100, Dodge: 16, ATKspd: 128, exp: 460 }, // 7-8区
-    gu_mo: { name: "上古魔神", HP: 640, ATK: 195, DEF: 60, Crit: 16, CritDmg: 180, Hit: 104, Dodge: 18, ATKspd: 130, exp: 700 }   // 8-9区
+    bandit: { name: "土匪", HP: 40, ATK: 14, DEF: 5, Crit: 5, CritDmg: 140, Hit: 85, Dodge: 6, ATKspd: 100, exp: 22 },
+    sect_novice: { name: "门派入门弟子", HP: 64, ATK: 20, DEF: 9, Crit: 8, CritDmg: 150, Hit: 90, Dodge: 8, ATKspd: 110, exp: 40 },
+    xie_jiao: { name: "邪教教众", HP: 90, ATK: 30, DEF: 13, Crit: 10, CritDmg: 155, Hit: 92, Dodge: 10, ATKspd: 115, exp: 65 }, // 占位值，待莱布尼茨整体重调
+    mo_jiao: { name: "魔教精英", HP: 130, ATK: 42, DEF: 18, Crit: 12, CritDmg: 160, Hit: 94, Dodge: 12, ATKspd: 120, exp: 95 }, // 占位值，待莱布尼茨整体重调
+    gui_zu: { name: "黄泉鬼卒", HP: 190, ATK: 60, DEF: 24, Crit: 12, CritDmg: 165, Hit: 96, Dodge: 13, ATKspd: 120, exp: 130 },   // 5-6区(占位)
+    yao_xiu: { name: "罗刹妖修", HP: 280, ATK: 88, DEF: 32, Crit: 14, CritDmg: 170, Hit: 98, Dodge: 15, ATKspd: 125, exp: 170 }, // 6-7区
+    mo_jiang: { name: "九幽魔将", HP: 420, ATK: 130, DEF: 44, Crit: 15, CritDmg: 175, Hit: 100, Dodge: 16, ATKspd: 128, exp: 210 }, // 7-8区
+    gu_mo: { name: "上古魔神", HP: 640, ATK: 195, DEF: 60, Crit: 16, CritDmg: 180, Hit: 104, Dodge: 18, ATKspd: 130, exp: 260 }   // 8-9区
   };
   // ---- 成长模型（历练等级 + 功法内功；占位，待 sim 调斜率）----
-  var EXP_CURVE_MULT = 1;                                                          // 升级曲线系数(莱布尼茨可调:×3 收过度升级/软化早期faceroll,待WalyCai拍板)
+  var EXP_CURVE_MULT = 4;                                                          // 升级曲线系数(莱布尼茨统一pass:×4慢升级=farm占时间;总长唯一旋钮,WalyCai要更长可×8≈9h/×12≈14h)
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5) * EXP_CURVE_MULT); } // 升到下一级所需经验
   function baseAttrs(level, neigong) {
     var lv = level || 1, ng = neigong || 1;
@@ -309,15 +310,15 @@
   var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
   var GONGFA_LINES = [
     { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
-    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3, Crit: 1, CritDmg: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] },
-    { sys: "qing", base: { passive: { ATKspd: 1, Hit: 1 }, active: { ATKspd: 4, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] }
+    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] }, // 莱布尼茨:外功active去掉暴击/暴伤(暴击归装备)
+    { sys: "qing", base: { passive: { ATKspd: 0.4, Hit: 1 }, active: { ATKspd: 2, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] } // 莱布尼茨:轻功攻速 passive×0.4/active×0.5(攻速归装备)
   ];
   var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 }; // 率类每阶+固定(不×1.5)
   var GONGFA_TIER_MULT = 1.25; // 功法每阶加成倍率(WalyCai选A:数值收敛 ×1.5→×1.25, t9≈×7不再爆炸)；可调
-  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.round(o[k] * m); return r; } // 去掉 max(1) 底,允许削弱到<1/0(莱布尼茨:轻功攻速0.4等)
   var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" };
   var GONGFA = [], GONGFA_BY = {};
-  function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(2.2, t - 3)); } // 莱布尼茨:t0-3现价(240/1200/6000/紫30000),t4起×2.2/阶→每阶≈2hr farming不发散
+  function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(3.5, t - 3)); } // 莱布尼茨:t0-3(240/1200/6000/紫30000),t4起×3.5/阶(橙10万/赤37万…长线gold sink,功法降为辅助)
   GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: gfPrice(t) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
   function gongfaById(id) { return GONGFA_BY[id] || null; }
   function gfProfReq(lv) { return Math.round(40 * lv * lv); }
