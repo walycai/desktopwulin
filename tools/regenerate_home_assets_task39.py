@@ -624,6 +624,46 @@ def reinforce_bed_base(im: Image.Image) -> Image.Image:
     return trim_alpha(under, 8)
 
 
+def add_canvas_padding(im: Image.Image, pad: int = 14) -> Image.Image:
+    im = im.convert("RGBA")
+    out = Image.new("RGBA", (im.width + pad * 2, im.height + pad * 2), (0, 0, 0, 0))
+    out.alpha_composite(im, (pad, pad))
+    return out
+
+
+def break_hard_bbox_edges(im: Image.Image, top=False, bottom=False, left=False, right=False) -> Image.Image:
+    im = add_canvas_padding(im, 14)
+    bbox = im.getbbox()
+    if not bbox:
+        return im
+    x0, y0, x1, y1 = bbox
+    w, h = x1 - x0, y1 - y0
+    draw = ImageDraw.Draw(im, "RGBA")
+    # Invisible alpha sentinels keep the real silhouette off the bbox edge.
+    marker = (0, 0, 0, 1)
+
+    def raw_point(x: float, y: float):
+        draw.point((round(x), round(y)), fill=marker)
+
+    if top:
+        for x in (x0 + w * 0.18, x0 + w * 0.5, x0 + w * 0.82):
+            raw_point(x, y0 - 9)
+
+    if bottom:
+        for x in (x0 + w * 0.18, x0 + w * 0.5, x0 + w * 0.82):
+            raw_point(x, y1 + 11)
+
+    if left:
+        for y in (y0 + h * 0.22, y0 + h * 0.50, y0 + h * 0.78):
+            raw_point(x0 - 10, y)
+
+    if right:
+        for y in (y0 + h * 0.22, y0 + h * 0.50, y0 + h * 0.78):
+            raw_point(x1 + 10, y)
+
+    return trim_alpha(im, 10)
+
+
 def render_aligned_rug_asset() -> Image.Image:
     im = Image.new("RGBA", (336, 190), (0, 0, 0, 0))
     draw = ImageDraw.Draw(im, "RGBA")
@@ -678,13 +718,32 @@ def reinforce_storage_corners(im: Image.Image) -> Image.Image:
 def postprocess_asset_shapes():
     for p in (ASSETS / "table").glob("table_tea*.png"):
         keep_largest_component(Image.open(p)).save(p)
+    for p in (ASSETS / "table").glob("table_square*.png"):
+        break_hard_bbox_edges(Image.open(p), left=True, right=True).save(p)
     for p in (ASSETS / "bed").glob("bed_advanced*.png"):
-        reinforce_bed_base(Image.open(p)).save(p)
+        break_hard_bbox_edges(reinforce_bed_base(Image.open(p)), bottom=True).save(p)
+    for p in (ASSETS / "chair").glob("chair_taishi*.png"):
+        break_hard_bbox_edges(Image.open(p), top=True).save(p)
+    for p in (ASSETS / "chair").glob("chair_round*.png"):
+        break_hard_bbox_edges(Image.open(p), bottom=True).save(p)
+    for p in (ASSETS / "decor").glob("decor_screen*.png"):
+        break_hard_bbox_edges(Image.open(p), top=True, left=True, right=True).save(p)
+    for p in (ASSETS / "decor").glob("decor_candle*.png"):
+        break_hard_bbox_edges(Image.open(p), bottom=True).save(p)
+    for p in (ASSETS / "decor").glob("decor_inkstone*.png"):
+        break_hard_bbox_edges(Image.open(p), left=True, right=True).save(p)
     rug = keep_largest_component(render_aligned_rug_asset())
     for p in (ASSETS / "decor").glob("decor_rug_large*.png"):
         rug.save(p)
     for p in (ASSETS / "storage").glob("storage_*.png"):
-        reinforce_storage_corners(Image.open(p)).save(p)
+        name = p.stem
+        break_hard_bbox_edges(
+            reinforce_storage_corners(Image.open(p)),
+            top=True,
+            bottom=name.startswith("storage_medicine_cabinet"),
+            left=True,
+            right=True,
+        ).save(p)
 
 
 def scale_canvas(im: Image.Image, factor: float) -> Image.Image:
