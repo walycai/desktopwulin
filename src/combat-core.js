@@ -54,9 +54,9 @@
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
   var ELITE = { hpMult: 2.5, atkMult: 1.5, defMult: 1.5, expMult: 2.5, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪(莱布尼茨终版):血×2.5·攻×1.5·防×1.5·经验×2.5·掉率×2.5·稀有度权重提升(高血低攻=可生还的高奖励赌注)
   // 套装:按穿戴件数触发加成(占位分组+数值,待莱布尼茨设计各档梯度)。更多装备加入后可扩更多套
-  var SET_DEFS = [
-    { id: "cloth", name: "布衣", pieces: ["head_cloth", "body_cloth", "legs_cloth"], bonuses: { 2: { HP: 30 }, 3: { HP: 80, DEF: 8 } } },
-    { id: "iron", name: "玄铁", pieces: ["head_iron", "belt_iron", "legs_guard"], bonuses: { 2: { DEF: 10 }, 3: { DEF: 25, HP: 60, Crit: 3 } } }
+  var SET_DEFS = [ // 莱布尼茨终版:满套~20-25%CP(随等级flat天然淡出),阈值叠加(3件=2件+3件)
+    { id: "cloth", name: "布衣", pieces: ["head_cloth", "body_cloth", "legs_cloth"], bonuses: { 2: { HP: 20 }, 3: { HP: 45, DEF: 5 } } },   // 平民耐久流·满套HP65/DEF5
+    { id: "iron", name: "玄铁", pieces: ["head_iron", "belt_iron", "legs_guard"], bonuses: { 2: { DEF: 8 }, 3: { DEF: 16, HP: 35, Crit: 2 } } } // 铁布衫硬汉·满套DEF24/HP35/Crit2
   ];
   function activeSets(equipped) { // 返回 [{set, count, applied:{stat:val}}] 当前生效套装
     var eqTids = {}, e = equipped || {}; for (var s in e) if (e[s]) eqTids[e[s].tid] = 1;
