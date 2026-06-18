@@ -53,6 +53,17 @@
   var GOLD_PER_EXP = 0.43; // 金币掉落=敌人经验×此系数（占位，待莱布尼茨按"金币/分钟"反推）
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
   var ELITE = { hpMult: 4, statMult: 3, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪:介于小怪与boss之间(占位待莱布尼茨)。血×4·攻防经验×3·掉率×2.5·稀有度权重提升
+  // 套装:按穿戴件数触发加成(占位分组+数值,待莱布尼茨设计各档梯度)。更多装备加入后可扩更多套
+  var SET_DEFS = [
+    { id: "cloth", name: "布衣", pieces: ["head_cloth", "body_cloth", "legs_cloth"], bonuses: { 2: { HP: 30 }, 3: { HP: 80, DEF: 8 } } },
+    { id: "iron", name: "玄铁", pieces: ["head_iron", "belt_iron", "legs_guard"], bonuses: { 2: { DEF: 10 }, 3: { DEF: 25, HP: 60, Crit: 3 } } }
+  ];
+  function activeSets(equipped) { // 返回 [{set, count, applied:{stat:val}}] 当前生效套装
+    var eqTids = {}, e = equipped || {}; for (var s in e) if (e[s]) eqTids[e[s].tid] = 1;
+    var out = [];
+    SET_DEFS.forEach(function (set) { var cnt = 0; set.pieces.forEach(function (t) { if (eqTids[t]) cnt++; }); if (cnt < 2) return; var applied = {}; for (var th in set.bonuses) { if (cnt >= +th) for (var st in set.bonuses[th]) applied[st] = (applied[st] || 0) + set.bonuses[th][st]; } out.push({ set: set, count: cnt, applied: applied }); });
+    return out;
+  }
   // ---- 内功附魔流(第二树) 数值常量 —— 占位,待莱布尼茨精调+验平衡 ----
   // 内功附魔流全部可调数值,单一可变对象(莱布尼茨 sim 可注入 C.ENCH.xxx 精校;DoT 按敌人最大HP百分比/秒——flat在HP跨度大的游戏早期碾压晚期可忽略,%血全程相关对高血boss尤强=附魔克boss幻想)
   var ENCH = {
@@ -336,6 +347,7 @@
     for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
     GONGFA_SLOTS.forEach(function (sl) { var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
     for (var xid in sk) { var xe = SKILL_EXT_EFF[xid]; if (xe && sk[xid] > 0) a[xe.stat] = (a[xe.stat] || 0) + xe.per * sk[xid]; } // 深度扩展节点(纯加法,仅已学才计→不影响现有build CP)
+    activeSets(eqp).forEach(function (as) { for (var st in as.applied) a[st] = (a[st] || 0) + as.applied[st]; }); // 套装加成
     a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
@@ -348,5 +360,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
 });

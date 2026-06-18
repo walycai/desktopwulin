@@ -993,7 +993,8 @@
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
 
   function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
-  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; var lvt = (it.lv && it.lv > 1) ? " ·Lv" + it.lv : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + lvt + rq + " " + parts.join(" "); }
+  function setOf(tid) { var ss = CORE.SET_DEFS || []; for (var i = 0; i < ss.length; i++) if (ss[i].pieces.indexOf(tid) >= 0) return ss[i]; return null; }
+  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; var lvt = (it.lv && it.lv > 1) ? " ·Lv" + it.lv : ""; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + lvt + setTag + rq + " " + parts.join(" "); }
   function equipIconHTML(tid, glyph) {
     return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
@@ -1051,6 +1052,8 @@
     if (a.Crit > 50) { var dcr = CORE.critResolve(a.Crit, a.CritDmg); al.innerHTML += '<div class="row" style="font-size:11px;color:#9a866a"><span class="k">有效(暴击封顶50%)</span><span class="v">暴击 ' + dcr.crit + '% · 暴伤 ' + dcr.critDmg + '%</span></div>'; }
     al.innerHTML += '<div class="row"><span class="k">内功级别</span><span class="v">' + neigongLv() + '</span></div>';
     al.innerHTML += '<div class="row"><span class="k">自动回血</span><span class="v">' + neiHealRate() + '/秒</span></div>';
+    var sets = CORE.activeSets(equipped); // 套装加成显示
+    if (sets.length) { al.innerHTML += '<div class="row" style="border-top:1px solid #4a3826;color:#e8c98a">⚜ 套装加成</div>'; sets.forEach(function (as) { var parts = []; for (var st in as.applied) parts.push((STAT_LABEL[st] || st) + "+" + as.applied[st]); al.innerHTML += '<div class="row"><span class="k" style="color:#7fe0a0">' + as.set.name + '（' + as.count + '/' + as.set.pieces.length + '）</span><span class="v">' + parts.join(" ") + '</span></div>'; }); }
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
   function saveEquip() { try { localStorage.setItem(SAVE_KEY + "_eq", JSON.stringify({ equipped: equipped, warehouse: warehouse, seq: equipSeq })); } catch (e) {} }
