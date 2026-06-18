@@ -844,6 +844,16 @@
     var it = warehouse[i]; if (!it.rarity) it.rarity = "common"; var price = sellPrice(it);
     warehouse.splice(i, 1); stats.gold = (stats.gold || 0) + price; dollSel = null; saveEquip(); save(); updateStats(); renderDoll(); toast("卖出「" + (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid) + "」 +" + price + "💰");
   }
+  function sellAll() { // 一键卖出全部;锁开则保护"穿上能提升战力"的装备
+    var protect = stats.sellLock !== false, curCP = CORE.combatPower(totalAttrs());
+    var gold = 0, sold = 0, kept = 0;
+    warehouse.slice().forEach(function (it) {
+      if (protect && CORE.combatPower(previewTotals(it).totals) > curCP) { kept++; return; } // 战力更高→保护
+      var i = warehouse.indexOf(it); if (i < 0) return; if (!it.rarity) it.rarity = "common"; gold += sellPrice(it); warehouse.splice(i, 1); sold++;
+    });
+    if (!sold) { toast(protect ? "没有可卖的（都是战力更高的被保护，或仓库空）" : "仓库空"); return; }
+    stats.gold = (stats.gold || 0) + gold; dollSel = null; saveEquip(); save(); updateStats(); renderDoll(); toast("卖出 " + sold + " 件 +" + gold + "💰" + (kept ? "（保护 " + kept + " 件战力更高）" : ""));
+  }
   function openHomeSkill() { renderHomeSkill(); $("homeSkillModal").classList.remove("hidden"); }
   function homeAdj(id, d) {
     if (d > 0) { var n = HOME_SKILLS.filter(function (s) { return s.id === id; })[0]; if (!n) return; if (homeSpLeft() <= 0) { toast("居家技能点不足（多摆家具涨环境值）"); return; } if (homeRank(id) >= n.max) { toast("已满级"); return; } stats.homeSkills[id] = homeRank(id) + 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; }
@@ -992,7 +1002,7 @@
     SLOT_DEFS.forEach(function (sd) {
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
-      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + t.name + '</span>' : '');
+      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + t.name + '</span>' : '');
       if (it) { d.title = itemTitle(it); d.onclick = function () { unequip(sd.key); }; }
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
@@ -1006,15 +1016,18 @@
       var t = EQUIP_TPL[it.tid];
       var locked = stats.level < (t.reqLv || 1);                    // 等级不够→灰掉蒙版
       var up = CORE.combatPower(previewTotals(it).totals) > curCP;   // 战力更高→绿▲(不论是否够级)
+      var rc = RARITY[rarOf(it)].color, hi = (rarOf(it) === "epic" || rarOf(it) === "legend");
       var d = document.createElement("div"); d.className = "wh-item" + (locked ? " locked" : ""); d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "") + (locked ? "（需Lv" + t.reqLv + "）" : "");
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + '<span class="rb" style="box-shadow:inset 0 0 0 2px ' + RARITY[rarOf(it)].color + '"></span>' + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + t.reqLv + '</span>' : '');
-      if (dollSel === it) d.style.boxShadow = "0 0 0 2px #ffd98a";
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + t.reqLv + '</span>' : '');
+      d.style.border = "2.5px solid " + rc; d.style.boxShadow = hi ? ("0 0 7px " + rc + ", inset 0 0 5px " + rc + "66") : ("inset 0 0 4px " + rc + "44"); // 品质彩色边框(史诗/传说加发光)
+      if (dollSel === it) d.style.boxShadow = "0 0 0 3px #ffd98a, 0 0 8px " + rc;
       d.addEventListener("dragstart", function () { dollSel = it; });
       d.onclick = function () { dollSel = (dollSel === it ? null : it); renderDoll(); };
       d.ondblclick = function () { equipItem(it, targetSlotFor(it)); };
       wh.appendChild(d);
     });
     var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + (EQUIP_TPL[dollSel.tid] ? EQUIP_TPL[dollSel.tid].name : dollSel.tid) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
+    var lk = $("sellLockChk"); if (lk) lk.checked = stats.sellLock !== false;
     // 属性 + 选中装备对比(穿上后 +/- 变化)
     var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
     var pv = dollSel ? previewTotals(dollSel) : null;
@@ -1288,6 +1301,8 @@
     $("helpClose").onclick = function () { $("helpModal").classList.add("hidden"); };
     $("helpModal").addEventListener("click", function (e) { if (e.target === $("helpModal")) $("helpModal").classList.add("hidden"); });
     $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
+    if ($("sellAllBtn")) $("sellAllBtn").onclick = sellAll;
+    if ($("sellLockChk")) $("sellLockChk").onchange = function () { stats.sellLock = this.checked; save(); };
     loadCombatAssets();
     $("sortieBtn").onclick = openMap; // 出战历练=打开选区地图
     $("meditateBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };

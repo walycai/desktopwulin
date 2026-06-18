@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0620h">
+<link rel="stylesheet" href="src/style.css?v=0620i">
 </head>
 <body>
   <header class="topbar">
@@ -45,7 +45,8 @@
         <h4>武器仓库 <span id="whCount" class="wh-count"></span></h4>
         <div id="whGrid" class="wh-grid"></div>
         <div id="sellZone" class="sell-zone">💰 拖装备到此卖出 / 选中后点此</div>
-        <div class="doll-tip">双击装备=直接穿戴；单击=对比属性；拖到槽位也可穿；点已穿装备=卸下。<b>拖到 💰 区或选中点 💰 = 卖出换金币</b>。戒指可放戒指1/2。</div>
+        <div class="sell-all-bar"><button id="sellAllBtn" class="tb">💰 卖出全部</button><label class="sell-lock"><input type="checkbox" id="sellLockChk" checked> 🔒 不卖战力更高的</label></div>
+        <div class="doll-tip">双击装备=直接穿戴；单击=对比属性；拖到槽位也可穿；点已穿装备=卸下。<b>拖到 💰 区或选中点 💰 = 卖出换金币</b>。「卖出全部」一键清仓，勾选🔒则保护能提升战力的装备。戒指可放戒指1/2。</div>
       </div>
     </div>
   </div>
@@ -198,7 +199,7 @@
 
   <button id="autoFloat" class="auto-float hidden" title="自动历练总开关：短按开/关，长按拖动改变位置（永远置顶）">⚙ 自动历练：关</button>
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0620h"></script>
-  <script src="src/game.js?v=0620h"></script>
+  <script src="src/combat-core.js?v=0620i"></script>
+  <script src="src/game.js?v=0620i"></script>
 </body>
 </html>
