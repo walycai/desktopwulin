@@ -1008,8 +1008,10 @@
     stats.gold -= g.price; stats.gongfa[id] = { lv: 1, prof: 0 }; syncHpMax(); save(); updateStats(); renderGfShop(); toast("购得「" + g.name + "」（" + g.tierName + "阶）-" + g.price + "💰");
   }
   var GF_SHOP_SIZE = 6, GF_SHOP_REFRESH_MS = 600000; // 每次随机6本,10分钟刷新(WalyCai)
-  function gfShopRoll() { // 按档稀有度加权随机抽 GF_SHOP_SIZE 本不重复(低档常见/高档稀有;概率系数待莱布尼茨)
-    var pool = GONGFA.map(function (g) { return { id: g.id, w: Math.pow(0.5, g.tier) }; }); // 占位权重:每高一阶概率减半
+  var GF_TIER_W = [35, 28, 20, 11, 5, 2.5, 1.5, 0.7, 0.3, 0.1]; // 莱布尼茨定稿:各档出现权重(强烈偏低档,橙+很稀有)
+  function gfShopRoll() { // 各槽独立按档权重roll;等级门槛:只刷≤适配档(防低级刷出绝品)
+    var maxTier = Math.min(9, Math.floor((stats.level || 1) / 8) + 1); // 莱布尼茨:maxTier=min(9,floor(lv/8)+1)
+    var pool = GONGFA.filter(function (g) { return g.tier <= maxTier; }).map(function (g) { return { id: g.id, w: GF_TIER_W[g.tier] || 0.1 }; });
     var pick = [], guard = 0;
     while (pick.length < GF_SHOP_SIZE && pool.length && guard++ < 999) {
       var tot = 0; pool.forEach(function (p) { tot += p.w; }); var r = Math.random() * tot, acc = 0, idx = 0;
