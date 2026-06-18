@@ -29,7 +29,7 @@ STONE = (105, 96, 82, 255)
 
 CATALOG = {
     "bed_basic": ("bed", 10, 18, 24),
-    "bed_advanced": ("bed", 12, 22, 32),
+    "bed_advanced": ("bed", 22, 12, 32),
     "meditation_dais": ("func", 12, 12, 16),
     "chair_round": ("chair", 5, 5, 26),
     "chair_bench": ("chair", 9, 4, 14),
@@ -624,6 +624,45 @@ def reinforce_bed_base(im: Image.Image) -> Image.Image:
     return trim_alpha(under, 8)
 
 
+def solid_bbox(im: Image.Image, threshold: int = 51):
+    im = im.convert("RGBA")
+    alpha = im.getchannel("A")
+    pix = alpha.load()
+    xs, ys = [], []
+    for y in range(im.height):
+        for x in range(im.width):
+            if pix[x, y] > threshold:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        return None
+    return min(xs), min(ys), max(xs) + 1, max(ys) + 1
+
+
+def reinforce_bed_visible_corners(im: Image.Image) -> Image.Image:
+    im = im.convert("RGBA")
+    box = solid_bbox(im)
+    if not box:
+        return im
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    alpha = im.getchannel("A")
+    expanded = alpha.filter(ImageFilter.MaxFilter(11))
+    out = im.copy()
+    opx = out.load()
+    apx = alpha.load()
+    epx = expanded.load()
+    wood = (54, 31, 18)
+    for y in range(max(0, int(y0 + h * 0.58)), min(im.height, y1 + 4)):
+        for x in range(max(0, x0 - 4), min(im.width, x1 + 4)):
+            lower = y > y1 - h * 0.28
+            corner = x < x0 + w * 0.24 or x > x1 - w * 0.24
+            under_rail = y > y1 - h * 0.16
+            if (lower and corner or under_rail) and epx[x, y] and not apx[x, y]:
+                opx[x, y] = (wood[0], wood[1], wood[2], min(185, epx[x, y]))
+    return trim_alpha(out, 8)
+
+
 def add_canvas_padding(im: Image.Image, pad: int = 14) -> Image.Image:
     im = im.convert("RGBA")
     out = Image.new("RGBA", (im.width + pad * 2, im.height + pad * 2), (0, 0, 0, 0))
@@ -721,7 +760,12 @@ def postprocess_asset_shapes():
     for p in (ASSETS / "table").glob("table_square*.png"):
         break_hard_bbox_edges(Image.open(p), left=True, right=True).save(p)
     for p in (ASSETS / "bed").glob("bed_advanced*.png"):
-        break_hard_bbox_edges(reinforce_bed_base(Image.open(p)), bottom=True).save(p)
+        break_hard_bbox_edges(
+            reinforce_bed_visible_corners(reinforce_bed_base(Image.open(p))),
+            bottom=True,
+            left=True,
+            right=True,
+        ).save(p)
     for p in (ASSETS / "chair").glob("chair_taishi*.png"):
         break_hard_bbox_edges(Image.open(p), top=True).save(p)
     for p in (ASSETS / "chair").glob("chair_round*.png"):
