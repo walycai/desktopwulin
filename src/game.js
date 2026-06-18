@@ -726,12 +726,14 @@
   var equipped = { head: null, neck: null, body: null, legs: null, weapon: null, ring1: null, ring2: null, belt: null };
   var warehouse = [], equipSeq = 1, dollSel = null;
 
-  function rollItem(tid) {
-    var t = EQUIP_TPL[tid]; if (!t) return null;
-    var n = RARITY[t.rarity].affixes, pool = AFFIX_POOL.slice(), affixes = [];
+  function rollItem(tid, lv, rarity) { // 新模型:tid=部位, lv=等级(穿戴需求+强度), rarity=稀有度(控词条数)
+    if (!EQUIP_TPL[tid]) return null;
+    rarity = rarity || "common"; lv = lv || 1;
+    var n = RARITY[rarity].affixes, pool = AFFIX_POOL.slice(), affixes = [];
     for (var i = 0; i < n && pool.length; i++) { var k = Math.floor(Math.random() * pool.length), a = pool.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(Math.random() * (a.b - a.a + 1)) }); }
-    return { uid: equipSeq++, tid: tid, affixes: affixes };
+    return { uid: equipSeq++, tid: tid, lv: lv, rarity: rarity, affixes: affixes };
   }
+  function itemNm(it) { return CORE.itemName(it); } // 装备显示名(基础装按等级档命名,套装件专属名)
   function itemStats(it) { return CORE.itemStats(it); } // 装备词条/等级缩放以 core 为单一源
   function baseAttrs() { return CORE.baseAttrs(stats.level, stats.ng); }
   // ---- 人物技能树：力量战士（草案数值，待莱布尼茨平衡）----
@@ -893,7 +895,7 @@
   function sellItem(uid) {
     var i = warehouse.findIndex(function (x) { return x.uid === uid; }); if (i < 0) return;
     var it = warehouse[i]; if (!it.rarity) it.rarity = "common"; var price = sellPrice(it);
-    warehouse.splice(i, 1); stats.gold = (stats.gold || 0) + price; dollSel = null; saveEquip(); save(); updateStats(); renderDoll(); toast("卖出「" + (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid) + "」 +" + price + "💰");
+    warehouse.splice(i, 1); stats.gold = (stats.gold || 0) + price; dollSel = null; saveEquip(); save(); updateStats(); renderDoll(); toast("卖出「" + itemNm(it) + "」 +" + price + "💰");
   }
   function sellAll() { // 一键卖出全部;锁开则保护"穿上能提升战力"的装备
     var protect = stats.sellLock !== false, curCP = CORE.combatPower(totalAttrs());
@@ -1033,22 +1035,22 @@
   function equipItem(it, slotKey) {
     var sd = SLOT_DEFS.find(function (s) { return s.key === slotKey; });
     if (!sd || EQUIP_TPL[it.tid].type !== sd.type) { toast("该装备不能放这个槽"); return; }
-    var req = EQUIP_TPL[it.tid].reqLv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
+    var req = it.lv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
     var idx = warehouse.indexOf(it); if (idx < 0) return; warehouse.splice(idx, 1);
     if (equipped[slotKey]) warehouse.push(equipped[slotKey]);
     equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(it.tid); syncHpMax(); renderDoll(); saveEquip();
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
   function itemTipHTML(it, label) { // 单个装备的属性框(级别要求/售价/主属性/套装)
-    var t = EQUIP_TPL[it.tid]; if (!t) return "";
+    if (!EQUIP_TPL[it.tid]) return "";
     var rar = rarOf(it), rc = RARITY[rar].color, set = setOf(it.tid);
     var h = '<div class="item-tip">';
     if (label) h += '<div class="tip-lbl">' + label + '</div>';
-    h += '<h4 style="color:' + rc + '">【' + RARITY[rar].name + '】' + t.name + (it.lv && it.lv > 1 ? ' ·Lv' + it.lv : '') + '</h4>';
+    h += '<h4 style="color:' + rc + '">【' + RARITY[rar].name + '】' + itemNm(it) + ' ·Lv' + (it.lv || 1) + '</h4>';
     var s = itemStats(it); for (var k in s) h += '<div class="tip-row"><span>' + (STAT_LABEL[k] || k) + '</span><span>+' + s[k] + '</span></div>';
     if (set) h += '<div class="tip-set">〖' + set.name + '套〗（' + set.pieces.length + '件套）</div>';
     h += '<div class="tip-row" style="margin-top:3px"><span class="tip-lbl">售价</span><span>' + sellPrice(it) + '💰</span></div>';
-    h += '<div class="tip-row tip-req"><span>级别要求</span><span>Lv' + (t.reqLv || 1) + '</span></div>';
+    h += '<div class="tip-row tip-req"><span>级别要求</span><span>Lv' + (it.lv || 1) + '</span></div>';
     return h + '</div>';
   }
   function showItemTip(it, mode) { // 悬停显示属性框;仓库件额外显示同槽已穿戴件做对比
@@ -1058,9 +1060,9 @@
   }
   function hideItemTip() { $("itemTip").classList.add("hidden"); $("itemTip").innerHTML = ""; }
 
-  function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
+  function rarOf(it) { return it.rarity || "common"; }
   function setOf(tid) { var ss = CORE.SET_DEFS || []; for (var i = 0; i < ss.length; i++) if (ss[i].pieces.indexOf(tid) >= 0) return ss[i]; return null; }
-  function itemTitle(it) { var t = EQUIP_TPL[it.tid]; var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var rq = t.reqLv && t.reqLv > 1 ? " (需Lv" + t.reqLv + ")" : ""; var lvt = (it.lv && it.lv > 1) ? " ·Lv" + it.lv : ""; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + t.name + lvt + setTag + rq + " " + parts.join(" "); }
+  function itemTitle(it) { var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var lv = it.lv || 1; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + itemNm(it) + " ·Lv" + lv + setTag + "（需Lv" + lv + "）" + " " + parts.join(" "); }
   function equipIconHTML(tid, glyph) {
     return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
@@ -1072,7 +1074,7 @@
     SLOT_DEFS.forEach(function (sd) {
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
-      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + t.name + '</span>' : '');
+      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + itemNm(it) + '</span>' : '');
       if (it) { d.addEventListener("mouseenter", function () { showItemTip(it, "equipped"); }); d.addEventListener("mouseleave", hideItemTip); d.ondblclick = function () { hideItemTip(); unequip(sd.key); }; } // 悬停看属性,双击卸下(WalyCai)
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
@@ -1084,11 +1086,11 @@
     var curCP = CORE.combatPower(totalAttrs()); // 升级指示用：穿上后战力更高→绿箭头
     warehouse.forEach(function (it) {
       var t = EQUIP_TPL[it.tid];
-      var locked = stats.level < (t.reqLv || 1);                    // 等级不够→灰掉蒙版
+      var locked = stats.level < (it.lv || 1);                    // 等级不够→灰掉蒙版(穿戴需求=装备等级)
       var up = CORE.combatPower(previewTotals(it).totals) > curCP;   // 战力更高→绿▲(不论是否够级)
       var rc = RARITY[rarOf(it)].color, hi = (rarOf(it) === "epic" || rarOf(it) === "legend");
-      var d = document.createElement("div"); d.className = "wh-item" + (locked ? " locked" : ""); d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "") + (locked ? "（需Lv" + t.reqLv + "）" : "");
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + t.reqLv + '</span>' : '');
+      var d = document.createElement("div"); d.className = "wh-item" + (locked ? " locked" : ""); d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "") + (locked ? "（需Lv" + (it.lv || 1) + "）" : "");
+      d.innerHTML = equipIconHTML(it.tid, t.glyph) + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + (it.lv || 1) + '</span>' : '');
       d.style.border = "2.5px solid " + rc; d.style.boxShadow = hi ? ("0 0 7px " + rc + ", inset 0 0 5px " + rc + "66") : ("inset 0 0 4px " + rc + "44"); // 品质彩色边框(史诗/传说加发光)
       if (dollSel === it) d.style.boxShadow = "0 0 0 3px #ffd98a, 0 0 8px " + rc;
       d.addEventListener("dragstart", function () { dollSel = it; });
@@ -1097,7 +1099,7 @@
       d.ondblclick = function () { hideItemTip(); equipItem(it, targetSlotFor(it)); }; // 双击穿戴
       wh.appendChild(d);
     });
-    var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + (EQUIP_TPL[dollSel.tid] ? EQUIP_TPL[dollSel.tid].name : dollSel.tid) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
+    var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + itemNm(dollSel) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
     var lk = $("sellLockChk"); if (lk) lk.checked = stats.sellLock !== false;
     // 属性 + 选中装备对比(穿上后 +/- 变化)
     var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
@@ -1108,8 +1110,8 @@
     if (pv) {
       var st = SLOT_DEFS.find(function (s) { return s.key === pv.slot; });
       var cur = equipped[pv.slot];
-      al.innerHTML += '<div class="row" style="border:none;color:#ffd98a">对比：' + EQUIP_TPL[dollSel.tid].name + ' → ' + (st ? st.name : "") + '槽</div>';
-      al.innerHTML += '<div class="row" style="border:none;font-size:11px;color:#9a866a">当前该槽：' + (cur ? EQUIP_TPL[cur.tid].name : "空") + '</div>';
+      al.innerHTML += '<div class="row" style="border:none;color:#ffd98a">对比：' + itemNm(dollSel) + ' → ' + (st ? st.name : "") + '槽</div>';
+      al.innerHTML += '<div class="row" style="border:none;font-size:11px;color:#9a866a">当前该槽：' + (cur ? itemNm(cur) : "空") + '</div>';
     }
     ["HP", "ATK", "DEF", "Crit", "CritDmg", "Hit", "Dodge"].forEach(function (k) {
       var pct = (k === "Crit" || k === "CritDmg") ? "%" : "", ds = "";
@@ -1125,7 +1127,14 @@
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
   function saveEquip() { try { localStorage.setItem(SAVE_KEY + "_eq", JSON.stringify({ equipped: equipped, warehouse: warehouse, seq: equipSeq })); } catch (e) {} }
   function loadEquip() {
-    try { var raw = localStorage.getItem(SAVE_KEY + "_eq"); if (!raw) return false; var d = JSON.parse(raw); equipped = d.equipped || equipped; warehouse = d.warehouse || []; equipSeq = d.seq || 1; return true; } catch (e) { return false; }
+    try {
+      var raw = localStorage.getItem(SAVE_KEY + "_eq"); if (!raw) return false; var d = JSON.parse(raw);
+      equipped = d.equipped || equipped; warehouse = d.warehouse || []; equipSeq = d.seq || 1;
+      // 装备体系重构:清掉旧模型的不兼容装备(tid不在新EQUIP_TPL里)。WalyCai已确认可全删
+      for (var sk in equipped) { var e = equipped[sk]; if (e && !EQUIP_TPL[e.tid]) equipped[sk] = null; }
+      warehouse = warehouse.filter(function (w) { return w && EQUIP_TPL[w.tid]; });
+      return true;
+    } catch (e) { return false; }
   }
   // ---- 3 存档位 ----
   function slotSummary(n) { try { var raw = localStorage.getItem(slotKey(n)); if (!raw) return null; var d = JSON.parse(raw), s = d.stats || {}; return { lv: s.level || 1, gold: s.gold || 0, zone: (s.unlocked || 0) + 1 }; } catch (e) { return null; } }
@@ -1195,7 +1204,7 @@
     body += '<div>获得经验：<span class="hl">+' + r.expGained + '</span>' + (lvups ? ' <span class="lvup">升级 ×' + lvups + '！现 Lv' + stats.level + '</span>' : '') + '</div>';
     body += '<div>获得金币：<span class="hl">+' + (r.goldGained || 0) + '</span> 💰（共 ' + (stats.gold || 0) + '）</div>';
     body += '<div>自动用回血药：' + r.potionsUsed + ' 次 · 剩余气血 ' + Math.round(stats.hp) + '</div>';
-    if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { var t = EQUIP_TPL[d.id]; body += '<div class="drop" style="color:' + RARITY[d.rarity].color + '">· 【' + RARITY[d.rarity].name + '】' + t.name + '</div>'; }); }
+    if (gained.length) { body += '<div class="drop">拾得装备 ' + gained.length + ' 件（已入武器仓库）：</div>'; gained.forEach(function (d) { body += '<div class="drop" style="color:' + RARITY[d.rarity || "common"].color + '">· 【' + RARITY[d.rarity || "common"].name + '】' + itemNm({ tid: d.id, lv: d.lv }) + '</div>'; }); }
     else body += '<div>本趟无装备掉落</div>';
     var title = r.outcome === "win" ? "历练归来" : "负伤而归";
     if (r.bossKilled && CV.bossZoneIdx != null) {
@@ -1345,7 +1354,7 @@
   function dbgGold(n) { stats.gold = (stats.gold || 0) + n; save(); updateStats(); toast("金币 +" + n); }
   function dbgGongfaMax() { var id = stats.trainId; if (!id) return; stats.gongfa[id] = { lv: 10, prof: 0 }; syncHpMax(); save(); toast("「" + (gongfaById(id) ? gongfaById(id).name : id) + "」直接练满 Lv10"); if (!$("kungfuModal").classList.contains("hidden")) renderKungfu(); }
   function dbgUnlockZones() { stats.unlocked = ZONES.length - 1; save(); toast("已解锁全部历练区"); }
-  function dbgGear() { for (var i = 0; i < 5; i++) { var pool = CORE.DROP.equipPool, tid = pool[Math.floor(Math.random() * pool.length)]; warehouse.push(rollItem(tid)); } saveEquip(); toast("仓库 +5 随机装备"); if (!$("dollModal").classList.contains("hidden")) renderDoll(); }
+  function dbgGear() { var rs = ["common", "fine", "superior", "epic", "legend"]; for (var i = 0; i < 5; i++) { var pool = CORE.DROP.equipPool, tid = pool[Math.floor(Math.random() * pool.length)]; warehouse.push(rollItem(tid, Math.max(1, stats.level), rs[Math.floor(Math.random() * rs.length)])); } saveEquip(); toast("仓库 +5 随机装备"); if (!$("dollModal").classList.contains("hidden")) renderDoll(); }
 
   function init() {
     canvas = $("canvas"); ctx = canvas.getContext("2d"); resize();
@@ -1404,7 +1413,7 @@
     $("homeSkillModal").addEventListener("click", function (e) { if (e.target === $("homeSkillModal")) $("homeSkillModal").classList.add("hidden"); });
     var sz = $("sellZone");
     if (sz) { sz.addEventListener("dragover", function (e) { e.preventDefault(); sz.classList.add("over"); }); sz.addEventListener("dragleave", function () { sz.classList.remove("over"); }); sz.addEventListener("drop", function (e) { e.preventDefault(); sz.classList.remove("over"); if (dollSel) sellItem(dollSel.uid); }); sz.onclick = function () { if (dollSel) sellItem(dollSel.uid); else toast("先选中仓库里的装备"); }; }
-    if (!loadEquip()) { ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "ring_jade", "belt_iron", "wpn_steel_saber", "body_softarmor"].forEach(function (tid) { warehouse.push(rollItem(tid)); }); saveEquip(); }
+    if (!loadEquip()) { ["weapon", "head", "body", "legs", "neck", "ring", "belt"].forEach(function (tid) { warehouse.push(rollItem(tid, 1, "common")); }); saveEquip(); } // 新手赠每部位1件lv1白装
     APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等

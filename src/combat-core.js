@@ -12,35 +12,30 @@
   "use strict";
 
   // ---- 稀有度 / 装备模板 / 副词条池（与纸娃娃共用）----
-  var RARITY = { common: { name: "凡品", color: "#9a9a9a", affixes: 0 }, fine: { name: "精良", color: "#5fbf5f", affixes: 1 }, superior: { name: "上乘", color: "#5a9bff", affixes: 2 }, epic: { name: "绝品", color: "#b06bff", affixes: 3 }, legend: { name: "秘传", color: "#ffb43a", affixes: 3 } };
-  // 装备等级需求 reqLv 按稀有度（凡1/精良3/上乘6/绝品10/秘传15），不够级穿不上
-  var EQUIP_TPL = {
-    wpn_iron_sword: { name: "铁剑", type: "weapon", rarity: "common", reqLv: 1, glyph: "🗡", base: { ATK: 8 } },
-    wpn_steel_saber: { name: "精钢刀", type: "weapon", rarity: "fine", reqLv: 3, glyph: "⚔", base: { ATK: 14 } },
-    head_cloth: { name: "方巾", type: "head", rarity: "common", reqLv: 1, glyph: "🧢", base: { DEF: 3 } },
-    head_iron: { name: "铁盔", type: "head", rarity: "fine", reqLv: 3, glyph: "⛑", base: { DEF: 6, HP: 10 } },
-    body_cloth: { name: "布衣", type: "body", rarity: "common", reqLv: 1, glyph: "👕", base: { DEF: 4, HP: 15 } },
-    body_softarmor: { name: "软猬甲", type: "body", rarity: "superior", reqLv: 6, glyph: "🥋", base: { DEF: 9, HP: 30 } },
-    legs_cloth: { name: "粗布裤", type: "legs", rarity: "common", reqLv: 1, glyph: "👖", base: { DEF: 3, HP: 10 } },
-    legs_guard: { name: "护腿", type: "legs", rarity: "fine", reqLv: 3, glyph: "🦵", base: { DEF: 6, HP: 18 } },
-    neck_lock: { name: "长命锁", type: "neck", rarity: "fine", reqLv: 3, glyph: "📿", base: { HP: 25, Crit: 2 } },
-    ring_jade: { name: "羊脂戒", type: "ring", rarity: "superior", reqLv: 6, glyph: "💍", base: { Crit: 4, CritDmg: 15 } },
-    belt_iron: { name: "玄铁腰带", type: "belt", rarity: "fine", reqLv: 3, glyph: "🎗", base: { DEF: 5, HP: 12 } },
-    // ---- 套装装备(专属稀有掉落,Phase1三套·名字/数值待统一调,本阶段做逻辑) ----
-    set_chixue_wpn: { name: "赤血刀", type: "weapon", rarity: "epic", reqLv: 9, glyph: "🗡", base: { ATK: 20 } },
-    set_chixue_body: { name: "赤血战甲", type: "body", rarity: "epic", reqLv: 9, glyph: "🥋", base: { HP: 40, DEF: 8 } },
-    set_chixue_legs: { name: "赤血护腿", type: "legs", rarity: "epic", reqLv: 9, glyph: "🦵", base: { DEF: 9, HP: 24 } },
-    set_chixue_belt: { name: "赤血腰带", type: "belt", rarity: "epic", reqLv: 9, glyph: "🎗", base: { HP: 30, DEF: 6 } },
-    set_youlong_wpn: { name: "游龙剑", type: "weapon", rarity: "epic", reqLv: 6, glyph: "⚔", base: { ATK: 16, Crit: 3 } },
-    set_youlong_head: { name: "游龙冠", type: "head", rarity: "epic", reqLv: 6, glyph: "⛑", base: { Crit: 3, Hit: 4 } },
-    set_youlong_neck: { name: "游龙佩", type: "neck", rarity: "epic", reqLv: 6, glyph: "📿", base: { Crit: 3, ATKspd: 4 } },
-    set_youlong_ring: { name: "游龙戒", type: "ring", rarity: "epic", reqLv: 6, glyph: "💍", base: { Crit: 4, CritDmg: 12 } },
-    set_yantian_wpn: { name: "焰天杖", type: "weapon", rarity: "epic", reqLv: 13, glyph: "🪄", base: { ATK: 22, Mana: 15 } },
-    set_yantian_body: { name: "焰天袍", type: "body", rarity: "epic", reqLv: 13, glyph: "👘", base: { HP: 45, Mana: 20 } },
-    set_yantian_head: { name: "焰天冠", type: "head", rarity: "epic", reqLv: 13, glyph: "👑", base: { Mana: 25, DEF: 5 } },
-    set_yantian_ring: { name: "焰天戒", type: "ring", rarity: "epic", reqLv: 13, glyph: "💍", base: { ATK: 12, Mana: 18 } }
+  var RARITY = { common: { name: "凡品", color: "#9a9a9a", affixes: 0 }, fine: { name: "精良", color: "#5fbf5f", affixes: 1 }, superior: { name: "上乘", color: "#5a9bff", affixes: 2 }, epic: { name: "绝品", color: "#b06bff", affixes: 3 }, legend: { name: "秘传", color: "#ffb43a", affixes: 4 } }; // 稀有度=词条数(白0/绿1/蓝2/紫3/橙4),基础属性不变,稀有度只加词条(WalyCai)
+  // ---- 装备体系(WalyCai重构):等级=穿戴需求=装备强度;基础属性只看等级(平滑增长)、不看稀有度;命名每20级一档 ----
+  var EQUIP_BRACKET = 20;
+  function bracketOf(lv) { return Math.max(0, Math.min(4, Math.floor(((lv || 1) - 1) / EQUIP_BRACKET))); } // 5档:1-20/21-40/41-60/61-80/81-100+
+  // 7部位:每部位5档名字 + 基础属性形态(lv1值,itemStats按等级平滑放大;同级所有稀有度基础一致)。base数值待莱布尼茨曲线
+  var SLOT_DEF = {
+    weapon: { type: "weapon", glyph: "⚔", names: ["铁剑", "精钢刀", "百炼宝刀", "玄铁重剑", "赤霄神兵"], base: { ATK: 18 } },
+    head: { type: "head", glyph: "⛑", names: ["方巾", "铁盔", "精钢头铠", "玄武盔", "真武冠"], base: { DEF: 7, HP: 22 } },
+    body: { type: "body", glyph: "🥋", names: ["布衣", "软猬甲", "锁子连环甲", "玄铁战甲", "龙鳞宝甲"], base: { DEF: 10, HP: 45 } },
+    legs: { type: "legs", glyph: "🦵", names: ["粗布裤", "护腿", "精钢胫甲", "玄铁腿铠", "蟠龙护胫"], base: { DEF: 7, HP: 30 } },
+    neck: { type: "neck", glyph: "📿", names: ["麻绳坠", "长命锁", "白玉佩", "龙纹项圈", "凤鸣玉璜"], base: { HP: 30 } },
+    ring: { type: "ring", glyph: "💍", names: ["铜戒", "羊脂戒", "碧玉戒", "赤金戒", "盘龙宝戒"], base: { ATK: 8, HP: 15 } },
+    belt: { type: "belt", glyph: "🎗", names: ["布带", "玄铁腰带", "精钢腰封", "蛟龙玉带", "紫金龙带"], base: { DEF: 6, HP: 18 } }
   };
-  (function () { var FLAT = { ATK: 1, DEF: 1, HP: 1, Mana: 1 }; for (var tid in EQUIP_TPL) { var b = EQUIP_TPL[tid].base; for (var k in b) if (FLAT[k]) b[k] = Math.round(b[k] * 1.5); } })(); // 莱布尼茨:装备基础属性×1.5(仅flat ATK/DEF/HP/Mana,率类不碰)→gear为CP主力
+  var EQUIP_TPL = {};
+  for (var _sl in SLOT_DEF) EQUIP_TPL[_sl] = { name: SLOT_DEF[_sl].names[0], type: SLOT_DEF[_sl].type, glyph: SLOT_DEF[_sl].glyph, base: SLOT_DEF[_sl].base }; // 基础装 tid=部位
+  // 套装件(专属,40级起;base也按等级走;数值/分布待莱布尼茨重做进新模型)
+  var SET_ITEMS = {
+    set_chixue_wpn: { name: "赤血刀", type: "weapon", glyph: "🗡", base: { ATK: 22 } }, set_chixue_body: { name: "赤血战甲", type: "body", glyph: "🥋", base: { HP: 50, DEF: 10 } }, set_chixue_legs: { name: "赤血护腿", type: "legs", glyph: "🦵", base: { DEF: 10, HP: 30 } }, set_chixue_belt: { name: "赤血腰带", type: "belt", glyph: "🎗", base: { HP: 36, DEF: 7 } },
+    set_youlong_wpn: { name: "游龙剑", type: "weapon", glyph: "⚔", base: { ATK: 18 } }, set_youlong_head: { name: "游龙冠", type: "head", glyph: "⛑", base: { DEF: 8, HP: 20 } }, set_youlong_neck: { name: "游龙佩", type: "neck", glyph: "📿", base: { HP: 24 } }, set_youlong_ring: { name: "游龙戒", type: "ring", glyph: "💍", base: { ATK: 10, HP: 18 } },
+    set_yantian_wpn: { name: "焰天杖", type: "weapon", glyph: "🪄", base: { ATK: 24, Mana: 20 } }, set_yantian_body: { name: "焰天袍", type: "body", glyph: "👘", base: { HP: 54, Mana: 24 } }, set_yantian_head: { name: "焰天冠", type: "head", glyph: "👑", base: { Mana: 30, DEF: 6 } }, set_yantian_ring: { name: "焰天戒", type: "ring", glyph: "💍", base: { ATK: 14, Mana: 22 } }
+  };
+  for (var _si in SET_ITEMS) EQUIP_TPL[_si] = SET_ITEMS[_si];
+  function itemName(it) { var d = SLOT_DEF[it.tid]; return d ? d.names[bracketOf(it.lv)] : (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid); } // 基础装按等级档命名,套装件用专属名
   var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
 
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
@@ -63,7 +58,7 @@
     return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6, Tough: 0 };
   }
   // 默认掉落配置（占位）
-  var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
+  var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["weapon", "head", "body", "legs", "neck", "ring", "belt"] }; // 掉落=随机部位,等级=怪等级,稀有度加权,词条数按稀有度
   var GOLD_PER_EXP = 0.0215; // 金币掉落=敌人经验×此系数(WalyCai:金币÷20,卖装备成主要金币源;0.43→0.0215。功法价是否同步降待A/B)
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
   var ELITE = { hpMult: 2.5, atkMult: 1.5, defMult: 1.5, expMult: 2.5, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪(莱布尼茨终版):血×2.5·攻×1.5·防×1.5·经验×2.5·掉率×2.5·稀有度权重提升(高血低攻=可生还的高奖励赌注)
@@ -247,7 +242,7 @@
       }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
       var eqRate = drop.equipRate * (e.elite ? ELITE.dropMult : 1), qb = (e.elite ? ELITE.qualityBonus : 0) + dropQuality; // 精英:掉率↑+品质↑;居家技能掉落高品率也提品质
-      if (rng() < eqRate) { if (bag.length < bagMax) { var zs = (cfg.zoneIdx != null) ? setForZone(cfg.zoneIdx) : null, it; if (zs && rng() < SET_DROP_RATE) { var stid = zs.pieces[Math.floor(rng() * zs.pieces.length)]; it = { id: stid, rarity: "epic", affixes: mkAffixes(rng, "epic"), lv: e.lv || 1 }; } else { it = rollDrop(rng, drop.equipPool, qualityWeights(qb)); it.lv = e.lv || 1; } bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } } // 套装源区:概率掉本套套件
+      if (rng() < eqRate) { if (bag.length < bagMax) { var zs = ((cfg.zoneIdx != null) && (e.lv || 1) >= 40) ? setForZone(cfg.zoneIdx) : null, it; if (zs && rng() < SET_DROP_RATE) { var stid = zs.pieces[Math.floor(rng() * zs.pieces.length)]; it = { id: stid, rarity: "epic", affixes: mkAffixes(rng, "epic"), lv: e.lv || 1 }; } else { it = rollDrop(rng, drop.equipPool, qualityWeights(qb)); it.lv = e.lv || 1; } bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } } // 套装源区:概率掉本套套件
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
@@ -324,6 +319,7 @@
   function gfProfReq(lv) { return Math.round(40 * lv * lv); }
   // ==== 装备等级缩放 + itemStats(单一源) ====
   var GEAR_LV_SCALE = 0.30; // 装备lv缩放(莱布尼茨:0.12→0.30,让高lv装备掉落=可感知CP跳变)
+  var GEAR_THRESHOLDS = [{ minLv: 20, bonus: { ATK: 20 } }, { minLv: 40, bonus: { ATKspd: 5 } }, { minLv: 60, bonus: { ATK: 200, CritDmg: 10 } }, { minLv: 80, bonus: { ATK: 500, HP: 2000 } }]; // 全身装备都≥门槛→解锁强力被动(累加),数值占位待莱布尼茨(WalyCai)
   var AFFIX_LV_SCALE = 0.1; // 词缀随装备lv放大→高lv高稀有=真jackpot
   var GEAR_FLAT = { ATK: 1, DEF: 1, HP: 1, Mana: 1 }; // 仅这些flat属性随lv缩放;率类(Crit/CritDmg/ATKspd/Hit/Dodge/Tough)不缩放保base值(莱布尼茨:防暴击随lv爆到上千%)
   function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var lv = it.lv || 1, s = {}, m = 1 + GEAR_LV_SCALE * (lv - 1), am = 1 + AFFIX_LV_SCALE * (lv - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * (GEAR_FLAT[k] ? m : 1)); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + Math.round(a.v * (GEAR_FLAT[a.s] ? am : 1)); }); return s; }
@@ -378,6 +374,8 @@
     _sets.forEach(function (as) { (as.grants || []).forEach(function (g) { if (g && g.ext) skGrant[g.ext] = (skGrant[g.ext] || 0) + (g.lv || 0); }); });
     for (var xid in sk) { var xe = SKILL_EXT_EFF[xid], base = sk[xid] || 0; if (!xe || base <= 0) continue; var rk = base + (skGrant[extLineOf(xid)] || 0); a[xe.stat] = (a[xe.stat] || 0) + xe.per * rk; } // 扩展节点:已学等级 + 套装授予(只增已投入的技能,可超 max=突破上限)
     _sets.forEach(function (as) { for (var st in as.applied) a[st] = (a[st] || 0) + as.applied[st]; }); // 套装基础/战斗属性
+    var eqItems = []; for (var es in eqp) if (eqp[es]) eqItems.push(eqp[es]); // 全身装备等级门槛被动:所有部位(8)都≥门槛→解锁累加被动(WalyCai)
+    if (eqItems.length >= 8) { var minLv = 999; for (var ei = 0; ei < eqItems.length; ei++) minLv = Math.min(minLv, eqItems[ei].lv || 1); GEAR_THRESHOLDS.forEach(function (th) { if (minLv >= th.minLv) for (var bk in th.bonus) a[bk] = (a[bk] || 0) + th.bonus[bk]; }); }
     a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
@@ -390,5 +388,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, baseAttrs: baseAttrs };
 });
