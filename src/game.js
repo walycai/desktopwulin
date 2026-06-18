@@ -1007,23 +1007,38 @@
     if ((stats.gold || 0) < g.price) { toast("金币不足（需 " + g.price + "💰）"); return; }
     stats.gold -= g.price; stats.gongfa[id] = { lv: 1, prof: 0 }; syncHpMax(); save(); updateStats(); renderGfShop(); toast("购得「" + g.name + "」（" + g.tierName + "阶）-" + g.price + "💰");
   }
+  var GF_SHOP_SIZE = 6, GF_SHOP_REFRESH_MS = 600000; // 每次随机6本,10分钟刷新(WalyCai)
+  function gfShopRoll() { // 按档稀有度加权随机抽 GF_SHOP_SIZE 本不重复(低档常见/高档稀有;概率系数待莱布尼茨)
+    var pool = GONGFA.map(function (g) { return { id: g.id, w: Math.pow(0.5, g.tier) }; }); // 占位权重:每高一阶概率减半
+    var pick = [], guard = 0;
+    while (pick.length < GF_SHOP_SIZE && pool.length && guard++ < 999) {
+      var tot = 0; pool.forEach(function (p) { tot += p.w; }); var r = Math.random() * tot, acc = 0, idx = 0;
+      for (var i = 0; i < pool.length; i++) { acc += pool[i].w; if (r <= acc) { idx = i; break; } }
+      pick.push(pool[idx].id); pool.splice(idx, 1);
+    }
+    return pick;
+  }
+  function gfShopRefresh(force) { var now = Date.now(); if (force || !stats.gfShop || !stats.gfShop.ids || now >= (stats.gfShop.next || 0)) { stats.gfShop = { ids: gfShopRoll(), next: now + GF_SHOP_REFRESH_MS }; save(); } }
   function openGfShop() { renderGfShop(); $("gfShopModal").classList.remove("hidden"); }
   function renderGfShop() {
+    gfShopRefresh();
     $("gfsGold").textContent = stats.gold || 0;
     var w = $("gfsList"); w.innerHTML = "";
-    ["nei", "wai", "qing"].forEach(function (sys) {
-      var col = document.createElement("div"); col.className = "gfs-col";
-      col.innerHTML = '<div class="gfs-h">' + (sys === "nei" ? "内功" : sys === "wai" ? "外功" : "轻功") + '</div>';
-      GONGFA.filter(function (g) { return g.sys === sys; }).forEach(function (g) {
-        var own = !!stats.gongfa[g.id], afford = (stats.gold || 0) >= g.price;
-        var d = document.createElement("div"); d.className = "gfs-item";
-        d.innerHTML = '<span class="gfs-nm" style="color:' + g.color + '">' + g.tierName + ' ' + g.name + '</span><span class="gfs-eff">主' + fmtEff(g.active, 1) + '</span>'
-          + (own ? '<span class="gfs-own">已拥有</span>' : '<button class="tb sk-mini gfs-buy"' + (afford ? "" : " disabled") + '>' + g.price + '💰</button>');
-        if (!own) { var b = d.getElementsByClassName("gfs-buy")[0]; if (b) b.onclick = function () { buyGongfa(g.id); }; }
-        col.appendChild(d);
-      });
-      w.appendChild(col);
+    var mins = Math.max(0, Math.ceil((stats.gfShop.next - Date.now()) / 60000));
+    var hdr = document.createElement("div"); hdr.className = "gfs-refresh"; hdr.innerHTML = '本批随机 ' + GF_SHOP_SIZE + ' 本 · 约 <b>' + mins + '</b> 分钟后刷新 <button id="gfsReroll" class="tb sk-mini">立即刷新</button>';
+    w.appendChild(hdr);
+    var grid = document.createElement("div"); grid.className = "gfs-grid";
+    (stats.gfShop.ids || []).forEach(function (id) {
+      var g = gongfaById(id); if (!g) return;
+      var own = !!stats.gongfa[id], afford = (stats.gold || 0) >= g.price;
+      var d = document.createElement("div"); d.className = "gfs-item";
+      d.innerHTML = '<span class="gfs-nm" style="color:' + g.color + '">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tierName + ' ' + g.name + '</span><span class="gfs-eff">主' + fmtEff(g.active, 1) + '</span>'
+        + (own ? '<span class="gfs-own">已拥有</span>' : '<button class="tb sk-mini gfs-buy"' + (afford ? "" : " disabled") + '>' + g.price + '💰</button>');
+      if (!own) { var b = d.getElementsByClassName("gfs-buy")[0]; if (b) b.onclick = function () { buyGongfa(g.id); }; }
+      grid.appendChild(d);
     });
+    w.appendChild(grid);
+    var rb = $("gfsReroll"); if (rb) rb.onclick = function () { gfShopRefresh(true); renderGfShop(); }; // 调试/手动刷新
   }
   function targetSlotFor(it) {
     var type = EQUIP_TPL[it.tid].type;

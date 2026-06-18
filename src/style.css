@@ -249,7 +249,11 @@ body {
 .gf-whead > span { color: #e8c98a; font-size: 13px; font-weight: 700; }
 .gf-whead .tb { font-size: 12px; padding: 3px 10px; }
 .gf-empty { color: #9a866a; font-size: 12px; text-align: center; padding: 16px; }
-.gfs-list { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.gfs-list { display: block; max-height: 60vh; overflow-y: auto; }
+.gfs-refresh { color: #d8c8aa; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.gfs-refresh b { color: #ffd98a; }
+.gfs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gfs-grid .gfs-item { background: #2c2016; border: 1px solid #4a3826; border-radius: 8px; padding: 8px 10px; border-bottom: 1px solid #4a3826; }
 .gfs-col { background: #2c2016; border: 1px solid #4a3826; border-radius: 8px; padding: 6px 8px; }
 .gfs-h { color: #e8c98a; font-size: 13px; font-weight: 700; text-align: center; margin-bottom: 4px; border-bottom: 1px dashed #4a3826; padding-bottom: 3px; }
 .gfs-item { display: grid; grid-template-columns: 1fr auto; gap: 1px 6px; padding: 4px 0; border-bottom: 1px dashed #3a2c1e; align-items: center; }
