@@ -265,45 +265,66 @@
   }
   function drawFloor() {
     var c = quad(0, 0, GW, GH);
-    poly(c); ctx.fillStyle = "#b89c6e"; ctx.fill();
+    poly(c); ctx.fillStyle = "#9b7042"; ctx.fill();
     if (env.floorLarge) {
       poly(c); ctx.save(); ctx.clip();
       for (var tx = 0; tx < GW; tx += 4) for (var ty = 0; ty < GH; ty += 4) {
         var center = v(tx + 2, ty + 2);
         ctx.drawImage(env.floorLarge, center.x - 48, center.y - 24, 96, 48);
+        var tone = ((tx * 17 + ty * 31) % 7) - 3;
+        if (tone !== 0) {
+          var q = quad(tx, ty, Math.min(4, GW - tx), Math.min(4, GH - ty));
+          poly(q);
+          ctx.fillStyle = tone > 0 ? "rgba(255,226,166," + (0.018 * tone).toFixed(3) + ")" : "rgba(46,29,17," + (-0.02 * tone).toFixed(3) + ")";
+          ctx.fill();
+        }
       }
       ctx.restore();
     }
-    // 大格网格线(每4小格)
-    ctx.strokeStyle = "rgba(90,60,30,.25)"; ctx.lineWidth = 1;
+    // 大格接缝：低对比度，避免扩大房间后变成刺眼网格。
+    ctx.strokeStyle = "rgba(72,45,25,.18)"; ctx.lineWidth = 1;
     for (var i = 0; i <= GW; i += 4) { var a = v(i, 0), b = v(i, GH); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
     for (var j = 0; j <= GH; j += 4) { var a2 = v(0, j), b2 = v(GW, j); ctx.beginPath(); ctx.moveTo(a2.x, a2.y); ctx.lineTo(b2.x, b2.y); ctx.stroke(); }
-    poly(c); ctx.strokeStyle = "#6a4a2a"; ctx.lineWidth = 2; ctx.stroke();
+    poly(c); ctx.strokeStyle = "#5f3c22"; ctx.lineWidth = 2; ctx.stroke();
+  }
+  function wallLine(a, b, yOff) {
+    ctx.beginPath(); ctx.moveTo(a.x, a.y - yOff); ctx.lineTo(b.x, b.y - yOff); ctx.stroke();
+  }
+  function wallUpright(base) {
+    ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(base.x, base.y - WALL_PX); ctx.stroke();
+  }
+  function wallPanelFill(a, b, dark) {
+    var grad = ctx.createLinearGradient(a.x, a.y - WALL_PX, b.x, b.y);
+    grad.addColorStop(0, dark ? "#6d573f" : "#7b6146");
+    grad.addColorStop(0.55, dark ? "#80664a" : "#917351");
+    grad.addColorStop(1, dark ? "#5d442e" : "#6b4b31");
+    ctx.fillStyle = grad; ctx.fill();
   }
   function drawWalls() {
     // 右墙 (沿 cy=0, cx 0..GW)
     var a = v(0, 0), b = v(GW, 0);
     poly([{ x: a.x, y: a.y }, { x: b.x, y: b.y }, { x: b.x, y: b.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]);
-    ctx.fillStyle = "#9a7f5e"; ctx.fill();
-    if (env.wallRight) {
-      ctx.save(); ctx.clip();
-      var patR = ctx.createPattern(env.wallRight, "repeat");
-      if (patR) { ctx.fillStyle = patR; ctx.fillRect(a.x, a.y - WALL_PX, b.x - a.x, WALL_PX); }
-      ctx.restore();
-    }
-    ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
+    wallPanelFill(a, b, false);
+    ctx.save(); poly([{ x: a.x, y: a.y }, { x: b.x, y: b.y }, { x: b.x, y: b.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]); ctx.clip();
+    ctx.strokeStyle = "rgba(230,190,128,.22)"; ctx.lineWidth = 1;
+    for (var rh = ROW_PX * 2; rh < WALL_PX; rh += ROW_PX * 2) wallLine(a, b, rh);
+    ctx.strokeStyle = "rgba(49,34,22,.28)";
+    for (var rx = 0; rx <= GW; rx += 8) wallUpright(v(rx, 0));
+    ctx.strokeStyle = "rgba(50,32,19,.36)"; ctx.lineWidth = 3; wallLine(a, b, 0); wallLine(a, b, 44);
+    ctx.restore();
+    ctx.strokeStyle = "#59391f"; ctx.lineWidth = 2; ctx.stroke();
     // 左墙 (沿 cx=0, cy 0..GH)
     var d = v(0, GH);
     poly([{ x: a.x, y: a.y }, { x: d.x, y: d.y }, { x: d.x, y: d.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]);
-    ctx.fillStyle = "#876e50"; ctx.fill();
-    if (env.wallLeft) {
-      ctx.save(); ctx.clip();
-      var minX = Math.min(a.x, d.x), maxX = Math.max(a.x, d.x);
-      var patL = ctx.createPattern(env.wallLeft, "repeat");
-      if (patL) { ctx.fillStyle = patL; ctx.fillRect(minX, a.y - WALL_PX, maxX - minX, WALL_PX); }
-      ctx.restore();
-    }
-    ctx.strokeStyle = "#6a4a2a"; ctx.stroke();
+    wallPanelFill(a, d, true);
+    ctx.save(); poly([{ x: a.x, y: a.y }, { x: d.x, y: d.y }, { x: d.x, y: d.y - WALL_PX }, { x: a.x, y: a.y - WALL_PX }]); ctx.clip();
+    ctx.strokeStyle = "rgba(221,180,119,.18)"; ctx.lineWidth = 1;
+    for (var lh = ROW_PX * 2; lh < WALL_PX; lh += ROW_PX * 2) wallLine(a, d, lh);
+    ctx.strokeStyle = "rgba(45,31,20,.30)";
+    for (var ly = 0; ly <= GH; ly += 8) wallUpright(v(0, ly));
+    ctx.strokeStyle = "rgba(46,30,18,.40)"; ctx.lineWidth = 3; wallLine(a, d, 0); wallLine(a, d, 44);
+    ctx.restore();
+    ctx.strokeStyle = "#4f321c"; ctx.lineWidth = 2; ctx.stroke();
   }
   function wallHangXY(p) {
     // 沿墙位置 p.cx (格)，高度 p.cy (0=底,越大越高)，返回画布坐标(左上)
