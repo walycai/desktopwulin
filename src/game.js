@@ -1039,20 +1039,24 @@
     equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(it.tid); syncHpMax(); renderDoll(); saveEquip();
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
-  function showItemPopup(it, mode, slotKey) { // 点装备弹属性窗口(穿戴栏/仓库栏都不直接卸下,WalyCai)
-    var t = EQUIP_TPL[it.tid]; if (!t) return;
+  function itemTipHTML(it, label) { // 单个装备的属性框(级别要求/售价/主属性/套装)
+    var t = EQUIP_TPL[it.tid]; if (!t) return "";
     var rar = rarOf(it), rc = RARITY[rar].color, set = setOf(it.tid);
-    $("ipName").innerHTML = '<span style="color:' + rc + '">【' + RARITY[rar].name + '】' + t.name + '</span>' + ((it.lv && it.lv > 1) ? ' ·Lv' + it.lv : '') + (set ? ' <span style="color:#7fe0a0">〖' + set.name + '套〗</span>' : '') + (t.reqLv > 1 ? ' <span style="color:#c98a6a;font-size:12px">(需Lv' + t.reqLv + ')</span>' : '');
-    var s = itemStats(it), rows = ""; for (var k in s) rows += '<div class="ip-row"><span>' + (STAT_LABEL[k] || k) + '</span><span>+' + s[k] + '</span></div>';
-    if (mode === "warehouse") { var d = CORE.combatPower(previewTotals(it).totals) - CORE.combatPower(totalAttrs()); rows += '<div class="ip-row ip-cmp"><span>穿戴后战力</span><span style="color:' + (d >= 0 ? "#7fe0a0" : "#ff8a7a") + '">' + (d >= 0 ? "+" : "") + d + '</span></div>'; }
-    $("ipStats").innerHTML = rows;
-    var bw = $("ipBtns"); bw.innerHTML = "";
-    function addBtn(label, fn) { var b = document.createElement("button"); b.className = "tb"; b.textContent = label; b.onclick = function () { fn(); $("itemPopup").classList.add("hidden"); }; bw.appendChild(b); }
-    if (mode === "equipped") { addBtn("卸下", function () { unequip(slotKey); }); }
-    else { var ok = stats.level >= (t.reqLv || 1); addBtn(ok ? "穿戴" : "穿戴(级别不足)", function () { if (ok) equipItem(it, targetSlotFor(it)); else toast("需历练等级 " + t.reqLv); }); addBtn("卖出 +" + sellPrice(it) + "💰", function () { sellItem(it.uid); }); }
-    var c = document.createElement("button"); c.className = "tb"; c.textContent = "关闭"; c.onclick = function () { $("itemPopup").classList.add("hidden"); }; bw.appendChild(c);
-    $("itemPopup").classList.remove("hidden");
+    var h = '<div class="item-tip">';
+    if (label) h += '<div class="tip-lbl">' + label + '</div>';
+    h += '<h4 style="color:' + rc + '">【' + RARITY[rar].name + '】' + t.name + (it.lv && it.lv > 1 ? ' ·Lv' + it.lv : '') + '</h4>';
+    var s = itemStats(it); for (var k in s) h += '<div class="tip-row"><span>' + (STAT_LABEL[k] || k) + '</span><span>+' + s[k] + '</span></div>';
+    if (set) h += '<div class="tip-set">〖' + set.name + '套〗（' + set.pieces.length + '件套）</div>';
+    h += '<div class="tip-row" style="margin-top:3px"><span class="tip-lbl">售价</span><span>' + sellPrice(it) + '💰</span></div>';
+    h += '<div class="tip-row tip-req"><span>级别要求</span><span>Lv' + (t.reqLv || 1) + '</span></div>';
+    return h + '</div>';
   }
+  function showItemTip(it, mode) { // 悬停显示属性框;仓库件额外显示同槽已穿戴件做对比
+    var html = itemTipHTML(it, mode === "equipped" ? "已穿戴" : "仓库");
+    if (mode === "warehouse") { var sk = targetSlotFor(it), cur = sk && equipped[sk]; if (cur) html += itemTipHTML(cur, "已穿戴（同位置·对比）"); }
+    $("itemTip").innerHTML = html; $("itemTip").classList.remove("hidden");
+  }
+  function hideItemTip() { $("itemTip").classList.add("hidden"); $("itemTip").innerHTML = ""; }
 
   function rarOf(it) { return it.rarity || EQUIP_TPL[it.tid].rarity; }
   function setOf(tid) { var ss = CORE.SET_DEFS || []; for (var i = 0; i < ss.length; i++) if (ss[i].pieces.indexOf(tid) >= 0) return ss[i]; return null; }
@@ -1069,7 +1073,7 @@
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
       d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + t.name + '</span>' : '');
-      if (it) { d.title = itemTitle(it); d.onclick = function () { showItemPopup(it, "equipped", sd.key); }; } // 点已穿装备→弹属性窗口(不直接卸下,WalyCai)
+      if (it) { d.addEventListener("mouseenter", function () { showItemTip(it, "equipped"); }); d.addEventListener("mouseleave", hideItemTip); d.ondblclick = function () { hideItemTip(); unequip(sd.key); }; } // 悬停看属性,双击卸下(WalyCai)
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
       d.addEventListener("drop", function (e) { e.preventDefault(); d.classList.remove("over"); if (dollSel) equipItem(dollSel, sd.key); });
@@ -1088,7 +1092,9 @@
       d.style.border = "2.5px solid " + rc; d.style.boxShadow = hi ? ("0 0 7px " + rc + ", inset 0 0 5px " + rc + "66") : ("inset 0 0 4px " + rc + "44"); // 品质彩色边框(史诗/传说加发光)
       if (dollSel === it) d.style.boxShadow = "0 0 0 3px #ffd98a, 0 0 8px " + rc;
       d.addEventListener("dragstart", function () { dollSel = it; });
-      d.onclick = function () { dollSel = it; showItemPopup(it, "warehouse"); }; // 点仓库装备→弹属性窗口(看属性再决定穿/卖,WalyCai)
+      d.addEventListener("mouseenter", function () { dollSel = it; showItemTip(it, "warehouse"); }); // 悬停:本件+同槽已穿戴件对比框(WalyCai)
+      d.addEventListener("mouseleave", hideItemTip);
+      d.ondblclick = function () { hideItemTip(); equipItem(it, targetSlotFor(it)); }; // 双击穿戴
       wh.appendChild(d);
     });
     var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + (EQUIP_TPL[dollSel.tid] ? EQUIP_TPL[dollSel.tid].name : dollSel.tid) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
@@ -1372,8 +1378,7 @@
     $("helpBtn").onclick = function () { $("helpModal").classList.remove("hidden"); };
     $("helpClose").onclick = function () { $("helpModal").classList.add("hidden"); };
     $("helpModal").addEventListener("click", function (e) { if (e.target === $("helpModal")) $("helpModal").classList.add("hidden"); });
-    $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); };
-    if ($("ipClose")) $("ipClose").onclick = function () { $("itemPopup").classList.add("hidden"); };
+    $("dollClose").onclick = function () { $("dollModal").classList.add("hidden"); hideItemTip(); };
     if ($("sellAllBtn")) $("sellAllBtn").onclick = sellAll;
     if ($("sellLockChk")) $("sellLockChk").onchange = function () { stats.sellLock = this.checked; save(); };
     loadCombatAssets();
