@@ -223,12 +223,14 @@
     // 主动技能(Phase4)：蓝量回复+自动释放
     var mana = 0, manaMax = P0.Mana || 0, manaRegen = cfg.manaRegen || 8;
     var abilities = (cfg.abilities || []).map(function (a) { return { id: a.id, type: a.type, cost: a.cost, cd: a.cd, mult: a.mult || 0, dur: a.dur || 0, hasteMult: a.hasteMult || 1, cdT: 0, lastT: -1e9 }; });
-    var haste = 0, lastCast = null; // haste=狂暴剩余时间
+    var haste = 0, lastCast = null; // haste=狂暴/攻速buff剩余时间
+    var atkBuffT = 0, atkBuffPct = 0; // 外功琴:自身限时+攻击%
+    function pAtkEff() { return P0.ATK * 100 / 106 * (atkBuffT > 0 ? 1 + atkBuffPct : 1); } // 玩家有效攻击(含琴攻击buff)
     function leveledEnemy(id, lv) { // 敌人按等级缩放(占位系数,待莱布尼茨调)
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
       return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(0.8 * lv), Tough: Math.round(0.8 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨温和版(前10层挂机向):闪避/韧性 0.8×lv
     }
-    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, elite: !!E.elite, anim: "idle", at: 0, deb: { burnDps: 0, burnT: 0, poiStacks: 0, poiDps: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
+    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, elite: !!E.elite, anim: "idle", at: 0, deb: { burnDps: 0, burnT: 0, poiStacks: 0, poiDps: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0, stunT: 0, defDownT: 0, defDownPct: 0 } }; }
     function makeElite(E) { // 精英化:血/攻防经验提升,标记 elite(渲染放大)
       return { name: "精英·" + E.name, HP: Math.round(E.HP * ELITE.hpMult), ATK: Math.round(E.ATK * ELITE.atkMult), DEF: Math.round((E.DEF || 0) * ELITE.defMult), Crit: E.Crit, CritDmg: E.CritDmg, Hit: E.Hit, Dodge: E.Dodge, Tough: E.Tough, ATKspd: E.ATKspd, exp: Math.round((E.exp || 0) * ELITE.expMult), lv: E.lv, type: E.type, elite: true };
     }
@@ -265,29 +267,34 @@
       var i, e;
       for (i = 0; i < enemies.length; i++) {
         e = enemies[i]; if (e.dead) continue;
-        var mvMul = e.deb.chillT > 0 ? (1 - e.deb.chillMv) : 1;                 // 冰冻减移速
+        var mvMul = (e.deb.chillT > 0 ? (1 - e.deb.chillMv) : 1) * (e.deb.stunT > 0 ? 0 : 1); // 冰冻减移速;眩晕停步
         if (e.x > melee) { e.x = Math.max(melee, e.x - eSpeed * dt * mvMul); e.anim = "idle"; }
+        if (e.deb.stunT > 0) e.deb.stunT -= dt; if (e.deb.defDownT > 0) e.deb.defDownT -= dt; // 眩晕/降防计时
         if (enemyRegenPct > 0 && e.hp > 0 && e.hp < e.hpMax && e.deb.poiT <= 0) e.hp = Math.min(e.hpMax, e.hp + e.hpMax * enemyRegenPct * dt); // 敌人回血(中毒时被抑制)
         if (e.deb.burnT > 0) { var bd = e.deb.burnDps * dt; e.hp -= bd; dmgDealt += bd; e.deb.burnT -= dt; }   // 灼烧DoT(定值/s,非百分比血,可暴击)
         if (e.deb.poiT > 0) { var pd = e.hpMax * e.deb.poiDps * e.deb.poiStacks * dt; e.hp -= pd; dmgDealt += pd; e.deb.poiT -= dt; if (e.deb.poiT <= 0) e.deb.poiStacks = 0; } // 中毒DoT(每层%maxHP/s×层数,封顶;到期清层)
         if (e.deb.chillT > 0) e.deb.chillT -= dt;
         if (e.hp <= 0 && !e.dead) killEnemy(e);                                  // DoT 可致死
       }
-      if (haste > 0) haste -= dt;
+      if (haste > 0) haste -= dt; if (atkBuffT > 0) atkBuffT -= dt;
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; lastHeal = 0; // 狂暴期间出手更快
       if (playerRegen > 0 && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen, P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:每秒结算一次,显示+N
-      if (P.cd <= 0) { var tg = nearest(); if (tg) { var s = strike(rng, P0, tg.E); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } }
+      if (P.cd <= 0) { var tg = nearest(); if (tg) { var tgE = tg.deb.defDownT > 0 ? { name: tg.E.name, ATK: tg.E.ATK, DEF: Math.round(tg.E.DEF * (1 - tg.deb.defDownPct)), Crit: tg.E.Crit, CritDmg: tg.E.CritDmg, Hit: tg.E.Hit, Dodge: tg.E.Dodge, Tough: tg.E.Tough } : tg.E; var s = strike(rng, P0, tgE); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } } // 降敌防:玩家打它时按 defDown 减其防
       // 主动技能：各技能独立 CD+固定耗蓝。选"最久未放的就绪技能"为下一个,蓝量够它才放、不够就攒(不放别的)→强制轮转,便宜技能不再饿死贵技能(WalyCai)
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
       if (enemies.length) {
         var pick = null; for (i = 0; i < abilities.length; i++) { var ab = abilities[i]; if (ab.cdT <= 0 && (!pick || ab.lastT < pick.lastT)) pick = ab; } // CD就绪里最久未放优先(轮换顺序),不看蓝量
         if (pick && mana >= pick.cost) {
-          if (pick.type === "aoe") { var atkEff = P0.ATK * 100 / 106, dd = Math.round(atkEff * pick.mult); for (var z = 0; z < enemies.length; z++) { var en = enemies[z]; if (en.x <= melee + 220 && !en.dead) { en.hp -= dd; dmgDealt += dd; if (en.hp <= 0) killEnemy(en); } } lastCast = { type: "aoe", id: pick.id, dmg: dd }; }
-          else if (pick.type === "haste") { haste = pick.dur; lastCast = { type: "haste", id: pick.id }; }
+          var aE = pAtkEff(), critM = function (dmg) { if (pick.canCrit) { var cr = critResolve(P0.Crit || 0, P0.CritDmg || 0); if (rng() * 100 < cr.crit) return Math.round(dmg * (1 + cr.critDmg / 100)); } return dmg; }; // 可暴击技能
+          if (pick.type === "single") { var tg1 = nearest(); if (tg1) { var sd = critM(Math.round(aE * pick.mult)); tg1.hp -= sd; dmgDealt += sd; if (pick.stunChance && rng() < pick.stunChance) tg1.deb.stunT = Math.max(tg1.deb.stunT, pick.stunDur || 0); lastCast = { type: "single", id: pick.id, dmg: sd }; if (tg1.hp <= 0) killEnemy(tg1); } } // 拳/剑:单体可暴(拳高档带眩)
+          else if (pick.type === "aoe") { var rad = pick.radius || 220, ad = critM(Math.round(aE * pick.mult)), hitn = 0; for (var z = 0; z < enemies.length; z++) { var en = enemies[z]; if (en.x <= melee + rad && !en.dead) { en.hp -= ad; dmgDealt += ad; hitn++; if (pick.stunChance && rng() < pick.stunChance) en.deb.stunT = Math.max(en.deb.stunT, pick.stunDur || 0); if (en.hp <= 0) killEnemy(en); } } lastCast = { type: "aoe", id: pick.id, dmg: ad }; } // 刀:AoE可暴 / 棍:AoE+眩
+          else if (pick.type === "haste") { haste = pick.dur; lastCast = { type: "haste", id: pick.id }; } // 狂暴
+          else if (pick.type === "buff") { if (pick.atkPct) { atkBuffT = pick.dur; atkBuffPct = pick.atkPct; } if (pick.hasteDur) haste = Math.max(haste, pick.hasteDur); if (pick.healPct) P.hp = Math.min(P.hpMax, P.hp + Math.round(P.hpMax * pick.healPct)); lastCast = { type: "buff", id: pick.id }; } // 琴:自buff(+攻/攻速/回血)
+          else if (pick.type === "debuff") { var rad2 = pick.radius || 220; for (var z2 = 0; z2 < enemies.length; z2++) { var en2 = enemies[z2]; if (en2.x <= melee + rad2 && !en2.dead) { en2.deb.defDownT = pick.dur; en2.deb.defDownPct = pick.defDown || 0; if (pick.poiPct) { en2.deb.poiStacks = Math.min(5, (en2.deb.poiStacks || 0) + 1); en2.deb.poiDps = pick.poiPct; en2.deb.poiT = pick.dur; } if (pick.stunChance && rng() < pick.stunChance) en2.deb.stunT = Math.max(en2.deb.stunT, pick.stunDur || 0); } } lastCast = { type: "debuff", id: pick.id }; } // 奇门:降敌防(+中毒/眩)
           mana -= pick.cost; pick.cdT = pick.cd; pick.lastT = t;
         }
       }
-      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.x <= melee) { var chilled = e.deb.chillT > 0; e.cd -= dt * (chilled ? (1 - e.deb.chillAs) : 1); if (e.cd <= 0) { var atkE = chilled && e.deb.chillHit ? { name: e.E.name, ATK: e.E.ATK, DEF: e.E.DEF, Crit: e.E.Crit, CritDmg: e.E.CritDmg, Hit: e.E.Hit * (1 - e.deb.chillHit), Dodge: e.E.Dodge, Tough: e.E.Tough } : e.E; var s2 = strike(rng, atkE, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; } // 冰冻:减敌攻速(cd走得慢)+减敌命中
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.deb.stunT > 0) { if (e.at > 0) e.at -= dt; continue; } if (e.x <= melee) { var chilled = e.deb.chillT > 0; e.cd -= dt * (chilled ? (1 - e.deb.chillAs) : 1); if (e.cd <= 0) { var atkE = chilled && e.deb.chillHit ? { name: e.E.name, ATK: e.E.ATK, DEF: e.E.DEF, Crit: e.E.Crit, CritDmg: e.E.CritDmg, Hit: e.E.Hit * (1 - e.deb.chillHit), Dodge: e.E.Dodge, Tough: e.E.Tough } : e.E; var s2 = strike(rng, atkE, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; } // 冰冻:减敌攻速(cd走得慢)+减敌命中
       enemies = enemies.filter(function (q) { return !q.dead; });
       if (P.hp <= 0) { done = true; outcome = "lose"; }
     }
