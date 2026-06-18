@@ -81,7 +81,10 @@
   var HOME_SKILLS = [
     { id: "sleep_eff", name: "安眠", max: 5, desc: "睡觉回血效率 +20% / 级" },
     { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
-    { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" }
+    { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" },
+    { id: "spawn_speed", name: "诱敌", max: 5, desc: "历练刷怪速度提升 / 级（挂机更快）" },
+    { id: "drop_quality", name: "寻宝", max: 5, desc: "装备掉落高品质概率提升 / 级" },
+    { id: "elite_chance", name: "群英", max: 5, desc: "精英怪出现概率提升 / 级（精英=小怪与boss之间，掉落更好）" }
   ];
   // 自动化居家技能(WalyCai):学习(花1点)后得到一个开关;满血自动打坐 与 满血自动历练 互斥二选一
   var HOME_AUTO = [
@@ -1156,6 +1159,9 @@
     var bgKey = (opts.zone && opts.zone.bg) || "bg_wulin";
     CV.bg = new Image(); CV.bg.src = "assets/combat/" + bgKey + ".png?_=" + Date.now();
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
+    cfg.eliteChance = homeRank("elite_chance") * 0.04;        // 居家技能:精英怪概率(占位系数,待莱布尼茨)
+    cfg.dropQuality = homeRank("drop_quality") * 0.2;         // 居家技能:掉落高品率(占位)
+    cfg.spawnInterval = 1.8 * Math.max(0.4, 1 - homeRank("spawn_speed") * 0.1); // 居家技能:刷怪速度(占位,封底0.4)
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
     // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
     CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
@@ -1216,10 +1222,12 @@
       cst.etime[e.uid] = (cst.etime[e.uid] || 0) + 0.016;
       var anm = (e.at > 0 ? "attack" : "idle");
       var bkey = e.isBoss && e.bossId && CV.sheets["eb_" + e.bossId + "_" + anm] ? ("eb_" + e.bossId + "_" + anm) : ("e_" + e.id + "_" + anm);
-      var sh = CV.sheets[bkey], srcScale = sh && sh.fw > 64 ? 1 : (e.isBoss ? 2.0 : 1), uiScale = ((sh && sh.fw) || 64) * srcScale / 64;
+      var sh = CV.sheets[bkey], srcScale = sh && sh.fw > 64 ? 1 : (e.isBoss ? 2.0 : 1); if (e.elite) srcScale *= 1.4; // 精英体型略大
+      var uiScale = ((sh && sh.fw) || 64) * srcScale / 64;
       drawCSprite(bkey, ex, CV.ground, true, "", cst.etime[e.uid] + e.uid * 0.3, srcScale);
-      bar(ex - 22 * uiScale, CV.ground - 72 * uiScale, 44 * uiScale, e.hp / e.hpMax, "#bf5f5f");
+      bar(ex - 22 * uiScale, CV.ground - 72 * uiScale, 44 * uiScale, e.hp / e.hpMax, e.elite ? "#d98a3a" : "#bf5f5f");
       if (e.deb) { var dbs = ""; if (e.deb.burnT > 0) dbs += "🔥"; if (e.deb.chillT > 0) dbs += "❄"; if (e.deb.poiT > 0) dbs += "☠"; if (dbs) { c.font = "13px sans-serif"; c.textAlign = "center"; c.fillText(dbs, ex, CV.ground - 72 * uiScale - 8); } } // 附魔流 debuff 状态:灼烧/冰冻/中毒
+      if (e.elite && !e.isBoss) { c.fillStyle = "#ffba5a"; c.font = "bold 12px sans-serif"; c.textAlign = "center"; c.fillText("✦ 精英", ex, CV.ground - 72 * uiScale - 8 - (e.deb ? 14 : 0)); } // 精英标记
       if (e.isBoss && CV.bossName) { c.fillStyle = "#ffce6a"; c.font = "bold 14px sans-serif"; c.textAlign = "center"; c.fillText("☠ " + CV.bossName, ex, CV.ground - 72 * uiScale - 24); }
     });
     // 主角

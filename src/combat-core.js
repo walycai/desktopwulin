@@ -52,6 +52,7 @@
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["wpn_iron_sword", "head_cloth", "body_cloth", "legs_cloth", "neck_lock", "belt_iron", "wpn_steel_saber", "legs_guard", "head_iron", "ring_jade", "body_softarmor"] };
   var GOLD_PER_EXP = 0.43; // 金币掉落=敌人经验×此系数（占位，待莱布尼茨按"金币/分钟"反推）
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
+  var ELITE = { hpMult: 4, statMult: 3, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪:介于小怪与boss之间(占位待莱布尼茨)。血×4·攻防经验×3·掉率×2.5·稀有度权重提升
   // ---- 内功附魔流(第二树) 数值常量 —— 占位,待莱布尼茨精调+验平衡 ----
   // 内功附魔流全部可调数值,单一可变对象(莱布尼茨 sim 可注入 C.ENCH.xxx 精校;DoT 按敌人最大HP百分比/秒——flat在HP跨度大的游戏早期碾压晚期可忽略,%血全程相关对高血boss尤强=附魔克boss幻想)
   var ENCH = {
@@ -160,6 +161,8 @@
     var rng = cfg.rng || mulberry32((cfg.seed == null ? 1 : cfg.seed) | 0);
     var drop = cfg.drop || DROP, bagMax = cfg.bagMax == null ? 20 : cfg.bagMax;
     var rw = cfg.rarityWeights || (cfg.zoneIdx != null && ZONE_RARITY[cfg.zoneIdx]) || null; // 各区稀有度权重(高区掉得更好)
+    var eliteChance = cfg.eliteChance || 0, dropQuality = cfg.dropQuality || 0; // 居家技能:精英概率 / 掉落高品率(权重提升)
+    function qualityWeights(extra) { var base = rw || ZONE_RARITY[0]; if (!extra) return rw; var m = 1 + extra; return base.map(function (p) { return (p[0] === "common" || p[0] === "fine") ? p : [p[0], p[1] * m]; }); } // 提升 superior/epic/legend 权重
     var enemyRegenPct = (0.2 + 0.05 * (cfg.zoneIdx || 0)) / 100; // 敌人每秒回血%maxHP(莱布尼茨温和版:轻DPS软底,挂机轻松盖过)
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
@@ -181,12 +184,15 @@
       var b = ENEMIES[id]; if (!b) return null; var f = lv - 1;
       return { name: b.name, HP: Math.round(b.HP * (1 + 0.18 * f)), ATK: Math.round(b.ATK * (1 + 0.14 * f)), DEF: b.DEF + Math.round(0.6 * f), Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: Math.round(0.8 * lv), Tough: Math.round(0.8 * lv), ATKspd: b.ATKspd, exp: Math.round((b.exp || 0) * (1 + 0.3 * f)), lv: lv, type: id }; // 莱布尼茨温和版(前10层挂机向):闪避/韧性 0.8×lv
     }
-    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, anim: "idle", at: 0, deb: { burnPct: 0, burnT: 0, poiPct: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
+    function mkEnemy(E, isBoss) { return { uid: uid++, id: E.type, hp: E.HP, hpMax: E.HP, x: lane, cd: isBoss ? 0.5 : 0.3, atkInt: 1 / ((E.ATKspd || 100) / 100), E: E, lv: E.lv || 1, isBoss: !!isBoss, elite: !!E.elite, anim: "idle", at: 0, deb: { burnPct: 0, burnT: 0, poiPct: 0, poiT: 0, chillT: 0, chillMv: 0, chillAs: 0, chillHit: 0 } }; }
+    function makeElite(E) { // 精英化:血/攻防经验提升,标记 elite(渲染放大)
+      return { name: "精英·" + E.name, HP: Math.round(E.HP * ELITE.hpMult), ATK: Math.round(E.ATK * ELITE.statMult), DEF: Math.round((E.DEF || 0) * ELITE.statMult), Crit: E.Crit, CritDmg: E.CritDmg, Hit: E.Hit, Dodge: E.Dodge, Tough: E.Tough, ATKspd: E.ATKspd, exp: Math.round((E.exp || 0) * ELITE.statMult), lv: E.lv, type: E.type, elite: true };
+    }
     function spawn() {
       var E;
       if (spawnTypes) { var id = spawnTypes[Math.floor(rng() * spawnTypes.length)], lv = lvMin + Math.floor(rng() * (lvMax - lvMin + 1)); E = leveledEnemy(id, lv); }
       else { var id2 = spawnPool[Math.floor(rng() * spawnPool.length)], b = ENEMIES[id2]; if (b) E = { name: b.name, HP: b.HP, ATK: b.ATK, DEF: b.DEF, Crit: b.Crit, CritDmg: b.CritDmg, Hit: b.Hit, Dodge: b.Dodge, ATKspd: b.ATKspd, exp: b.exp, lv: 1, type: id2 }; }
-      if (E) enemies.push(mkEnemy(E, false));
+      if (E) { if (eliteChance > 0 && rng() < eliteChance) E = makeElite(E); enemies.push(mkEnemy(E, false)); }
     }
     if (bossFight) { var bE = leveledEnemy(cfg.boss.type, cfg.boss.lv || lvMax); bE.HP = Math.round(bE.HP * (cfg.boss.hpMult || 8) * BOSS_HP_MULT); bE.ATK = Math.round(bE.ATK * (cfg.boss.atkMult || 1.6)); bE.exp = Math.round(bE.exp * 5); bE.name = (cfg.boss.name || "首领"); var bm = mkEnemy(bE, true); bm.bossId = cfg.boss.bossId; enemies.push(bm); }
     function nearest() { var best = null; for (var i = 0; i < enemies.length; i++) if (enemies[i].x <= reach + 1 && enemies[i].hp > 0) { if (!best || enemies[i].x < best.x) best = enemies[i]; } return best; } // 玩家触及 reach(含射程),敌人进场途中即可被打
@@ -204,7 +210,8 @@
         return;
       }
       if (rng() < drop.potionRate) { potions++; P.hp = Math.min(P.hpMax, P.hp + drop.potionHeal); }
-      if (rng() < drop.equipRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, rw); it.lv = e.lv || 1; bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
+      var eqRate = drop.equipRate * (e.elite ? ELITE.dropMult : 1), qb = (e.elite ? ELITE.qualityBonus : 0) + dropQuality; // 精英:掉率↑+品质↑;居家技能掉落高品率也提品质
+      if (rng() < eqRate) { if (bag.length < bagMax) { var it = rollDrop(rng, drop.equipPool, qualityWeights(qb)); it.lv = e.lv || 1; bag.push(it); drops.push(it); } else { bagFull = true; done = true; outcome = "win"; } }
     }
     function step(dt) {
       if (done) return; t += dt; if (t > cap) { done = true; outcome = "win"; return; }
@@ -341,5 +348,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, baseAttrs: baseAttrs };
 });
