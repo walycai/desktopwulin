@@ -319,7 +319,7 @@
   function gfProfReq(lv) { return Math.round(40 * lv * lv); }
   // ==== 装备等级缩放 + itemStats(单一源) ====
   var GEAR_LV_SCALE = 0.30; // 装备lv缩放(莱布尼茨:0.12→0.30,让高lv装备掉落=可感知CP跳变)
-  var GEAR_THRESHOLDS = [{ minLv: 20, bonus: { ATK: 20 } }, { minLv: 40, bonus: { ATKspd: 5 } }, { minLv: 60, bonus: { ATK: 200, CritDmg: 10 } }, { minLv: 80, bonus: { ATK: 500, HP: 2000 } }]; // 全身装备都≥门槛→解锁强力被动(累加),数值占位待莱布尼茨(WalyCai)
+  var GEAR_THRESHOLDS = [{ minLv: 20, bonus: { ATK: 22, HP: 110 } }, { minLv: 40, bonus: { ATK: 55, HP: 300, ATKspd: 5 } }, { minLv: 60, bonus: { ATK: 130, HP: 700, CritDmg: 8 } }, { minLv: 80, bonus: { ATK: 200, HP: 1100 } }]; // 全身装备都≥门槛→累加被动(莱布尼茨:每档~13-17%,基础/提速/暴击/终极)
   var AFFIX_LV_SCALE = 0.1; // 词缀随装备lv放大→高lv高稀有=真jackpot
   var GEAR_FLAT = { ATK: 1, DEF: 1, HP: 1, Mana: 1 }; // 仅这些flat属性随lv缩放;率类(Crit/CritDmg/ATKspd/Hit/Dodge/Tough)不缩放保base值(莱布尼茨:防暴击随lv爆到上千%)
   function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var lv = it.lv || 1, s = {}, m = 1 + GEAR_LV_SCALE * (lv - 1), am = 1 + AFFIX_LV_SCALE * (lv - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * (GEAR_FLAT[k] ? m : 1)); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + Math.round(a.v * (GEAR_FLAT[a.s] ? am : 1)); }); return s; }
