@@ -405,8 +405,10 @@
     poly(c); ctx.fillStyle = "#4f7a40"; ctx.fill();
     if (env.courtyard) {
       ctx.save(); ctx.clip();
-      var pat = ctx.createPattern(env.courtyard, "repeat");
-      if (pat) { ctx.fillStyle = pat; ctx.fillRect(0, 0, CW, CH); }
+      var im = env.courtyard, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
+      var cover = Math.max(CW / sw, CH / sh);
+      var dw = sw * cover, dh = sh * cover;
+      ctx.drawImage(im, (CW - dw) / 2, (CH - dh) / 2, dw, dh);
       ctx.restore();
     }
     ctx.strokeStyle = "#36592f"; ctx.lineWidth = 3; ctx.stroke();
