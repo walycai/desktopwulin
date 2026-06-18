@@ -299,12 +299,14 @@
   function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.max(1, Math.round(o[k] * m)); return r; }
   var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" };
   var GONGFA = [], GONGFA_BY = {};
-  GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: Math.round(240 * Math.pow(5, t)) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
+  function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(2.2, t - 3)); } // 莱布尼茨:t0-3现价(240/1200/6000/紫30000),t4起×2.2/阶→每阶≈2hr farming不发散
+  GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: gfPrice(t) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
   function gongfaById(id) { return GONGFA_BY[id] || null; }
   function gfProfReq(lv) { return Math.round(40 * lv * lv); }
   // ==== 装备等级缩放 + itemStats(单一源) ====
-  var GEAR_LV_SCALE = 0.12;
-  function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var s = {}, m = 1 + GEAR_LV_SCALE * ((it.lv || 1) - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * m); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + a.v; }); return s; }
+  var GEAR_LV_SCALE = 0.30; // 装备lv缩放(莱布尼茨:0.12→0.30,让高lv装备掉落=可感知CP跳变)
+  var AFFIX_LV_SCALE = 0.1; // 词缀也随装备lv放大→高lv高稀有=真jackpot
+  function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var lv = it.lv || 1, s = {}, m = 1 + GEAR_LV_SCALE * (lv - 1), am = 1 + AFFIX_LV_SCALE * (lv - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * m); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + Math.round(a.v * am); }); return s; }
   // ==== build → 实战(单一源)：game.js totalAttrs/abilities 与 @莱布尼茨 sim 共用 ====
   // build = {level, neigong, equipped:{slot:{tid,affixes,lv}}, skills:{nodeId:rank}, gongfa:{id:lv}, gongfaEquip:{nei,wai1,wai2,qing}}
   function neigongLevel(gf) { var s = 0; for (var gid in (gf || {})) s += gf[gid] || 0; return s; } // 内功级别=所有功法等级之和(WalyCai重定义,不再用打坐时间)
