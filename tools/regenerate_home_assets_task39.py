@@ -663,6 +663,44 @@ def reinforce_bed_visible_corners(im: Image.Image) -> Image.Image:
     return trim_alpha(out, 8)
 
 
+def reinforce_bed_visible_legs(im: Image.Image) -> Image.Image:
+    im = im.convert("RGBA")
+    box = solid_bbox(im)
+    if not box:
+        return im
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    legs = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(legs, "RGBA")
+    wood = (65, 37, 20, 235)
+    dark = (31, 21, 15, 235)
+    hi = (135, 91, 42, 180)
+    shadow = (18, 13, 10, 95)
+
+    def draw_leg(cx: float, rail_y: float, length: float, width: float, lean: float = 0.0):
+        top_y = rail_y
+        foot_y = min(im.height - 10, rail_y + length)
+        pts = [
+            (cx - width * 0.48, top_y),
+            (cx + width * 0.42, top_y - 2),
+            (cx + width * 0.34 + lean, foot_y),
+            (cx - width * 0.38 + lean, foot_y + 2),
+        ]
+        draw.polygon(pts, fill=wood)
+        draw.line(pts + [pts[0]], fill=dark, width=2)
+        draw.line([(cx - width * 0.12, top_y + 2), (cx - width * 0.18 + lean, foot_y - 1)], fill=hi, width=1)
+        draw.ellipse((cx - width * 0.75 + lean, foot_y - 2, cx + width * 0.75 + lean, foot_y + 5), fill=shadow)
+
+    # Three structural legs should be readable from the normal game angle:
+    # near-left, near-front, and near-right; the far corner gets a shorter hint.
+    draw_leg(x0 + w * 0.075, y0 + h * 0.67, h * 0.135, 11, -2)
+    draw_leg(x0 + w * 0.305, y0 + h * 0.855, h * 0.105, 10, -1)
+    draw_leg(x1 - w * 0.080, y0 + h * 0.675, h * 0.135, 11, 2)
+    draw_leg(x1 - w * 0.315, y0 + h * 0.845, h * 0.080, 8, 1)
+    legs.alpha_composite(im)
+    return trim_alpha(legs, 8)
+
+
 def add_canvas_padding(im: Image.Image, pad: int = 14) -> Image.Image:
     im = im.convert("RGBA")
     out = Image.new("RGBA", (im.width + pad * 2, im.height + pad * 2), (0, 0, 0, 0))
@@ -761,7 +799,7 @@ def postprocess_asset_shapes():
         break_hard_bbox_edges(Image.open(p), left=True, right=True).save(p)
     for p in (ASSETS / "bed").glob("bed_advanced*.png"):
         break_hard_bbox_edges(
-            reinforce_bed_visible_corners(reinforce_bed_base(Image.open(p))),
+            reinforce_bed_visible_legs(reinforce_bed_visible_corners(reinforce_bed_base(Image.open(p)))),
             bottom=True,
             left=True,
             right=True,
