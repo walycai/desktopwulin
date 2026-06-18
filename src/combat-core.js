@@ -58,12 +58,18 @@
     { id: "cloth", name: "布衣", pieces: ["head_cloth", "body_cloth", "legs_cloth"], bonuses: { 2: { HP: 20 }, 3: { HP: 45, DEF: 5 } } },   // 平民耐久流·满套HP65/DEF5
     { id: "iron", name: "玄铁", pieces: ["head_iron", "belt_iron", "legs_guard"], bonuses: { 2: { DEF: 8 }, 3: { DEF: 16, HP: 35, Crit: 2 } } } // 铁布衫硬汉·满套DEF24/HP35/Crit2
   ];
-  function activeSets(equipped) { // 返回 [{set, count, applied:{stat:val}}] 当前生效套装
+  function activeSets(equipped) { // 返回 [{set, count, applied:{stat}, grants:[{ext,lv}]}] 当前生效套装。skillGrant=6件marquee:某系技能+N(突破上限)
     var eqTids = {}, e = equipped || {}; for (var s in e) if (e[s]) eqTids[e[s].tid] = 1;
     var out = [];
-    SET_DEFS.forEach(function (set) { var cnt = 0; set.pieces.forEach(function (t) { if (eqTids[t]) cnt++; }); if (cnt < 2) return; var applied = {}; for (var th in set.bonuses) { if (cnt >= +th) for (var st in set.bonuses[th]) applied[st] = (applied[st] || 0) + set.bonuses[th][st]; } out.push({ set: set, count: cnt, applied: applied }); });
+    SET_DEFS.forEach(function (set) {
+      var cnt = 0; set.pieces.forEach(function (t) { if (eqTids[t]) cnt++; }); if (cnt < 2) return;
+      var applied = {}, grants = [];
+      for (var th in set.bonuses) { if (cnt >= +th) { var b = set.bonuses[th]; for (var st in b) { if (st === "skillGrant") grants.push(b[st]); else applied[st] = (applied[st] || 0) + b[st]; } } }
+      out.push({ set: set, count: cnt, applied: applied, grants: grants });
+    });
     return out;
   }
+  function extLineOf(id) { var p = ("" + id).split("_x_"); if (p.length < 2) return null; var rest = p[1], r = rest.substring(0, rest.lastIndexOf("_")); return p[0] + "_" + r; } // 扩展节点 id → 所属线 key(如 warrior_force / enchant_fire)
   // ---- 内功附魔流(第二树) 数值常量 —— 占位,待莱布尼茨精调+验平衡 ----
   // 内功附魔流全部可调数值,单一可变对象(莱布尼茨 sim 可注入 C.ENCH.xxx 精校;DoT 按敌人最大HP百分比/秒——flat在HP跨度大的游戏早期碾压晚期可忽略,%血全程相关对高血boss尤强=附魔克boss幻想)
   var ENCH = {
@@ -178,7 +184,7 @@
     var P0 = cfg.attrs;
     var lane = cfg.laneLen || 820, melee = cfg.meleeRange || 70, eSpeed = cfg.enemySpeed || 110;
     var enchant = cfg.enchant || {}, reach = melee + (cfg.playerRange || 0); // 附魔流:on-hit debuff + 射程(玩家攻击触及距离,>melee=远程先手)
-    var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 5; // 莱布尼茨终版(封顶90s/35杀,白板~25杀66%负伤)
+    var spawnInt = cfg.spawnInterval || 1.8, maxField = cfg.maxOnField || 40; // WalyCai:去掉"屏上最多5敌"限制,允许被怪堆死(40为性能安全上限,实战极少触及)
     var spawnPool = cfg.spawnPool || ["thug"], cap = cfg.cap || 5000;
     var capTime = cfg.capTime || 0, capKills = cfg.capKills || 0; // 历练封顶(0=不限):时间秒/杀数,取先到
     var spawnTypes = cfg.spawnTypes || null, lvMin = cfg.lvMin || 1, lvMax = cfg.lvMax || 1; // 分区:类型池+等级区间(带级缩放)
@@ -346,8 +352,10 @@
     a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
     for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
     GONGFA_SLOTS.forEach(function (sl) { var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
-    for (var xid in sk) { var xe = SKILL_EXT_EFF[xid]; if (xe && sk[xid] > 0) a[xe.stat] = (a[xe.stat] || 0) + xe.per * sk[xid]; } // 深度扩展节点(纯加法,仅已学才计→不影响现有build CP)
-    activeSets(eqp).forEach(function (as) { for (var st in as.applied) a[st] = (a[st] || 0) + as.applied[st]; }); // 套装加成
+    var _sets = activeSets(eqp), skGrant = {}; // 套装技能授予(某系所有技能+N,突破上限)
+    _sets.forEach(function (as) { (as.grants || []).forEach(function (g) { if (g && g.ext) skGrant[g.ext] = (skGrant[g.ext] || 0) + (g.lv || 0); }); });
+    for (var xid in sk) { var xe = SKILL_EXT_EFF[xid], base = sk[xid] || 0; if (!xe || base <= 0) continue; var rk = base + (skGrant[extLineOf(xid)] || 0); a[xe.stat] = (a[xe.stat] || 0) + xe.per * rk; } // 扩展节点:已学等级 + 套装授予(只增已投入的技能,可超 max=突破上限)
+    _sets.forEach(function (as) { for (var st in as.applied) a[st] = (a[st] || 0) + as.applied[st]; }); // 套装基础/战斗属性
     a.ATK = Math.round(a.ATK); a.HP = Math.round(a.HP); a.DEF = Math.round(a.DEF); a.ATKspd = Math.round(a.ATKspd); a.Mana = Math.round(a.Mana);
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
