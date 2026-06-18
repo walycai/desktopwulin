@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0620s">
+<link rel="stylesheet" href="src/style.css?v=0620t">
 </head>
 <body>
   <header class="topbar">
@@ -46,7 +46,7 @@
         <div id="whGrid" class="wh-grid"></div>
         <div id="sellZone" class="sell-zone">💰 拖装备到此卖出 / 选中后点此</div>
         <div class="sell-all-bar"><button id="sellAllBtn" class="tb">💰 卖出全部</button><label class="sell-lock"><input type="checkbox" id="sellLockChk" checked> 🔒 不卖战力更高的</label></div>
-        <div class="doll-tip">双击装备=直接穿戴；单击=对比属性；拖到槽位也可穿；点已穿装备=卸下。<b>拖到 💰 区或选中点 💰 = 卖出换金币</b>。「卖出全部」一键清仓，勾选🔒则保护能提升战力的装备。戒指可放戒指1/2。</div>
+        <div class="doll-tip"><b>点装备（仓库或已穿）= 弹出属性窗口</b>，里面可穿戴/卸下/卖出；拖到槽位也可穿。<b>「卖出全部」</b>一键清仓，勾选🔒保护能提升战力的装备。戒指可放戒指1/2。</div>
       </div>
     </div>
   </div>
@@ -197,9 +197,19 @@
     </div>
   </div>
 
+  <!-- 装备属性弹窗(点装备查看,不直接卸下) -->
+  <div id="itemPopup" class="modal-bg hidden">
+    <div class="item-pop">
+      <span id="ipClose" class="close-x">✕</span>
+      <h3 id="ipName"></h3>
+      <div id="ipStats" class="ip-stats"></div>
+      <div id="ipBtns" class="ip-btns"></div>
+    </div>
+  </div>
+
   <button id="autoFloat" class="auto-float hidden" title="自动历练总开关：短按开/关，长按拖动改变位置（永远置顶）">⚙ 自动历练：关</button>
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0620s"></script>
-  <script src="src/game.js?v=0620s"></script>
+  <script src="src/combat-core.js?v=0620t"></script>
+  <script src="src/game.js?v=0620t"></script>
 </body>
 </html>

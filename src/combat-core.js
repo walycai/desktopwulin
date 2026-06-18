@@ -54,10 +54,8 @@
   var BOSS_HP_MULT = 1;    // boss血量全局缩放(默认1=中性)。各区 hpMult 才是莱布尼茨的逐图旋钮;此处保留一个全局总闸备用
   var ELITE = { hpMult: 2.5, atkMult: 1.5, defMult: 1.5, expMult: 2.5, dropMult: 2.5, qualityBonus: 1.5 }; // 精英怪(莱布尼茨终版):血×2.5·攻×1.5·防×1.5·经验×2.5·掉率×2.5·稀有度权重提升(高血低攻=可生还的高奖励赌注)
   // 套装:按穿戴件数触发加成(占位分组+数值,待莱布尼茨设计各档梯度)。更多装备加入后可扩更多套
-  var SET_DEFS = [ // 莱布尼茨终版:满套~20-25%CP(随等级flat天然淡出),阈值叠加(3件=2件+3件)
-    { id: "cloth", name: "布衣", pieces: ["head_cloth", "body_cloth", "legs_cloth"], bonuses: { 2: { HP: 15 }, 3: { HP: 25, DEF: 5 } } },   // 平民耐久流·满套HP40/DEF5(莱布尼茨弱化版,出图淡出)
-    { id: "iron", name: "玄铁", pieces: ["head_iron", "belt_iron", "legs_guard"], bonuses: { 2: { HP: 15 }, 3: { DEF: 14, Crit: 3 } } } // 铁布衫硬汉·满套HP15/DEF14/Crit3
-  ];
+  // 套装=专门的一组稀有掉落套装装备(WalyCai),不是把现有基础装备同级凑套。待莱布尼茨「套装主题地图」+ 专属套装装备(EQUIP_TPL)+ 成套掉落机制做好再填。框架(activeSets/skillGrant 2/4/6阈值)已就绪
+  var SET_DEFS = [];
   function activeSets(equipped) { // 返回 [{set, count, applied:{stat}, grants:[{ext,lv}]}] 当前生效套装。skillGrant=6件marquee:某系技能+N(突破上限)
     var eqTids = {}, e = equipped || {}; for (var s in e) if (e[s]) eqTids[e[s].tid] = 1;
     var out = [];
