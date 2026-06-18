@@ -72,9 +72,9 @@
   // 套装:按穿戴件数触发加成(占位分组+数值,待莱布尼茨设计各档梯度)。更多装备加入后可扩更多套
   // 套装=专属稀有掉落(从源区低概率掉本套件)。Phase1三套·4件套(占weapon+3槽,抢槽=构建取舍)。2/4 bonus占位待莱布尼茨CP pass;6件marquee待200树触发设计
   var SET_DEFS = [
-    { id: "chixue", name: "赤血战甲", line: "warrior_force", zone: 3, pieces: ["set_chixue_wpn", "set_chixue_body", "set_chixue_legs", "set_chixue_belt"], bonuses: { 2: { ATK: 12 }, 4: { CritDmg: 20 } } },
-    { id: "youlong", name: "百兵游龙", line: "warrior_arms", zone: 2, pieces: ["set_youlong_wpn", "set_youlong_head", "set_youlong_neck", "set_youlong_ring"], bonuses: { 2: { Crit: 3 }, 4: { ATKspd: 8 } } },
-    { id: "yantian", name: "赤焰天罗", line: "enchant_fire", zone: 4, pieces: ["set_yantian_wpn", "set_yantian_body", "set_yantian_head", "set_yantian_ring"], bonuses: { 2: { ATK: 10 }, 4: { Mana: 25 } } }
+    { id: "chixue", name: "赤血战甲", line: "warrior_force", zone: 7, pieces: ["set_chixue_wpn", "set_chixue_body", "set_chixue_legs", "set_chixue_belt"], bonuses: { 2: { ATK: 60 }, 4: { ATK: 120, CritDmg: 30 } } }, // 妖兽森林(34-45),满4件+14%(攻+暴伤爆发)
+    { id: "youlong", name: "百兵游龙", line: "warrior_arms", zone: 8, pieces: ["set_youlong_wpn", "set_youlong_head", "set_youlong_neck", "set_youlong_ring"], bonuses: { 2: { Crit: 6 }, 4: { Crit: 10, ATKspd: 12 } } }, // 九幽(46-60),满4件+10%(16暴击12攻速=暴击连击核心)
+    { id: "yantian", name: "赤焰天罗", line: "enchant_fire", zone: 9, pieces: ["set_yantian_wpn", "set_yantian_body", "set_yantian_head", "set_yantian_ring"], bonuses: { 2: { ATK: 50, Mana: 25 }, 4: { ATK: 110, ATKspd: 6 } } } // 天外(61-80),满4件+13%(内功攻击向)
   ];
   var SET_DROP_RATE = 0.15; // 在套装源区,掉落的装备有此概率是本套套件(占位待莱布尼茨)
   function setForZone(zi) { for (var i = 0; i < SET_DEFS.length; i++) if (SET_DEFS[i].zone === zi) return SET_DEFS[i]; return null; }
