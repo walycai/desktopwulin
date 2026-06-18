@@ -271,20 +271,31 @@
       for (var tx = 0; tx < GW; tx += 4) for (var ty = 0; ty < GH; ty += 4) {
         var center = v(tx + 2, ty + 2);
         ctx.drawImage(env.floorLarge, center.x - 48, center.y - 24, 96, 48);
-        var tone = ((tx * 17 + ty * 31) % 7) - 3;
+        var zone = Math.floor(tx / 16) + Math.floor(ty / 16) * 3;
+        var tone = ((tx * 17 + ty * 31 + zone * 13) % 7) - 3;
         if (tone !== 0) {
           var q = quad(tx, ty, Math.min(4, GW - tx), Math.min(4, GH - ty));
           poly(q);
-          ctx.fillStyle = tone > 0 ? "rgba(255,226,166," + (0.018 * tone).toFixed(3) + ")" : "rgba(46,29,17," + (-0.02 * tone).toFixed(3) + ")";
+          ctx.fillStyle = tone > 0 ? "rgba(255,226,166," + (0.012 * tone).toFixed(3) + ")" : "rgba(46,29,17," + (-0.014 * tone).toFixed(3) + ")";
           ctx.fill();
         }
       }
+      var areas = [
+        { x: 8, y: 8, w: 28, h: 22, c: "rgba(255,220,154,.045)" },
+        { x: 54, y: 10, w: 28, h: 20, c: "rgba(62,38,20,.050)" },
+        { x: 18, y: 40, w: 34, h: 20, c: "rgba(58,36,20,.040)" },
+        { x: 62, y: 44, w: 24, h: 18, c: "rgba(255,214,146,.035)" }
+      ];
+      areas.forEach(function (r) { poly(quad(r.x, r.y, r.w, r.h)); ctx.fillStyle = r.c; ctx.fill(); });
       ctx.restore();
     }
     // 大格接缝：低对比度，避免扩大房间后变成刺眼网格。
-    ctx.strokeStyle = "rgba(72,45,25,.18)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(72,45,25,.115)"; ctx.lineWidth = 1;
     for (var i = 0; i <= GW; i += 4) { var a = v(i, 0), b = v(i, GH); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
     for (var j = 0; j <= GH; j += 4) { var a2 = v(0, j), b2 = v(GW, j); ctx.beginPath(); ctx.moveTo(a2.x, a2.y); ctx.lineTo(b2.x, b2.y); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(86,51,25,.18)";
+    for (var si = 0; si <= GW; si += 16) { var sa = v(si, 0), sb = v(si, GH); ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.stroke(); }
+    for (var sj = 0; sj <= GH; sj += 16) { var sa2 = v(0, sj), sb2 = v(GW, sj); ctx.beginPath(); ctx.moveTo(sa2.x, sa2.y); ctx.lineTo(sb2.x, sb2.y); ctx.stroke(); }
     poly(c); ctx.strokeStyle = "#5f3c22"; ctx.lineWidth = 2; ctx.stroke();
   }
   function wallLine(a, b, yOff) {
@@ -300,6 +311,13 @@
     grad.addColorStop(1, dark ? "#5d442e" : "#6b4b31");
     ctx.fillStyle = grad; ctx.fill();
   }
+  function wallPost(base, dark) {
+    var top = { x: base.x, y: base.y - WALL_PX };
+    ctx.strokeStyle = dark ? "rgba(48,31,17,.38)" : "rgba(58,37,20,.34)";
+    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(base.x, base.y); ctx.stroke();
+    ctx.strokeStyle = dark ? "rgba(174,132,82,.12)" : "rgba(204,160,102,.13)";
+    ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(top.x + 2, top.y); ctx.lineTo(base.x + 2, base.y); ctx.stroke();
+  }
   function drawWalls() {
     // 右墙 (沿 cy=0, cx 0..GW)
     var a = v(0, 0), b = v(GW, 0);
@@ -309,8 +327,11 @@
     ctx.strokeStyle = "rgba(230,190,128,.22)"; ctx.lineWidth = 1;
     for (var rh = ROW_PX * 2; rh < WALL_PX; rh += ROW_PX * 2) wallLine(a, b, rh);
     ctx.strokeStyle = "rgba(49,34,22,.28)";
-    for (var rx = 0; rx <= GW; rx += 8) wallUpright(v(rx, 0));
-    ctx.strokeStyle = "rgba(50,32,19,.36)"; ctx.lineWidth = 3; wallLine(a, b, 0); wallLine(a, b, 44);
+    for (var rx = 0; rx <= GW; rx += 16) wallUpright(v(rx, 0));
+    for (var rp = 0; rp <= GW; rp += 24) wallPost(v(rp, 0), false);
+    ctx.fillStyle = "rgba(48,30,18,.16)";
+    poly([{ x: a.x, y: a.y - 36 }, { x: b.x, y: b.y - 36 }, { x: b.x, y: b.y }, { x: a.x, y: a.y }]); ctx.fill();
+    ctx.strokeStyle = "rgba(50,32,19,.42)"; ctx.lineWidth = 3; wallLine(a, b, 0); wallLine(a, b, 44); wallLine(a, b, WALL_PX - 28);
     ctx.restore();
     ctx.strokeStyle = "#59391f"; ctx.lineWidth = 2; ctx.stroke();
     // 左墙 (沿 cx=0, cy 0..GH)
@@ -321,8 +342,11 @@
     ctx.strokeStyle = "rgba(221,180,119,.18)"; ctx.lineWidth = 1;
     for (var lh = ROW_PX * 2; lh < WALL_PX; lh += ROW_PX * 2) wallLine(a, d, lh);
     ctx.strokeStyle = "rgba(45,31,20,.30)";
-    for (var ly = 0; ly <= GH; ly += 8) wallUpright(v(0, ly));
-    ctx.strokeStyle = "rgba(46,30,18,.40)"; ctx.lineWidth = 3; wallLine(a, d, 0); wallLine(a, d, 44);
+    for (var ly = 0; ly <= GH; ly += 16) wallUpright(v(0, ly));
+    for (var lp = 0; lp <= GH; lp += 24) wallPost(v(0, lp), true);
+    ctx.fillStyle = "rgba(43,27,16,.18)";
+    poly([{ x: a.x, y: a.y - 36 }, { x: d.x, y: d.y - 36 }, { x: d.x, y: d.y }, { x: a.x, y: a.y }]); ctx.fill();
+    ctx.strokeStyle = "rgba(46,30,18,.44)"; ctx.lineWidth = 3; wallLine(a, d, 0); wallLine(a, d, 44); wallLine(a, d, WALL_PX - 28);
     ctx.restore();
     ctx.strokeStyle = "#4f321c"; ctx.lineWidth = 2; ctx.stroke();
   }

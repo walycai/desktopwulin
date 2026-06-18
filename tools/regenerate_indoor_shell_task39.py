@@ -18,7 +18,7 @@ def draw_floor_tile():
     im = Image.new("RGBA", (96, 48), (0, 0, 0, 0))
     draw = ImageDraw.Draw(im)
     outer = diamond(48, 24, 48, 24)
-    draw.polygon(outer, fill=(139, 101, 61, 255))
+    draw.polygon(outer, fill=(142, 103, 62, 255))
 
     # Four-by-four isometric board groups, kept quiet so furniture remains primary.
     for y in range(4):
@@ -27,20 +27,20 @@ def draw_floor_tile():
             cy = 6 + (x + y) * 6
             pts = diamond(cx, cy, 12, 6)
             shade = (x * 17 + y * 29) % 5
-            base = (151 + shade * 4, 111 + shade * 3, 70 + shade * 2, 255)
+            base = (148 + shade * 3, 109 + shade * 2, 68 + shade, 255)
             draw.polygon(pts, fill=base)
-            draw.polygon([(cx, cy), (cx + 12, cy), (cx, cy + 6), (cx - 12, cy)], fill=(128, 88, 52, 22))
-            draw.polygon([(cx, cy - 6), (cx + 12, cy), (cx, cy), (cx - 12, cy)], fill=(186, 145, 94, 18))
+            draw.polygon([(cx, cy), (cx + 12, cy), (cx, cy + 6), (cx - 12, cy)], fill=(128, 88, 52, 16))
+            draw.polygon([(cx, cy - 6), (cx + 12, cy), (cx, cy), (cx - 12, cy)], fill=(186, 145, 94, 12))
 
             grain = (x * 5 + y * 7) % 3
-            line(draw, [(cx - 7, cy - 1 + grain), (cx + 4, cy + 4 + grain)], (96, 61, 34, 46), 1)
+            line(draw, [(cx - 7, cy - 1 + grain), (cx + 4, cy + 4 + grain)], (96, 61, 34, 28), 1)
             if (x + y) % 2 == 0:
-                line(draw, [(cx - 3, cy - 4), (cx + 8, cy + 1)], (213, 171, 112, 28), 1)
+                line(draw, [(cx - 3, cy - 4), (cx + 8, cy + 1)], (213, 171, 112, 18), 1)
 
     for t in range(1, 4):
-        line(draw, [(48 - t * 12, 24 - t * 6), (48 + (4 - t) * 12, 24 + (4 - t) * 6)], (83, 52, 30, 58), 1)
-        line(draw, [(48 + t * 12, 24 - t * 6), (48 - (4 - t) * 12, 24 + (4 - t) * 6)], (83, 52, 30, 58), 1)
-    draw.line(outer + [outer[0]], fill=(74, 45, 25, 125), width=1)
+        line(draw, [(48 - t * 12, 24 - t * 6), (48 + (4 - t) * 12, 24 + (4 - t) * 6)], (83, 52, 30, 38), 1)
+        line(draw, [(48 + t * 12, 24 - t * 6), (48 - (4 - t) * 12, 24 + (4 - t) * 6)], (83, 52, 30, 38), 1)
+    draw.line(outer + [outer[0]], fill=(74, 45, 25, 92), width=1)
     return im
 
 
