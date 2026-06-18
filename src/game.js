@@ -710,7 +710,7 @@
     // ---- 第二树：内功附魔流(WalyCai 2026-06-18)。与战士共存,共用sp池,各树按本树已投点解锁。数值待莱布尼茨精调 ----
     id: "enchant", name: "内功附魔流", totalPts: 53,
     nodes: [
-      { id: "range", name: "内功射程", max: 5, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "射程 = 基数 + 系数 × 内功级别（内功级别=所有功法等级之和）。远程先手、敌人进场途中就开始挨打" },
+      { id: "range", name: "内功射程", max: 5, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "远程攻击：射程随内功级别增长，敌人进场途中即可被打" },
       // 炎线 col0：点燃→灼烧 DoT
       { id: "fire_ignite", name: "点燃", max: 3, row: 1, col: 0, reqPts: 3, reqLv: 3, prereq: ["range"], desc: "命中几率点燃，灼烧持续掉血(DoT)" },
       { id: "fire_blaze", name: "烈焰", max: 5, row: 2, col: 0, reqPts: 8, reqLv: 8, prereq: ["fire_ignite"], desc: "灼烧每秒伤害 +/级" },
@@ -799,7 +799,7 @@
       el.style.left = (SK_PAD + n.col * SK_CW) + "px"; el.style.top = (SK_PAD + n.row * SK_CH) + "px";
       el.style.width = (SK_CW - SK_PAD * 2) + "px"; el.style.height = (SK_CH - SK_PAD * 2) + "px";
       el.title = n.desc; // 技能说明移到悬停提示(WalyCai:描述太长撑乱节点导致按钮点不到,暂不在框内显示)
-      var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '';
+      var body = (lock && rk === 0) ? '<div class="sk2-lock">🔒 ' + lock + '</div>' : '<div class="sk2-desc">' + (n.desc || "") + '</div>'; // 显示技能说明(节点 overflow:hidden,长描述截断·悬停看全)
       el.innerHTML = '<div class="sk2-top"><i class="sk2-ico" style="background-image:url(\'assets/ui/icons/skill_' + n.id + '.png\')"></i><span class="sk2-name">' + n.name + (n.active ? ' ⚡' : '') + '</span><span class="sk2-rk">' + rk + '/' + n.max + '</span></div>' + body
         + '<div class="sk2-btns"><button class="tb sk-mini" data-a="m">−</button><button class="tb sk-mini" data-a="p">+</button></div>';
       var bs = el.getElementsByTagName("button");

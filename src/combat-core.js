@@ -300,14 +300,16 @@
     ]
   };
   var SKILL_EXT_EFF = {}; // {nodeId: {stat,per}} 供 buildToCombat 通用应用
+  var STAT_CN = { ATK: "攻击", HP: "气血", DEF: "防御", Crit: "暴击率", CritDmg: "暴击伤害", Hit: "命中", ATKspd: "攻速", Mana: "内力", Dodge: "闪避", Tough: "韧性" };
   function genSkillExt(treeId, baseRow) {
     var out = [], defs = SKILL_EXT_DEF[treeId] || []; baseRow = baseRow || 5;
     defs.forEach(function (d) {
-      var prev = d.tail;
+      var prev = d.tail, unit = (d.stat === "Crit" || d.stat === "CritDmg") ? "%" : "";
+      var desc = (STAT_CN[d.stat] || d.stat) + " +" + d.per + unit + " / 级";
       for (var t = 0; t < EXT_PER_ROUTE; t++) {
         var id = treeId + "_x_" + d.route + "_" + t;
         SKILL_EXT_EFF[id] = { stat: d.stat, per: d.per };
-        out.push({ id: id, name: d.nm + (t + 1) + "层", col: d.col, row: baseRow + t, max: 5, reqPts: 30 + t * 6, reqLv: Math.min(99, 14 + t * 1), prereq: [prev], eff: { stat: d.stat, per: d.per }, ext: true });
+        out.push({ id: id, name: d.nm + (t + 1) + "层", col: d.col, row: baseRow + t, max: 5, reqPts: 30 + t * 6, reqLv: Math.min(99, 14 + t * 1), prereq: [prev], eff: { stat: d.stat, per: d.per }, desc: desc, ext: true });
         prev = id;
       }
     });
