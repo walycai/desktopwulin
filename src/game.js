@@ -726,12 +726,10 @@
   var equipped = { head: null, neck: null, body: null, legs: null, weapon: null, ring1: null, ring2: null, belt: null };
   var warehouse = [], equipSeq = 1, dollSel = null;
 
-  function rollItem(tid, lv, rarity) { // 新模型:tid=部位, lv=等级(穿戴需求+强度), rarity=稀有度(控词条数)
+  function rollItem(tid, lv, rarity) { // 新模型:tid=部位, lv=等级(穿戴需求+强度), rarity=稀有度(控分层词条数)
     if (!EQUIP_TPL[tid]) return null;
     rarity = rarity || "common"; lv = lv || 1;
-    var n = RARITY[rarity].affixes, pool = AFFIX_POOL.slice(), affixes = [];
-    for (var i = 0; i < n && pool.length; i++) { var k = Math.floor(Math.random() * pool.length), a = pool.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(Math.random() * (a.b - a.a + 1)) }); }
-    return { uid: equipSeq++, tid: tid, lv: lv, rarity: rarity, affixes: affixes };
+    return { uid: equipSeq++, tid: tid, lv: lv, rarity: rarity, affixes: CORE.mkAffixes(Math.random, rarity) };
   }
   function itemNm(it) { return CORE.itemName(it); } // 装备显示名(基础装按等级档命名,套装件专属名)
   function itemStats(it) { return CORE.itemStats(it); } // 装备词条/等级缩放以 core 为单一源

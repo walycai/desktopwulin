@@ -36,7 +36,14 @@
   };
   for (var _si in SET_ITEMS) EQUIP_TPL[_si] = SET_ITEMS[_si];
   function itemName(it) { var d = SLOT_DEF[it.tid]; return d ? d.names[bracketOf(it.lv)] : (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid); } // 基础装按等级档命名,套装件用专属名
-  var AFFIX_POOL = [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }, { s: "Crit", a: 1, b: 3 }, { s: "CritDmg", a: 5, b: 15 }, { s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }];
+  // 词条分层(莱布尼茨):第 i 条词条从 层0..层(i-1) 随机抽→暴击仅紫(3条)+、暴伤仅橙(4条)。基础三围flat随lv放大,率类词条不放大(GEAR_FLAT)
+  var AFFIX_TIERS = [
+    [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }],   // 层0 基础(绿+)
+    [{ s: "Hit", a: 1, b: 5 }, { s: "Dodge", a: 1, b: 3 }, { s: "ATKspd", a: 1, b: 3 }], // 层1 进阶(蓝+)
+    [{ s: "Crit", a: 1, b: 3 }],                                                          // 层2 稀有(紫+)
+    [{ s: "CritDmg", a: 5, b: 15 }]                                                       // 层3 极稀有(仅橙)
+  ];
+  var AFFIX_POOL = AFFIX_TIERS[0].concat(AFFIX_TIERS[1], AFFIX_TIERS[2], AFFIX_TIERS[3]); // 兼容旧引用
 
   // ---- 敌人梯度（占位数值，待 sim 调平衡）----
   var ENEMIES = {
@@ -121,13 +128,19 @@
     var r = rng() * tot; for (i = 0; i < W.length; i++) { if (r < W[i][1]) return W[i][0]; r -= W[i][1]; }
     return "common";
   }
-  function mkAffixes(rng, rarity) { var n = RARITY[rarity].affixes, p = AFFIX_POOL.slice(), af = []; for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; af.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); } return af; } // 按稀有度生成词缀(套装/掉落共用)
+  function mkAffixes(rng, rarity) { // 第i条词条从 层0..层(i-1) 抽,不重复属性→越多词条(越高稀有)才够到稀有层
+    var n = RARITY[rarity].affixes, used = {}, af = [];
+    for (var i = 1; i <= n; i++) {
+      var pool = []; for (var t = 0; t < i && t < AFFIX_TIERS.length; t++) for (var j = 0; j < AFFIX_TIERS[t].length; j++) { var c = AFFIX_TIERS[t][j]; if (!used[c.s]) pool.push(c); }
+      if (!pool.length) break;
+      var a = pool[Math.floor(rng() * pool.length)]; used[a.s] = 1; af.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) });
+    }
+    return af;
+  }
   function rollDrop(rng, pool, weights) {
     var tid = pool[Math.floor(rng() * pool.length)];
     var rarity = rollRarity(rng, weights);         // 稀有度独立加权(可按区)，脱离模板
-    var n = RARITY[rarity].affixes, p = AFFIX_POOL.slice(), affixes = [];
-    for (var i = 0; i < n && p.length; i++) { var k = Math.floor(rng() * p.length), a = p.splice(k, 1)[0]; affixes.push({ s: a.s, v: a.a + Math.floor(rng() * (a.b - a.a + 1)) }); }
-    return { id: tid, rarity: rarity, affixes: affixes };
+    return { id: tid, rarity: rarity, affixes: mkAffixes(rng, rarity) }; // 分层词条
   }
 
   function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); } // 命中/闪避新公式待莱布尼茨K值确认后替换
@@ -388,5 +401,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, mkAffixes: mkAffixes, AFFIX_TIERS: AFFIX_TIERS, baseAttrs: baseAttrs };
 });
