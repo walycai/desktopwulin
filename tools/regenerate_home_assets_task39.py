@@ -570,6 +570,67 @@ def overlay_ai_sheets():
         save_variants(im, ASSETS / cat / kind)
 
 
+def keep_largest_component(im: Image.Image) -> Image.Image:
+    im = im.convert("RGBA")
+    alpha = im.getchannel("A")
+    pix = alpha.load()
+    w, h = im.size
+    seen = set()
+    comps = []
+    for y in range(h):
+        for x in range(w):
+            if pix[x, y] == 0 or (x, y) in seen:
+                continue
+            stack = [(x, y)]
+            comp = []
+            seen.add((x, y))
+            while stack:
+                qx, qy = stack.pop()
+                comp.append((qx, qy))
+                for nx, ny in ((qx + 1, qy), (qx - 1, qy), (qx, qy + 1), (qx, qy - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and pix[nx, ny] and (nx, ny) not in seen:
+                        seen.add((nx, ny))
+                        stack.append((nx, ny))
+            comps.append(comp)
+    if len(comps) <= 1:
+        return im
+    keep = set(max(comps, key=len))
+    out = im.copy()
+    opx = out.load()
+    for y in range(h):
+        for x in range(w):
+            if pix[x, y] and (x, y) not in keep:
+                r, g, b, _a = opx[x, y]
+                opx[x, y] = (r, g, b, 0)
+    return trim_alpha(out, 8)
+
+
+def reinforce_bed_base(im: Image.Image) -> Image.Image:
+    im = im.convert("RGBA")
+    alpha = im.getchannel("A")
+    expanded = alpha.filter(ImageFilter.MaxFilter(7))
+    under = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    upx = under.load()
+    apx = alpha.load()
+    epx = expanded.load()
+    cutoff = int(im.height * 0.52)
+    for y in range(cutoff, im.height):
+        for x in range(im.width):
+            if epx[x, y] and not apx[x, y]:
+                # A restrained lower-structure underlay: it fills visual holes
+                # near legs/rails without changing the top bedding silhouette.
+                upx[x, y] = (54, 31, 18, min(210, epx[x, y]))
+    under.alpha_composite(im)
+    return trim_alpha(under, 8)
+
+
+def postprocess_asset_shapes():
+    for p in (ASSETS / "table").glob("table_tea*.png"):
+        keep_largest_component(Image.open(p)).save(p)
+    for p in (ASSETS / "bed").glob("bed_advanced*.png"):
+        reinforce_bed_base(Image.open(p)).save(p)
+
+
 def scale_canvas(im: Image.Image, factor: float) -> Image.Image:
     nw = max(1, int(im.width * factor))
     nh = max(1, int(im.height * factor))
@@ -604,4 +665,5 @@ def make_preview():
 if __name__ == "__main__":
     save_all()
     overlay_ai_sheets()
+    postprocess_asset_shapes()
     make_preview()

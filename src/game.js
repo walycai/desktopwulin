@@ -9,7 +9,8 @@
   "use strict";
   var CORE = window.WULIN_CORE; // 战斗核心单一源(数值/功法/build→实战)
   var HW = 12, HH = 6;          // 小格菱形半宽/半高 (2:1)
-  var GW = 66, GH = 48;         // 地板小格
+  var GW = 96, GH = 70;         // 地板小格：参考大宅截图扩大室内面积
+  var FURN_SCALE = 0.78;        // 人物显示高不变，家具视觉缩小到更接近参考图比例
   var WALL_ROWS = 16, ROW_PX = 11; // 墙高 16 小格档，每档像素
   var WALL_PX = WALL_ROWS * ROW_PX;
   var MARGIN = 40, HEAD = 120, YARD = 16; // 边距 / 家具顶部留白 / 院景边界格数
@@ -341,7 +342,7 @@
       // 真图正确对齐：水平=footprint菱形中心；底边=下顶点(最靠前/最低)的y；宽=菱形宽(w+h)*HW，高按比例
       var ctrX = v(p.cx + p.w / 2, p.cy + p.h / 2).x;  // 菱形水平中心(非下顶点x，避免长方形footprint偏移)
       var botY = v(p.cx + p.w, p.cy + p.h).y - lift;   // 下顶点y(抬到承载面)
-      var iw = (p.w + p.h) * HW, ih = img.height * (iw / img.width);
+      var iw = (p.w + p.h) * HW * FURN_SCALE, ih = img.height * (iw / img.width);
       if (fi.flip) { ctx.save(); ctx.translate(ctrX, 0); ctx.scale(-1, 1); ctx.drawImage(img, -iw / 2, botY - ih, iw, ih); ctx.restore(); }
       else ctx.drawImage(img, ctrX - iw / 2, botY - ih, iw, ih);
       if (DEBUG_FOOT) { poly(quad(p.cx, p.cy, p.w, p.h)); ctx.strokeStyle = "rgba(0,255,180,.9)"; ctx.lineWidth = 1; ctx.stroke(); }
