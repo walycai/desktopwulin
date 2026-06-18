@@ -624,11 +624,67 @@ def reinforce_bed_base(im: Image.Image) -> Image.Image:
     return trim_alpha(under, 8)
 
 
+def render_aligned_rug_asset() -> Image.Image:
+    im = Image.new("RGBA", (336, 190), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(im, "RGBA")
+    cx, cy = 168, 94
+    outer = [(cx, cy - 82), (cx + 164, cy), (cx, cy + 82), (cx - 164, cy)]
+    mid = [(cx, cy - 70), (cx + 140, cy), (cx, cy + 70), (cx - 140, cy)]
+    inner = [(cx, cy - 56), (cx + 112, cy), (cx, cy + 56), (cx - 112, cy)]
+    core = [(cx, cy - 34), (cx + 70, cy), (cx, cy + 34), (cx - 70, cy)]
+    def raw_poly(pts, fill, outline=None, width=1):
+        draw.polygon(pts, fill=fill)
+        if outline:
+            draw.line(pts + [pts[0]], fill=outline, width=width, joint="curve")
+    def raw_line(pts, fill, width=1):
+        draw.line(pts, fill=fill, width=width, joint="curve")
+    raw_poly(outer, (43, 82, 80, 232), (48, 31, 24, 255), 2)
+    raw_poly(mid, (52, 106, 103, 230), GOLD, 2)
+    raw_poly(inner, (35, 86, 87, 226), (222, 177, 92, 210), 1)
+    raw_poly(core, (48, 111, 111, 220), (215, 170, 88, 230), 1)
+    for off in (-48, -32, -16, 16, 32, 48):
+        raw_line([(cx - 112 + abs(off) * .35, cy + off), (cx, cy + off / 2), (cx + 112 - abs(off) * .35, cy + off)], (222, 177, 92, 95), 1)
+    for off in (-112, -84, -56, 56, 84, 112):
+        raw_line([(cx + off, cy - 56 + abs(off) * .25), (cx + off * .45, cy), (cx + off, cy + 56 - abs(off) * .25)], (27, 60, 62, 95), 1)
+    return trim_alpha(im, 4)
+
+
+def reinforce_storage_corners(im: Image.Image) -> Image.Image:
+    im = im.convert("RGBA")
+    bbox = im.getbbox()
+    if not bbox:
+        return im
+    x0, y0, x1, y1 = bbox
+    w, h = x1 - x0, y1 - y0
+    alpha = im.getchannel("A")
+    expanded = alpha.filter(ImageFilter.MaxFilter(5))
+    under = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    upx = under.load()
+    apx = alpha.load()
+    epx = expanded.load()
+    wood = (63, 36, 20, 218)
+    # Restore tiny transparent bite-outs around lower corners only. This follows
+    # the existing silhouette instead of adding new posts outside the object.
+    for y in range(max(0, y0), min(im.height, y1 + 2)):
+        for x in range(max(0, x0), min(im.width, x1 + 2)):
+            lower = y > y0 + h * 0.58
+            edge_zone = x < x0 + w * 0.18 or x > x1 - w * 0.18 or y > y1 - h * 0.12
+            if lower and edge_zone and epx[x, y] and not apx[x, y]:
+                upx[x, y] = (wood[0], wood[1], wood[2], min(190, epx[x, y]))
+    under.alpha_composite(im)
+    return trim_alpha(under, 8)
+
+
 def postprocess_asset_shapes():
     for p in (ASSETS / "table").glob("table_tea*.png"):
         keep_largest_component(Image.open(p)).save(p)
     for p in (ASSETS / "bed").glob("bed_advanced*.png"):
         reinforce_bed_base(Image.open(p)).save(p)
+    rug = keep_largest_component(render_aligned_rug_asset())
+    for p in (ASSETS / "decor").glob("decor_rug_large*.png"):
+        rug.save(p)
+    for p in (ASSETS / "storage").glob("storage_*.png"):
+        reinforce_storage_corners(Image.open(p)).save(p)
 
 
 def scale_canvas(im: Image.Image, factor: float) -> Image.Image:
