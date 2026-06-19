@@ -116,6 +116,7 @@
   var STATIC_HOME = true;
   var HOTSPOTS = { bed: { x: 0.3947, y: 0.3454 }, shrine: { x: 0.4474, y: 0.8023 }, def: { x: 0.5443, y: 0.5739 } }; // assets/tiles/home/static_room_hotspots.json(归一化)
   var homeBg = null; (function () { var im = new Image(); im.onload = function () { homeBg = im; }; im.src = "assets/tiles/home/static_room.png?_=" + Date.now(); })();
+  var medCushion = null; (function () { var im = new Image(); im.onload = function () { medCushion = im; }; im.src = "assets/characters/protagonist/meditate_cushion_full.png?_=" + Date.now(); })(); // 打坐:人物+蒲团一体图(WalyCai:避免人和蒲团对不准)
   // 静态模式:player.cx/cy = 归一化房间坐标[0,1];速度按归一化/秒
   var player = STATIC_HOME
     ? { cx: HOTSPOTS.def.x, cy: HOTSPOTS.def.y, tx: HOTSPOTS.def.x, ty: HOTSPOTS.def.y, state: "wander", actUid: 0, speed: 0.32, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false }
@@ -426,6 +427,12 @@
     }
   }
   function drawPlayer() {
+    if (STATIC_HOME && player.state === "meditating" && medCushion && medCushion.complete && medCushion.naturalWidth) { // 打坐:画人物+蒲团一体图(背景已去蒲团),底部对齐蒲团落点
+      var hs = roomToScreen(HOTSPOTS.shrine.x, HOTSPOTS.shrine.y), rh = roomRect().dh;
+      var ih = rh * 0.26, iw = ih * (medCushion.naturalWidth / medCushion.naturalHeight);
+      ctx.drawImage(medCushion, hs.x - iw / 2, hs.y - ih * 0.86, iw, ih); // 蒲团(图底部)落在热点处
+      return;
+    }
     var ctr = STATIC_HOME ? roomToScreen(player.cx, player.cy) : cellCenter(player.cx, player.cy);
     var dispH = STATIC_HOME ? roomRect().dh * 0.15 : PLAYER_DISP_H; // 静态图:主角约房高15%
     var base = sprites[player.anim];
