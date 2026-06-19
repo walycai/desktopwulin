@@ -589,8 +589,39 @@
   }
 
   // ---- 仓库 UI ----
-  var STARTER_FURN = { bed_basic: 1, table_square: 1, chair_round: 2, meditation_dais: 1 }; // 新手赠送(含床)≈30环境
+  var DEFAULT_ROOM = [
+    // rugs / floor anchors
+    ["decor_rug_large", 18, 18, 0], ["decor_rug_large", 58, 19, 2], ["decor_rug_large", 34, 43, 1],
+    // rest / practice zones
+    ["bed_advanced", 6, 10, 0], ["bed_basic", 7, 31, 0], ["meditation_dais", 43, 50, 0],
+    // main sitting and study clusters
+    ["table_square", 28, 24, 0], ["chair_round", 23, 25, 0], ["chair_round", 39, 26, 2],
+    ["table_tea", 54, 36, 0], ["chair_cushion", 50, 38, 0], ["chair_cushion", 63, 38, 2],
+    ["table_desk", 35, 9, 0], ["chair_taishi", 39, 17, 0], ["table_long", 60, 9, 0], ["chair_bench", 63, 17, 0],
+    // storage zones
+    ["storage_wardrobe", 10, 54, 0], ["storage_chest", 22, 57, 0], ["storage_shelf", 74, 12, 0], ["storage_medicine_cabinet", 76, 28, 0],
+    // screens and standing decor
+    ["decor_screen", 72, 46, 0], ["decor_floor_lamp", 68, 42, 0], ["decor_vase", 88, 30, 0], ["decor_bonsai", 84, 42, 0],
+    ["decor_censer", 47, 28, 0], ["decor_wine", 27, 58, 0], ["decor_wash_basin", 8, 47, 0], ["decor_food_box", 19, 32, 0],
+    // tabletop / shelf-top details
+    ["decor_teaset", 31, 27, 0], ["decor_weiqi", 57, 38, 0], ["decor_guqin", 61, 11, 0], ["decor_books", 38, 11, 0],
+    ["decor_brush", 39, 12, 0], ["decor_inkstone", 41, 12, 0], ["decor_candle", 65, 11, 0], ["decor_ruyi", 77, 13, 0],
+    // wall decoration, side is the sixth field
+    ["wall_landscape", 13, 7, 0, true, "right"], ["wall_scroll", 28, 1, 0, true, "right"], ["wall_lantern", 43, 7, 0, true, "right"],
+    ["wall_mirror", 55, 7, 0, true, "right"], ["wall_weapon", 68, 7, 0, true, "right"],
+    ["wall_swordrack", 10, 8, 0, true, "left"], ["wall_scroll", 23, 1, 0, true, "left"], ["wall_landscape", 39, 7, 0, true, "left"],
+    ["wall_lantern", 54, 7, 0, true, "left"], ["wall_mirror", 64, 7, 0, true, "left"]
+  ];
+  var STARTER_FURN = {};
+  DEFAULT_ROOM.forEach(function (d) { STARTER_FURN[d[0]] = (STARTER_FURN[d[0]] || 0) + 1; });
   function initBag() { CATALOG.forEach(function (c) { var n = STARTER_FURN[c.id] || 0; bag[c.id] = (bag[c.id] || 0) + n; if (n) stats.owned[c.id] = (stats.owned[c.id] || 0) + n; }); }
+  function placeDefaultRoom() {
+    DEFAULT_ROOM.forEach(function (d) {
+      var c = byId[d[0]]; if (!c || !bag[c.id]) return;
+      addPlaced(c, d[1], d[2], d[3] || 0, !!d[4], d[5]);
+      bag[c.id]--;
+    });
+  }
   function renderCats() { var w = $("cats"); w.innerHTML = ""; CATS.forEach(function (ct) { var d = document.createElement("div"); d.className = "cat" + (ct.key === activeCat ? " active" : ""); d.textContent = ct.label; d.onclick = function () { activeCat = ct.key; renderCats(); renderItems(); }; w.appendChild(d); }); }
   function iconHTML(c) { var src = "assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png"; return '<img src="' + src + '" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'"><span style="display:none;width:46px;height:46px;align-items:center;justify-content:center;background:' + c.color + ';color:#fff;border-radius:4px">' + c.glyph + '</span>'; }
   function renderItems() {
@@ -1401,7 +1432,7 @@
   function init() {
     canvas = $("canvas"); ctx = canvas.getContext("2d"); resize();
     resetOcc(); initBag(); loadAssets();
-    if (!load()) { addPlaced(byId.meditation_dais, Math.floor(GW / 2) - 6, 6, 0, false); bag.meditation_dais--; }
+    if (!load()) placeDefaultRoom();
     renderCats(); renderItems(); updateStats(); bindInput();
     $("saveBtn").onclick = openSaveSlots;
     $("saveClose").onclick = function () { $("saveModal").classList.add("hidden"); };
