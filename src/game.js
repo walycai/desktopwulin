@@ -114,7 +114,7 @@
   }
   // ---- 静态居家图(WalyCai 2026-06-19:去家具系统,改吴冠中精细像素风整图+热点落点) ----
   var STATIC_HOME = true;
-  var HOTSPOTS = { bed: { x: 0.3756, y: 0.3666 }, shrine: { x: 0.4474, y: 0.7630 }, def: { x: 0.5443, y: 0.5739 } }; // assets/tiles/home/static_room_hotspots.json(归一化)
+  var HOTSPOTS = { bed: { x: 0.3947, y: 0.3454 }, shrine: { x: 0.4474, y: 0.8023 }, def: { x: 0.5443, y: 0.5739 } }; // assets/tiles/home/static_room_hotspots.json(归一化)
   var homeBg = null; (function () { var im = new Image(); im.onload = function () { homeBg = im; }; im.src = "assets/tiles/home/static_room.png?_=" + Date.now(); })();
   // 静态模式:player.cx/cy = 归一化房间坐标[0,1];速度按归一化/秒
   var player = STATIC_HOME

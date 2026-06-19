@@ -3,16 +3,22 @@
   "size": { "w": 1672, "h": 941 },
   "hotspots": {
     "bed_sleep_anchor": {
-      "px": { "x": 628, "y": 345 },
-      "norm": { "x": 0.3756, "y": 0.3666 },
+      "px": { "x": 660, "y": 325 },
+      "norm": { "x": 0.3947, "y": 0.3454 },
       "action": "sleeping",
-      "note": "床铺枕席中心偏左，主角睡眠动作落点；睡姿贴图可水平铺在床面。"
+      "note": "床铺右上枕头方向的睡眠动作落点；sleep 帧已改为头朝右上、脚朝左下的斜向平躺。"
+    },
+    "bed_pillow_head_reference": {
+      "px": { "x": 698, "y": 304 },
+      "norm": { "x": 0.4175, "y": 0.3231 },
+      "action": "sleeping",
+      "note": "睡姿头部对齐参考点，位于右上枕头区域。"
     },
     "shrine_meditate_anchor": {
-      "px": { "x": 748, "y": 718 },
-      "norm": { "x": 0.4474, "y": 0.7630 },
+      "px": { "x": 748, "y": 755 },
+      "norm": { "x": 0.4474, "y": 0.8023 },
       "action": "meditating",
-      "note": "小灵龛/帘龛内软垫中心，主角打坐动作落点。"
+      "note": "小灵龛/帘龛下方软垫中心，主角打坐动作落点；meditate 帧已补全左腿和左侧衣摆。"
     },
     "default_player_start": {
       "px": { "x": 910, "y": 540 },
