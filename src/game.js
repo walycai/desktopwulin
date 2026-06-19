@@ -440,8 +440,8 @@
       var dw = fw * sc, dh = fh * sc;
       var fi = resting ? 0 : player.fi; // 打坐/睡觉用静态帧,不上下漂浮(那是仙侠)
       var dx = ctr.x - dw / 2, dy = ctr.y - dh;
-      if (player.state === "meditating") dy -= dh * MEDITATE_Y_LIFT;          // 上抬坐到台面蒲团
-      else if (player.state === "sleeping") dy = ctr.y - dh * 0.5 - dh * SLEEP_Y_LIFT; // 居中躺到床中央
+      if (player.state === "meditating") dy -= dh * (STATIC_HOME ? 0.02 : MEDITATE_Y_LIFT);          // 静态:几乎不抬,脚落灵龛软垫(WalyCai:落点往下)
+      else if (player.state === "sleeping") dy = ctr.y - dh * 0.5 - dh * (STATIC_HOME ? 0 : SLEEP_Y_LIFT); // 静态:居中躺床(平躺素材+头对枕头待吴冠中)
       ctx.drawImage(base, fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
       APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层(按各自帧尺寸,与主角同格)
         var it = equipped[slot]; if (!it) return;
