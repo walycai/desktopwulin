@@ -112,7 +112,14 @@
     st.prof += amt;
     while (st.lv < GONGFA_MAXLV && st.prof >= gfProfReq(st.lv)) { st.prof -= gfProfReq(st.lv); st.lv++; toast("「" + g.name + "」修炼到 " + st.lv + " 级！"); syncHpMax(); }
   }
-  var player = { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
+  // ---- 静态居家图(WalyCai 2026-06-19:去家具系统,改吴冠中精细像素风整图+热点落点) ----
+  var STATIC_HOME = true;
+  var HOTSPOTS = { bed: { x: 0.3756, y: 0.3666 }, shrine: { x: 0.4474, y: 0.7630 }, def: { x: 0.5443, y: 0.5739 } }; // assets/tiles/home/static_room_hotspots.json(归一化)
+  var homeBg = null; (function () { var im = new Image(); im.onload = function () { homeBg = im; }; im.src = "assets/tiles/home/static_room.png?_=" + Date.now(); })();
+  // 静态模式:player.cx/cy = 归一化房间坐标[0,1];速度按归一化/秒
+  var player = STATIC_HOME
+    ? { cx: HOTSPOTS.def.x, cy: HOTSPOTS.def.y, tx: HOTSPOTS.def.x, ty: HOTSPOTS.def.y, state: "wander", actUid: 0, speed: 0.32, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false }
+    : { cx: GW / 2, cy: GH * 0.6, tx: GW / 2, ty: GH * 0.6, state: "wander", actUid: 0, speed: 14, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false };
   var images = {}, sprites = {}, env = {};
   var mouse = { x: -1, y: -1, cx: -1, cy: -1, onWall: null };
   var drag = null, selectedPlaced = null, moveMode = null, longTimer = null;
@@ -121,6 +128,9 @@
   // ---- 等距投影（小格中心）----
   function v(cx, cy) { return { x: OX + (cx - cy) * HW, y: OY + (cx + cy) * HH }; } // 网格顶点
   function cellCenter(cx, cy) { return v(cx + 0.5, cy + 0.5); }
+  // 静态居家图:整图按 contain 居中铺满画布,归一化坐标→屏幕像素
+  function roomRect() { var iw = (homeBg && homeBg.naturalWidth) || 1672, ih = (homeBg && homeBg.naturalHeight) || 941; var s = Math.min(CW / iw, CH / ih); var dw = iw * s, dh = ih * s; return { ox: (CW - dw) / 2, oy: (CH - dh) / 2, dw: dw, dh: dh, s: s }; }
+  function roomToScreen(nx, ny) { var r = roomRect(); return { x: r.ox + nx * r.dw, y: r.oy + ny * r.dh }; }
   function screenToCell(sx, sy) {
     var dx = sx - OX, dy = sy - OY;
     return { cx: Math.floor((dx / HW + dy / HH) / 2), cy: Math.floor((dy / HH - dx / HW) / 2) };
@@ -416,7 +426,8 @@
     }
   }
   function drawPlayer() {
-    var ctr = cellCenter(player.cx, player.cy);
+    var ctr = STATIC_HOME ? roomToScreen(player.cx, player.cy) : cellCenter(player.cx, player.cy);
+    var dispH = STATIC_HOME ? roomRect().dh * 0.15 : PLAYER_DISP_H; // 静态图:主角约房高15%
     var base = sprites[player.anim];
     var row = SPR.dirs[player.anim] === 1 ? 0 : (SPR.dirRow[player.dir] || 0);
     if (base) {
@@ -425,7 +436,7 @@
       var fh = (base.naturalHeight || base.height || (SPR.fh * rows)) / rows;
       var resting = player.state === "meditating" || player.state === "sleeping";
       // 睡觉是横躺图(角色占帧下部),按"宽"缩放才不会显小;其余按"高"
-      var sc = player.state === "sleeping" ? (PLAYER_DISP_H / fw) : (PLAYER_DISP_H / fh);
+      var sc = player.state === "sleeping" ? (dispH / fw) : (dispH / fh);
       var dw = fw * sc, dh = fh * sc;
       var fi = resting ? 0 : player.fi; // 打坐/睡觉用静态帧,不上下漂浮(那是仙侠)
       var dx = ctr.x - dw / 2, dy = ctr.y - dh;
@@ -473,6 +484,12 @@
   }
   function render() {
     ctx.clearRect(0, 0, CW, CH);
+    if (STATIC_HOME) { // 静态居家图:整图 + 主角(走到床/灵龛热点),无家具/网格
+      ctx.fillStyle = "#16110a"; ctx.fillRect(0, 0, CW, CH);
+      if (homeBg) { var rr = roomRect(); ctx.drawImage(homeBg, rr.ox, rr.oy, rr.dw, rr.dh); }
+      drawPlayer();
+      return;
+    }
     drawCourtyard(); drawFloor(); drawWalls();
     // 地毯：地面平铺，画在家具/主角之下(floor 之上)
     placed.filter(function (p) { return p.rug; }).forEach(function (p) { drawFurniture(p); });
@@ -524,6 +541,10 @@
       toast(state === "sleeping" ? "侠客躺上床休息……" : "侠客盘膝打坐……");
     });
   }
+  function goActionHotspot(hs, state) { // 静态居家:走到床/灵龛热点→睡/打坐
+    player.state = "walking"; player.actUid = (state === "sleeping" ? -1 : -2);
+    walkTo(hs.x, hs.y, function () { player.state = state; player.anim = state === "sleeping" ? "sleep" : "meditate"; toast(state === "sleeping" ? "侠客躺上床休息……" : "侠客盘膝打坐……"); });
+  }
   function backToWander() { player.state = "wander"; player.actUid = 0; player.busy = false; player.anim = "idle"; }
   // ---- 自动化居家技能 ----
   var autoStats = { kills: 0, exp: 0, gold: 0, runs: 0, loot: 0 }; // 过夜挂机累计(本次会话,给醒来看增量)
@@ -533,12 +554,12 @@
     if (CV.running || player.state === "walking") return;     // 战斗中/移动中不打断
     if (anyModalOpen()) return;                                // 打开任意面板时暂停自动,让玩家能操作(防被拽进战斗)
     if (stats.hp < stats.hpMax) {
-      if (autoOn("auto_sleep") && player.state !== "sleeping") { var bed = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (bed) goAction(bed, "sleeping"); }
+      if (autoOn("auto_sleep") && player.state !== "sleeping") { if (STATIC_HOME) goActionHotspot(HOTSPOTS.bed, "sleeping"); else { var bed = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (bed) goAction(bed, "sleeping"); } }
       return;
     }
     // 满血
     if (autoOn("auto_sortie")) { var zi = Math.min(stats.zone || 0, ZONES.length - 1); startCombat(totalAttrs(), { zone: ZONES[zi], zoneIdx: zi }); return; } // 自动进上次地图
-    if (autoOn("auto_meditate")) { if (player.state !== "meditating") { var dais = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (dais) goAction(dais, "meditating"); } return; }
+    if (autoOn("auto_meditate")) { if (player.state !== "meditating") { if (STATIC_HOME) goActionHotspot(HOTSPOTS.shrine, "meditating"); else { var dais = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (dais) goAction(dais, "meditating"); } } return; }
     if (player.state === "sleeping") backToWander(); // 满血又没开打坐/历练→不必继续睡
   }
   function updatePlayer(dt) {
@@ -557,14 +578,16 @@
   }
   function wanderTick() {
     if (player.state === "wander" && !player.busy && Math.random() < 0.6) {
-      player.busy = true; walkTo(4 + Math.random() * (GW - 8), 4 + Math.random() * (GH - 8), function () { player.busy = false; });
+      player.busy = true;
+      if (STATIC_HOME) walkTo(0.32 + Math.random() * 0.34, 0.5 + Math.random() * 0.22, function () { player.busy = false; }); // 中部空地小范围闲逛(不挡床/灵龛)
+      else walkTo(4 + Math.random() * (GW - 8), 4 + Math.random() * (GH - 8), function () { player.busy = false; });
     }
   }
 
   // ---- 功能结算 ----
   function tickStats() {
     if (!CV.running) { // 仅在家时结算回血(战斗中走战斗自己的HP,topbar不应在战斗里被回血推高)
-      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if ((stats.manaMax || 0) > 0 && (stats.mana || 0) < stats.manaMax) stats.mana = Math.min(stats.manaMax, (stats.mana || 0) + Math.max(3, stats.manaMax * 0.06) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } } // 睡觉同时回血+回蓝(WalyCai:睡醒满蓝进历练好放技能)
+      if (player.state === "sleeping") { var b = STATIC_HOME ? { heal: 3.5, cure: 1.4 } : (byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}); var hm = 1; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if ((stats.manaMax || 0) > 0 && (stats.mana || 0) < stats.manaMax) stats.mana = Math.min(stats.manaMax, (stats.mana || 0) + Math.max(3, stats.manaMax * 0.06) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } } // 睡觉同时回血+回蓝(WalyCai:睡醒满蓝进历练好放技能)
       // 内功功法自动回血:在家睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)。战斗中不生效
       if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
     }
@@ -696,7 +719,14 @@
       else if (drag && mouse.cx >= 0) { var fp2 = footprint(byId[drag.p.id], drag.p.rot); drag.nx = Math.max(0, Math.min(GW - fp2.w, mouse.cx - drag.ox)); drag.ny = Math.max(0, Math.min(GH - fp2.h, mouse.cy - drag.oy)); drag.moved = true; if (longTimer) { clearTimeout(longTimer); longTimer = null; } }
     });
     canvas.addEventListener("pointerdown", function (e) {
-      if (e.button === 2) return; updateMouse(e);
+      if (e.button === 2) return;
+      if (STATIC_HOME) { // 静态居家:点哪走哪(归一化),走动中可打断睡/打坐
+        var rect = canvas.getBoundingClientRect(); var mx = (e.clientX - rect.left) * (CW / rect.width), my = (e.clientY - rect.top) * (CH / rect.height);
+        var rr = roomRect(), nx = (mx - rr.ox) / rr.dw, ny = (my - rr.oy) / rr.dh;
+        if (nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1) { player.state = "wander"; player.actUid = 0; player.busy = true; walkTo(nx, ny, function () { player.busy = false; }); }
+        return;
+      }
+      updateMouse(e);
       if (moveMode) { dropMove(); return; }
       if (selId) return;
       var hit = mouse.cx >= 0 && itemAtCell(mouse.cx, mouse.cy);
@@ -1412,8 +1442,8 @@
   function loop(ts) {
     var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; homeClock += dt;
     if (player.state === "meditating") { // 打坐:逐帧练所选功法熟练度(平滑进度条)
-      var dd = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {};
-      if (dd.neigong) trainGongfa(dd.neigong * 5 * dt);
+      var rate = STATIC_HOME ? 1.2 : ((byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}).neigong || 0); // 静态居家:打坐灵龛固定修炼速率(原打坐台1.2)
+      if (rate) trainGongfa(rate * 5 * dt);
     }
     if (!$("kungfuModal").classList.contains("hidden")) { gfRefreshT += dt; if (gfRefreshT >= 0.12) { gfRefreshT = 0; renderKungfu(); } } // 功法页打开时进度条动态刷新
     updatePlayer(dt); render(); requestAnimationFrame(loop);
@@ -1429,7 +1459,8 @@
   function init() {
     canvas = $("canvas"); ctx = canvas.getContext("2d"); resize();
     resetOcc(); initBag(); loadAssets();
-    if (!load()) placeDefaultRoom();
+    if (!load()) { if (!STATIC_HOME) placeDefaultRoom(); }
+    if (STATIC_HOME) { var bagEl = document.querySelector(".bag"); if (bagEl) bagEl.style.display = "none"; resize(); } // 去家具:隐藏家具仓库栏,房间区扩满
     renderCats(); renderItems(); updateStats(); bindInput();
     $("saveBtn").onclick = openSaveSlots;
     $("saveClose").onclick = function () { $("saveModal").classList.add("hidden"); };
@@ -1462,8 +1493,8 @@
     if ($("sellLockChk")) $("sellLockChk").onchange = function () { stats.sellLock = this.checked; save(); };
     loadCombatAssets();
     $("sortieBtn").onclick = openMap; // 出战历练=打开选区地图
-    $("meditateBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
-    $("sleepBtn").onclick = function () { var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
+    $("meditateBtn").onclick = function () { if (STATIC_HOME) { goActionHotspot(HOTSPOTS.shrine, "meditating"); return; } var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
+    $("sleepBtn").onclick = function () { if (STATIC_HOME) { goActionHotspot(HOTSPOTS.bed, "sleeping"); return; } var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
     $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
     $("combatModal").addEventListener("click", function (e) { if (e.target === $("combatModal")) $("combatModal").classList.add("hidden"); });
     $("dollModal").addEventListener("click", function (e) { if (e.target === $("dollModal")) $("dollModal").classList.add("hidden"); });
