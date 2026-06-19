@@ -504,7 +504,7 @@
     if (!validCell(mouse.cx, mouse.cy)) return;
     var fp2 = footprint(c, ghostRot);
     var ok = canPlaceFloor(mouse.cx, mouse.cy, fp2.w, fp2.h, null, c.cat === "decor");
-    drawFurniture({ id: c.id, cx: mouse.cx, cy: mouse.cy, w: fp2.w, h: fp2.h, decor: c.cat === "decor" }, ok ? "ok" : "bad");
+    drawFurniture({ id: c.id, cx: mouse.cx, cy: mouse.cy, w: fp2.w, h: fp2.h, rot: ghostRot, decor: c.cat === "decor" }, ok ? "ok" : "bad");
   }
 
   // ---- 主角 ----
