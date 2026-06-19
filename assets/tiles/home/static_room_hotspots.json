@@ -14,17 +14,23 @@
       "action": "sleeping",
       "note": "睡姿头部对齐参考点，位于右上枕头区域。"
     },
+    "cushion_meditate_anchor": {
+      "px": { "x": 748, "y": 755 },
+      "norm": { "x": 0.4474, "y": 0.8023 },
+      "action": "meditating",
+      "note": "普通打坐蒲团中心，旁边只保留一个小香炉；meditate 帧为重新生成的完整对称盘坐图。"
+    },
     "shrine_meditate_anchor": {
       "px": { "x": 748, "y": 755 },
       "norm": { "x": 0.4474, "y": 0.8023 },
       "action": "meditating",
-      "note": "小灵龛/帘龛下方软垫中心，主角打坐动作落点；meditate 帧已补全左腿和左侧衣摆。"
+      "note": "兼容旧命名；当前画面已不是灵龛，而是普通打坐蒲团。"
     },
     "default_player_start": {
       "px": { "x": 910, "y": 540 },
       "norm": { "x": 0.5443, "y": 0.5739 },
       "action": "idle",
-      "note": "房间中部空地，默认站立点，不挡床和灵龛。"
+      "note": "房间中部空地，默认站立点，不挡床和蒲团。"
     }
   }
 }
