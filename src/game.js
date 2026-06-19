@@ -114,7 +114,8 @@
   }
   // ---- 静态居家图(WalyCai 2026-06-19:去家具系统,改吴冠中精细像素风整图+热点落点) ----
   var STATIC_HOME = true;
-  var HOTSPOTS = { bed: { x: 0.3947, y: 0.3454 }, shrine: { x: 0.4474, y: 0.8023 }, def: { x: 0.5443, y: 0.5739 } }; // assets/tiles/home/static_room_hotspots.json(归一化)
+  // 带帘床+练功室门居家图(WalyCai:睡觉去床消失+床侧zzZ;打坐去练功室门消失+门缝灯光)。坐标=吴冠中v2预览
+  var HOTSPOTS = { bed: { x: 0.3752, y: 0.3040 }, door: { x: 0.7690, y: 0.2880 }, doorFront: { x: 0.7703, y: 0.4304 }, def: { x: 0.5443, y: 0.5739 } };
   var homeBg = null; (function () { var im = new Image(); im.onload = function () { homeBg = im; }; im.src = "assets/tiles/home/static_room.png?_=" + Date.now(); })();
   var medCushion = null; (function () { var im = new Image(); im.onload = function () { medCushion = im; }; im.src = "assets/characters/protagonist/meditate_cushion_full.png?_=" + Date.now(); })(); // 打坐:人物+蒲团一体图(WalyCai:避免人和蒲团对不准)
   // 静态模式:player.cx/cy = 归一化房间坐标[0,1];速度按归一化/秒
@@ -426,13 +427,21 @@
       if (c.func) { ctx.strokeStyle = "rgba(255,210,120,.9)"; ctx.lineWidth = 2; poly(topR); ctx.stroke(); }
     }
   }
+  function drawZzz(sx, sy) { // 睡觉:床侧冒 zzZ(主角已藏帘后)
+    var t1 = (homeClock % 1.6) / 1.6, t2 = ((homeClock + 0.8) % 1.6) / 1.6;
+    ctx.textAlign = "center";
+    ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - t1 * 0.9).toFixed(2) + ")"; ctx.fillText("z", sx + 7 + t1 * 8, sy - t1 * 20);
+    ctx.font = "bold 19px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - t2 * 0.9).toFixed(2) + ")"; ctx.fillText("Z", sx + t2 * 9, sy - 6 - t2 * 24);
+  }
+  function drawDoorGlow(sx, sy, rh) { // 打坐:主角进练功室,门缝暖黄灯光(轻微呼吸)
+    var puls = 0.5 + 0.5 * Math.abs(Math.sin(homeClock * 1.8)), gw = rh * 0.05, gh = rh * 0.16;
+    var g = ctx.createRadialGradient(sx, sy, 1, sx, sy, gh);
+    g.addColorStop(0, "rgba(255,210,120," + (0.55 * puls).toFixed(2) + ")"); g.addColorStop(0.5, "rgba(255,180,80," + (0.3 * puls).toFixed(2) + ")"); g.addColorStop(1, "rgba(255,180,80,0)");
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(sx, sy, gw, gh, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
   function drawPlayer() {
-    if (STATIC_HOME && player.state === "meditating" && medCushion && medCushion.complete && medCushion.naturalWidth) { // 打坐:画人物+蒲团一体图(背景已去蒲团),底部对齐蒲团落点
-      var hs = roomToScreen(HOTSPOTS.shrine.x, HOTSPOTS.shrine.y), rh = roomRect().dh;
-      var ih = rh * 0.26, iw = ih * (medCushion.naturalWidth / medCushion.naturalHeight);
-      ctx.drawImage(medCushion, hs.x - iw / 2, hs.y - ih * 0.86, iw, ih); // 蒲团(图底部)落在热点处
-      return;
-    }
+    if (STATIC_HOME && player.state === "sleeping") { var bp = roomToScreen(HOTSPOTS.bed.x, HOTSPOTS.bed.y); drawZzz(bp.x + roomRect().dh * 0.05, bp.y); return; } // 睡觉:藏帘后,床侧zzZ
+    if (STATIC_HOME && player.state === "meditating") { var dp = roomToScreen(HOTSPOTS.door.x, HOTSPOTS.door.y); drawDoorGlow(dp.x, dp.y, roomRect().dh); return; } // 打坐:进练功室,门缝灯光
     var ctr = STATIC_HOME ? roomToScreen(player.cx, player.cy) : cellCenter(player.cx, player.cy);
     var dispH = STATIC_HOME ? roomRect().dh * 0.15 : PLAYER_DISP_H; // 静态图:主角约房高15%
     var base = sprites[player.anim];
@@ -566,7 +575,7 @@
     }
     // 满血
     if (autoOn("auto_sortie")) { var zi = Math.min(stats.zone || 0, ZONES.length - 1); startCombat(totalAttrs(), { zone: ZONES[zi], zoneIdx: zi }); return; } // 自动进上次地图
-    if (autoOn("auto_meditate")) { if (player.state !== "meditating") { if (STATIC_HOME) goActionHotspot(HOTSPOTS.shrine, "meditating"); else { var dais = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (dais) goAction(dais, "meditating"); } } return; }
+    if (autoOn("auto_meditate")) { if (player.state !== "meditating") { if (STATIC_HOME) goActionHotspot(HOTSPOTS.doorFront, "meditating"); else { var dais = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (dais) goAction(dais, "meditating"); } } return; }
     if (player.state === "sleeping") backToWander(); // 满血又没开打坐/历练→不必继续睡
   }
   function updatePlayer(dt) {
@@ -1500,7 +1509,7 @@
     if ($("sellLockChk")) $("sellLockChk").onchange = function () { stats.sellLock = this.checked; save(); };
     loadCombatAssets();
     $("sortieBtn").onclick = openMap; // 出战历练=打开选区地图
-    $("meditateBtn").onclick = function () { if (STATIC_HOME) { goActionHotspot(HOTSPOTS.shrine, "meditating"); return; } var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
+    $("meditateBtn").onclick = function () { if (STATIC_HOME) { goActionHotspot(HOTSPOTS.doorFront, "meditating"); return; } var p = placed.find(function (q) { return byId[q.id].func === "meditate"; }); if (p) goAction(p, "meditating"); else toast("请先在房间摆一个打坐台"); };
     $("sleepBtn").onclick = function () { if (STATIC_HOME) { goActionHotspot(HOTSPOTS.bed, "sleeping"); return; } var p = placed.find(function (q) { return byId[q.id].func === "bed"; }); if (p) goAction(p, "sleeping"); else toast("请先在房间摆一张床"); };
     $("cmClose").onclick = function () { $("combatModal").classList.add("hidden"); };
     $("combatModal").addEventListener("click", function (e) { if (e.target === $("combatModal")) $("combatModal").classList.add("hidden"); });
