@@ -1,0 +1,24 @@
+{
+  "image": "assets/tiles/home/static_room.png",
+  "size": { "w": 1672, "h": 941 },
+  "hotspots": {
+    "bed_sleep_anchor": {
+      "px": { "x": 628, "y": 345 },
+      "norm": { "x": 0.3756, "y": 0.3666 },
+      "action": "sleeping",
+      "note": "床铺枕席中心偏左，主角睡眠动作落点；睡姿贴图可水平铺在床面。"
+    },
+    "shrine_meditate_anchor": {
+      "px": { "x": 748, "y": 718 },
+      "norm": { "x": 0.4474, "y": 0.7630 },
+      "action": "meditating",
+      "note": "小灵龛/帘龛内软垫中心，主角打坐动作落点。"
+    },
+    "default_player_start": {
+      "px": { "x": 910, "y": 540 },
+      "norm": { "x": 0.5443, "y": 0.5739 },
+      "action": "idle",
+      "note": "房间中部空地，默认站立点，不挡床和灵龛。"
+    }
+  }
+}
