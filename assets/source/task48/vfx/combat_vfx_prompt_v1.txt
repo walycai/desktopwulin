@@ -1,0 +1,21 @@
+Use case: stylized-concept
+Asset type: combat visual effect material sheet for Desktop Wulin
+Primary request: Create a black-background material sheet of 12 isolated Chinese wuxia RPG combat VFX sprites.
+Composition/framing: strict 4-column by 3-row grid, exactly one effect per cell, centered, no overlap, generous spacing. Row 1: hit_slash, whirlwind_ring, berserk_aura, fire_burn. Row 2: ice_chill, poison_cloud, skill_quan, skill_jian. Row 3: skill_dao, skill_gun, skill_qin, skill_qimen.
+Subject details:
+- hit_slash: compact pale-gold impact slash spark, short crescent arcs
+- whirlwind_ring: circular pale-gold spinning sword wind ring, readable as an expanding AOE
+- berserk_aura: orange-red pulsing aura ring suitable around the player
+- fire_burn: controlled flame lick icon/effect
+- ice_chill: blue-white frost burst with angular ice shards
+- poison_cloud: toxic purple-green mist cloud with a small skull-like shape, keep green away from background edges
+- skill_quan: golden fist shockwave
+- skill_jian: sharp blue-white straight-sword beam slash
+- skill_dao: broad red-gold saber arc
+- skill_gun: bronze staff impact wave
+- skill_qin: cyan musical ripple strings
+- skill_qimen: purple-gold bagua/talisman debuff seal
+Style/medium: detailed fine pixel art, polished Chinese wuxia combat effect sprites, crisp silhouettes, bright emissive colors, readable at 192x192.
+Scene/backdrop: perfectly flat pure black background for alpha extraction, no floor, no shadows, no texture.
+Constraints: exactly 12 isolated effects, no text, no labels, no frame borders, no characters, no weapons as solid item icons except abstract skill energy, no effect may touch another cell, keep each effect inside its cell with padding.
+Avoid: realistic smoke photographs, blurry full-screen explosions, UI frames, labels, numbers, watermark, green background, white background.
