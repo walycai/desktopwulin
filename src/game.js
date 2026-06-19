@@ -771,7 +771,7 @@
     // ---- 第二树：内功附魔流(WalyCai 2026-06-18)。与战士共存,共用sp池,各树按本树已投点解锁。数值待莱布尼茨精调 ----
     id: "enchant", name: "内功附魔流", totalPts: 53,
     nodes: [
-      { id: "range", name: "内功射程", max: 5, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "远程攻击：射程随内功级别增长，敌人进场途中即可被打" },
+      { id: "range", name: "内功射程", max: 5, row: 0, col: 2, reqPts: 0, reqLv: 1, prereq: [], desc: "远程攻击：射程随功力增长，敌人进场途中即可被打" },
       // 炎线 col0：点燃→灼烧 DoT
       { id: "fire_ignite", name: "点燃", max: 3, row: 1, col: 0, reqPts: 3, reqLv: 3, prereq: ["range"], desc: "命中几率点燃，灼烧持续掉血(DoT)" },
       { id: "fire_blaze", name: "烈焰", max: 5, row: 2, col: 0, reqPts: 8, reqLv: 8, prereq: ["fire_ignite"], desc: "灼烧每秒伤害 +/级" },
@@ -871,7 +871,7 @@
   }
   function renderSkill() {
     if (activeTreeIdx >= SKILL_TREES.length) activeTreeIdx = 0;
-    var info = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 内功级别 <b>" + neigongLv() + "</b> · 两流派可共存，共用技能点";
+    var info = "等级 Lv" + stats.level + " · 可用技能点 <b>" + (stats.sp || 0) + "</b> · 功力 <b>" + neigongLv() + "</b> · 两流派可共存，共用技能点";
     var tabs = SKILL_TREES.map(function (tr, i) { return '<button class="sk-tab' + (i === activeTreeIdx ? " active" : "") + '" data-i="' + i + '">' + tr.name + ' <span class="sk-tab-pts">' + skillSpent(tr) + '/' + tr.totalPts + '</span></button>'; }).join("");
     $("skInfo").innerHTML = info + '<div class="sk-tabs">' + tabs + '</div>';
     var tabEls = $("skInfo").getElementsByClassName("sk-tab");
@@ -1158,7 +1158,7 @@
     var conv = cr.critDmg - a.CritDmg, cdTxt = (conv > 0) ? (a.CritDmg + '%+' + conv + '%') : (a.CritDmg + '%');
     var rows = [["HP", a.HP + dlt("HP")], ["ATK", a.ATK + dlt("ATK")], ["DEF", a.DEF + dlt("DEF")], ["Crit", critTxt + dlt("Crit")], ["CritDmg", cdTxt + dlt("CritDmg")], ["Hit", a.Hit + dlt("Hit")], ["ATKspd", (a.ATKspd || 0) + dlt("ATKspd")], ["Dodge", (a.Dodge || 0) + dlt("Dodge")], ["Tough", (a.Tough || 0) + dlt("Tough")], ["Mana", (a.Mana || 0) + dlt("Mana")]];
     rows.forEach(function (r) { al.innerHTML += '<div class="row"><span class="k">' + (STAT_LABEL[r[0]] || r[0]) + '</span><span class="v">' + r[1] + '</span></div>'; });
-    al.innerHTML += '<div class="row"><span class="k">内功级别</span><span class="v">' + neigongLv() + '</span></div>';
+    al.innerHTML += '<div class="row"><span class="k">功力</span><span class="v">' + neigongLv() + '</span></div>';
     al.innerHTML += '<div class="row"><span class="k">自动回血</span><span class="v">' + neiHealRate() + '/秒</span></div>';
     var sets = CORE.activeSets(equipped); // 套装加成显示
     if (sets.length) { al.innerHTML += '<div class="row" style="border-top:1px solid #4a3826;color:#e8c98a">⚜ 套装加成</div>'; sets.forEach(function (as) { var parts = []; for (var st2 in as.applied) parts.push((STAT_LABEL[st2] || st2) + "+" + as.applied[st2] + pctOf(st2)); al.innerHTML += '<div class="row"><span class="k" style="color:#7fe0a0">' + as.set.name + '（' + as.count + '/' + as.set.pieces.length + '）</span><span class="v">' + parts.join(" ") + '</span></div>'; }); }

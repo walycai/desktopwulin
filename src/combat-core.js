@@ -46,8 +46,18 @@
     qin: ["旧木琴", "焦尾琴", "七弦瑶琴", "绕梁古琴", "广陵神琴"],
     qimen: ["奇门盘", "遁甲符", "八卦盘", "乾坤罗盘", "太乙神数"]
   };
+  // 6类武器属性侧重(莱布尼茨,base值;总量持平=选武器是流派identity非强弱):ATK/HP/Mana随lv放大,率类(Crit/Hit)固定
+  var WEAPON_TYPE_BASE = {
+    quan: { ATK: 18 },                       // 纯输出(连击)
+    dao: { ATK: 18 },                        // 纯输出(AoE)
+    gun: { ATK: 16, HP: 10 },                // 输出+一点肉(前排群控)
+    jian: { ATK: 15, Crit: 3 },              // 输出+暴击(爆发流)
+    qin: { ATK: 10, HP: 25, Mana: 12 },      // 辅助续航(少ATK换生存/蓝)
+    qimen: { ATK: 15, Hit: 5 }               // 输出+命中(保证debuff挂上)
+  };
   function rollWtype(rng) { return WTYPES[Math.floor((rng ? rng() : Math.random()) * WTYPES.length)]; }
   function wtypeOf(it) { return it ? (it.wtype || (EQUIP_TPL[it.tid] && EQUIP_TPL[it.tid].wtype) || null) : null; } // 武器类型(实例wtype优先,套装件回退模板)
+  function weaponBase(it) { return (it.tid === "weapon" && it.wtype && WEAPON_TYPE_BASE[it.wtype]) ? WEAPON_TYPE_BASE[it.wtype] : null; } // 普通武器按类型取base侧重
   function itemName(it) {
     if (it.tid === "weapon" && it.wtype && WEAPON_TYPE_NAMES[it.wtype]) return WEAPON_TYPE_NAMES[it.wtype][bracketOf(it.lv)] + "（" + WTYPE_NAME[it.wtype] + "）"; // 普通武器=按类型+档命名,显式标类型(玩家要据此匹配外功)
     var d = SLOT_DEF[it.tid]; return d ? d.names[bracketOf(it.lv)] : (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid);
@@ -77,8 +87,8 @@
   var EXP_CURVE_MULT = 4;                                                          // 升级曲线系数(莱布尼茨统一pass:×4慢升级=farm占时间;总长唯一旋钮,WalyCai要更长可×8≈9h/×12≈14h)
   function nextExp(level) { return Math.round(50 * Math.pow(level, 1.5) * EXP_CURVE_MULT); } // 升到下一级所需经验
   function baseAttrs(level, neigong) {
-    var lv = level || 1, ng = neigong || 1;
-    return { HP: 80 + lv * 15 + ng * 10, ATK: 10 + lv * 2 + ng, DEF: 5 + lv + Math.floor(ng / 2), Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6, Tough: 0 };
+    var lv = level || 1; // 功力(=所有功法等级之和)暂不给基础属性(WalyCai+莱布尼茨):去掉原 +10气血/+1攻/+0.5防 每点,修了"升功力就掉血%跑去睡觉"+砍了功法属性独大;单本功法被动保留
+    return { HP: 80 + lv * 15, ATK: 10 + lv * 2, DEF: 5 + lv, Crit: 5, CritDmg: 150, Hit: 88 + lv, Dodge: 5 + Math.floor(lv / 2), ATKspd: 100, Mana: 40 + lv * 6, Tough: 0 };
   }
   // 默认掉落配置（占位）
   var DROP = { potionRate: 0.35, potionHeal: 30, equipRate: 0.10, equipPool: ["weapon", "head", "body", "legs", "neck", "ring", "belt"] }; // 掉落=随机部位,等级=怪等级,稀有度加权,词条数按稀有度
@@ -432,7 +442,7 @@
   var GEAR_THRESHOLDS = [{ minLv: 20, bonus: { ATK: 22, HP: 110 } }, { minLv: 40, bonus: { ATK: 55, HP: 300, ATKspd: 5 } }, { minLv: 60, bonus: { ATK: 130, HP: 700, CritDmg: 8 } }, { minLv: 80, bonus: { ATK: 200, HP: 1100 } }]; // 全身装备都≥门槛→累加被动(莱布尼茨:每档~13-17%,基础/提速/暴击/终极)
   var AFFIX_LV_SCALE = 0.1; // 词缀随装备lv放大→高lv高稀有=真jackpot
   var GEAR_FLAT = { ATK: 1, DEF: 1, HP: 1, Mana: 1 }; // 仅这些flat属性随lv缩放;率类(Crit/CritDmg/ATKspd/Hit/Dodge/Tough)不缩放保base值(莱布尼茨:防暴击随lv爆到上千%)
-  function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var lv = it.lv || 1, s = {}, m = 1 + GEAR_LV_SCALE * (lv - 1), am = 1 + AFFIX_LV_SCALE * (lv - 1); for (var k in t.base) s[k] = Math.round(t.base[k] * (GEAR_FLAT[k] ? m : 1)); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + Math.round(a.v * (GEAR_FLAT[a.s] ? am : 1)); }); return s; }
+  function itemStats(it) { var t = EQUIP_TPL[it.tid]; if (!t) return {}; var lv = it.lv || 1, s = {}, m = 1 + GEAR_LV_SCALE * (lv - 1), am = 1 + AFFIX_LV_SCALE * (lv - 1); var base = weaponBase(it) || t.base; for (var k in base) s[k] = Math.round(base[k] * (GEAR_FLAT[k] ? m : 1)); (it.affixes || []).forEach(function (a) { s[a.s] = (s[a.s] || 0) + Math.round(a.v * (GEAR_FLAT[a.s] ? am : 1)); }); return s; }
   // ==== build → 实战(单一源)：game.js totalAttrs/abilities 与 @莱布尼茨 sim 共用 ====
   // build = {level, neigong, equipped:{slot:{tid,affixes,lv}}, skills:{nodeId:rank}, gongfa:{id:lv}, gongfaEquip:{nei,wai1,wai2,qing}}
   function neigongLevel(gf) { var s = 0; for (var gid in (gf || {})) s += gf[gid] || 0; return s; } // 内功级别=所有功法等级之和(WalyCai重定义,不再用打坐时间)
