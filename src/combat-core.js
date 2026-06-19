@@ -30,12 +30,28 @@
   for (var _sl in SLOT_DEF) EQUIP_TPL[_sl] = { name: SLOT_DEF[_sl].names[0], type: SLOT_DEF[_sl].type, glyph: SLOT_DEF[_sl].glyph, base: SLOT_DEF[_sl].base }; // 基础装 tid=部位
   // 套装件(专属,40级起;base也按等级走;数值/分布待莱布尼茨重做进新模型)
   var SET_ITEMS = {
-    set_chixue_wpn: { name: "赤血刀", type: "weapon", glyph: "🗡", base: { ATK: 22 } }, set_chixue_body: { name: "赤血战甲", type: "body", glyph: "🥋", base: { HP: 50, DEF: 10 } }, set_chixue_legs: { name: "赤血护腿", type: "legs", glyph: "🦵", base: { DEF: 10, HP: 30 } }, set_chixue_belt: { name: "赤血腰带", type: "belt", glyph: "🎗", base: { HP: 36, DEF: 7 } },
-    set_youlong_wpn: { name: "游龙剑", type: "weapon", glyph: "⚔", base: { ATK: 18 } }, set_youlong_head: { name: "游龙冠", type: "head", glyph: "⛑", base: { DEF: 8, HP: 20 } }, set_youlong_neck: { name: "游龙佩", type: "neck", glyph: "📿", base: { HP: 24 } }, set_youlong_ring: { name: "游龙戒", type: "ring", glyph: "💍", base: { ATK: 10, HP: 18 } },
-    set_yantian_wpn: { name: "焰天杖", type: "weapon", glyph: "🪄", base: { ATK: 24, Mana: 20 } }, set_yantian_body: { name: "焰天袍", type: "body", glyph: "👘", base: { HP: 54, Mana: 24 } }, set_yantian_head: { name: "焰天冠", type: "head", glyph: "👑", base: { Mana: 30, DEF: 6 } }, set_yantian_ring: { name: "焰天戒", type: "ring", glyph: "💍", base: { ATK: 14, Mana: 22 } }
+    set_chixue_wpn: { name: "赤血刀", type: "weapon", glyph: "🗡", wtype: "dao", base: { ATK: 22 } }, set_chixue_body: { name: "赤血战甲", type: "body", glyph: "🥋", base: { HP: 50, DEF: 10 } }, set_chixue_legs: { name: "赤血护腿", type: "legs", glyph: "🦵", base: { DEF: 10, HP: 30 } }, set_chixue_belt: { name: "赤血腰带", type: "belt", glyph: "🎗", base: { HP: 36, DEF: 7 } },
+    set_youlong_wpn: { name: "游龙剑", type: "weapon", glyph: "⚔", wtype: "jian", base: { ATK: 18 } }, set_youlong_head: { name: "游龙冠", type: "head", glyph: "⛑", base: { DEF: 8, HP: 20 } }, set_youlong_neck: { name: "游龙佩", type: "neck", glyph: "📿", base: { HP: 24 } }, set_youlong_ring: { name: "游龙戒", type: "ring", glyph: "💍", base: { ATK: 10, HP: 18 } },
+    set_yantian_wpn: { name: "焰天杖", type: "weapon", glyph: "🪄", wtype: "qin", base: { ATK: 24, Mana: 20 } }, set_yantian_body: { name: "焰天袍", type: "body", glyph: "👘", base: { HP: 54, Mana: 24 } }, set_yantian_head: { name: "焰天冠", type: "head", glyph: "👑", base: { Mana: 30, DEF: 6 } }, set_yantian_ring: { name: "焰天戒", type: "ring", glyph: "💍", base: { ATK: 14, Mana: 22 } }
   };
   for (var _si in SET_ITEMS) EQUIP_TPL[_si] = SET_ITEMS[_si];
-  function itemName(it) { var d = SLOT_DEF[it.tid]; return d ? d.names[bracketOf(it.lv)] : (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid); } // 基础装按等级档命名,套装件用专属名
+  // 武器分6类(WalyCai+莱布尼茨):每件武器带 wtype,与外功匹配才能放主动(被动不受影响)。每20级档6类武器名各5档
+  var WTYPES = ["quan", "jian", "dao", "gun", "qin", "qimen"];
+  var WTYPE_NAME = { quan: "拳", jian: "剑", dao: "刀", gun: "棍", qin: "琴", qimen: "奇门" };
+  var WEAPON_TYPE_NAMES = {
+    quan: ["布缠手", "精铁拳套", "玄铁手甲", "龙纹护手", "破天战拳"],
+    jian: ["青锋剑", "精钢剑", "百炼宝剑", "玄铁重剑", "赤霄神剑"],
+    dao: ["朴刀", "精钢刀", "百炼宝刀", "玄铁阔刀", "斩马鬼刀"],
+    gun: ["白蜡棍", "精铁棍", "熟铜棍", "玄铁棍", "如意金箍棒"],
+    qin: ["旧木琴", "焦尾琴", "七弦瑶琴", "绕梁古琴", "广陵神琴"],
+    qimen: ["奇门盘", "遁甲符", "八卦盘", "乾坤罗盘", "太乙神数"]
+  };
+  function rollWtype(rng) { return WTYPES[Math.floor((rng ? rng() : Math.random()) * WTYPES.length)]; }
+  function wtypeOf(it) { return it ? (it.wtype || (EQUIP_TPL[it.tid] && EQUIP_TPL[it.tid].wtype) || null) : null; } // 武器类型(实例wtype优先,套装件回退模板)
+  function itemName(it) {
+    if (it.tid === "weapon" && it.wtype && WEAPON_TYPE_NAMES[it.wtype]) return WEAPON_TYPE_NAMES[it.wtype][bracketOf(it.lv)] + "（" + WTYPE_NAME[it.wtype] + "）"; // 普通武器=按类型+档命名,显式标类型(玩家要据此匹配外功)
+    var d = SLOT_DEF[it.tid]; return d ? d.names[bracketOf(it.lv)] : (EQUIP_TPL[it.tid] ? EQUIP_TPL[it.tid].name : it.tid);
+  } // 基础装按等级档命名,套装件用专属名
   // 词条分层(莱布尼茨):第 i 条词条从 层0..层(i-1) 随机抽→暴击仅紫(3条)+、暴伤仅橙(4条)。基础三围flat随lv放大,率类词条不放大(GEAR_FLAT)
   var AFFIX_TIERS = [
     [{ s: "ATK", a: 1, b: 6 }, { s: "DEF", a: 1, b: 4 }, { s: "HP", a: 5, b: 25 }],   // 层0 基础(绿+)
@@ -140,7 +156,9 @@
   function rollDrop(rng, pool, weights) {
     var tid = pool[Math.floor(rng() * pool.length)];
     var rarity = rollRarity(rng, weights);         // 稀有度独立加权(可按区)，脱离模板
-    return { id: tid, rarity: rarity, affixes: mkAffixes(rng, rarity) }; // 分层词条
+    var it = { id: tid, rarity: rarity, affixes: mkAffixes(rng, rarity) }; // 分层词条
+    if (tid === "weapon") it.wtype = rollWtype(rng); // 武器随机类型(拳剑刀棍琴奇门),farm多把自然集齐6类
+    return it;
   }
 
   function hitChance(atk, def) { var c = 0.6 + (atk.Hit - def.Dodge) * 0.01; return c < 0.3 ? 0.3 : (c > 0.99 ? 0.99 : c); } // 命中/闪避新公式待莱布尼茨K值确认后替换
@@ -222,7 +240,7 @@
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, gold = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
     // 主动技能(Phase4)：蓝量回复+自动释放
-    var mana = 0, manaMax = P0.Mana || 0, manaRegen = cfg.manaRegen || 8;
+    var manaMax = P0.Mana || 0, mana = cfg.startMana != null ? Math.max(0, Math.min(cfg.startMana, manaMax)) : 0, manaRegen = cfg.manaRegen || 8; // startMana=带蓝出战(睡觉回满→进战直接放技能)
     var abilities = (cfg.abilities || []).map(function (a) { return Object.assign({}, a, { mult: a.mult || 0, dur: a.dur || 0, hasteMult: a.hasteMult || 1, cdT: 0, lastT: -1e9 }); }); // 保留全部扩展字段(atkPct/healPct/canCrit/stunChance/stunDur/defDown/poiPct/radius),否则外功技能特效被strip失效(莱布尼茨)
     var haste = 0, lastCast = null; // haste=狂暴/攻速buff剩余时间
     var atkBuffT = 0, atkBuffPct = 0; // 外功琴:自身限时+攻击%
@@ -302,7 +320,7 @@
     return {
       step: step, isDone: function () { return done; },
       state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lastHeal: lastHeal, lane: lane, melee: melee, mana: mana, manaMax: manaMax, haste: haste, lastCast: lastCast }; },
-      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: gold, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
+      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: gold, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), manaRemaining: Math.max(0, Math.round(mana)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
     };
   }
   function simulateRealtime(cfg) { var c = createCombat(cfg), dt = cfg.dt || 0.05, n = 0, lim = (cfg.cap || 5000) / dt + 10; while (!c.isDone() && n++ < lim) c.step(dt); return c.result(); }
@@ -324,7 +342,7 @@
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
   var GONGFA_TIERS = ["白", "绿", "蓝", "紫", "橙", "赤", "金", "玄", "天", "绝"];
   var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
-  var WTYPE_NAME = { quan: "拳", jian: "剑", dao: "刀", gun: "棍", qin: "琴", qimen: "奇门" }; // 外功6武器(WalyCai)
+  // WTYPE_NAME 已在装备区(顶部)定义,此处复用
   // 功法×6(WalyCai):每系6本(各颜色6本各1)。被动按系下调(莱布尼茨降幅),主动按 kind 分流。
   var GF_PASSIVE = { nei: { HP: 3, Mana: 2 }, wai: { ATK: 0.4 }, qing: { ATKspd: 0.4, Hit: 0.4 } }; // 莱布尼茨 provisional 降幅
   var GONGFA_LINES = [
@@ -463,10 +481,11 @@
     for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
     // 功法主动(仅装备槽):外功→武器技能ability、内功→战斗特效(钩子/抗性)、轻功→属性(×lv)
     var gfAbilities = [], neiDR = 0, neiReflect = 0, neiRegenPct = 0, neiRegenFlat = 0;
+    var eqWtype = wtypeOf(eqp.weapon); // 装备武器类型→外功主动门槛(WalyCai:匹配才能放,被动不受影响)
     GONGFA_SLOTS.forEach(function (sl) {
       var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return;
       var te = gfEffTier(go.tier, lv);
-      if (go.akind === "weapon") { var sk2 = gfWeaponSkill(go.wtype, te, "gf_" + go.wtype + "_" + sl.key); if (sk2) gfAbilities.push(sk2); }
+      if (go.akind === "weapon") { if (go.wtype === eqWtype) { var sk2 = gfWeaponSkill(go.wtype, te, "gf_" + go.wtype + "_" + sl.key); if (sk2) gfAbilities.push(sk2); } } // 武器类型匹配才放外功技能
       else if (go.akind === "nei") { var ne = gfNeiEffect(go.eff, te, ngLv); if (ne.dr) neiDR += ne.dr; if (ne.reflect) neiReflect += ne.reflect; if (ne.regenPct) neiRegenPct += ne.regenPct; if (ne.regenFlat) neiRegenFlat += ne.regenFlat; if (ne.Tough) a.Tough = (a.Tough || 0) + ne.Tough; if (ne.Dodge) a.Dodge = (a.Dodge || 0) + ne.Dodge; }
       else { for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; } // 轻功属性
     });
@@ -489,5 +508,5 @@
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
     return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv, neiDR: neiDR, neiReflect: neiReflect, neiRegenPct: neiRegenPct, neiRegenFlat: neiRegenFlat };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, gfActiveDesc: gfActiveDesc, gfWeaponSkill: gfWeaponSkill, gfNeiEffect: gfNeiEffect, gfEffTier: gfEffTier, WTYPE_NAME: WTYPE_NAME, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, mkAffixes: mkAffixes, AFFIX_TIERS: AFFIX_TIERS, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, gfActiveDesc: gfActiveDesc, gfWeaponSkill: gfWeaponSkill, gfNeiEffect: gfNeiEffect, gfEffTier: gfEffTier, WTYPE_NAME: WTYPE_NAME, WTYPES: WTYPES, WEAPON_TYPE_NAMES: WEAPON_TYPE_NAMES, rollWtype: rollWtype, wtypeOf: wtypeOf, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, mkAffixes: mkAffixes, AFFIX_TIERS: AFFIX_TIERS, baseAttrs: baseAttrs };
 });

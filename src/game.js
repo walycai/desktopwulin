@@ -96,6 +96,13 @@
   // ---- 功法系统：数据/数值以 combat-core 为单一源(与 sim 共用) ----
   var GONGFA = CORE.GONGFA, GONGFA_SLOTS = CORE.GONGFA_SLOTS, GONGFA_MAXLV = CORE.GONGFA_MAXLV;
   function gfActiveDesc(g, lv) { return CORE.gfActiveDesc(g, lv, neigongLv()); }
+  function gfActNote(g) { // 外功主动需匹配武器类型才能触发(WalyCai硬门槛);被动不受影响
+    if (g.akind !== "weapon") return "（需装备）";
+    var req = CORE.WTYPE_NAME[g.wtype], cur = CORE.wtypeOf(equipped.weapon);
+    if (!equipped.weapon) return '（需装备 + 「' + req + '」武器，<span style="color:#ff8a7a">当前未装武器</span>）';
+    if (cur === g.wtype) return '（需装备 + 「' + req + '」武器 <span style="color:#7fe0a0">✓已满足</span>）';
+    return '（需装备 + 「' + req + '」武器，<span style="color:#ff8a7a">当前武器为' + (CORE.WTYPE_NAME[cur] || "其它") + '·技能不触发</span>）';
+  }
   function gongfaById(id) { return CORE.gongfaById(id); }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
   function gfProfReq(lv) { return CORE.gfProfReq(lv); }
@@ -559,7 +566,7 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (!CV.running) { // 仅在家时结算回血(战斗中走战斗自己的HP,topbar不应在战斗里被回血推高)
-      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } }
+      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if ((stats.manaMax || 0) > 0 && (stats.mana || 0) < stats.manaMax) stats.mana = Math.min(stats.manaMax, (stats.mana || 0) + Math.max(3, stats.manaMax * 0.06) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } } // 睡觉同时回血+回蓝(WalyCai:睡醒满蓝进历练好放技能)
       // 内功功法自动回血:在家睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)。战斗中不生效
       if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
     }
@@ -730,7 +737,9 @@
   function rollItem(tid, lv, rarity) { // 新模型:tid=部位, lv=等级(穿戴需求+强度), rarity=稀有度(控分层词条数)
     if (!EQUIP_TPL[tid]) return null;
     rarity = rarity || "common"; lv = lv || 1;
-    return { uid: equipSeq++, tid: tid, lv: lv, rarity: rarity, affixes: CORE.mkAffixes(Math.random, rarity) };
+    var it = { uid: equipSeq++, tid: tid, lv: lv, rarity: rarity, affixes: CORE.mkAffixes(Math.random, rarity) };
+    if (tid === "weapon") it.wtype = CORE.rollWtype(); // 武器随机类型(拳剑刀棍琴奇门)
+    return it;
   }
   function itemNm(it) { return CORE.itemName(it); } // 装备显示名(基础装按等级档命名,套装件专属名)
   function itemStats(it) { return CORE.itemStats(it); } // 装备词条/等级缩放以 core 为单一源
@@ -991,7 +1000,7 @@
       var row = document.createElement("div"); row.className = "gf-row gf-" + g.sys + (equipped ? " equipped" : "");
       row.innerHTML = '<div class="gf-top"><span class="gf-nm"><i class="gf-ico" style="background-image:url(\'assets/ui/gongfa/book_' + g.id + '.png\')"></i>' + g.name + ' <span class="gf-sys" style="color:' + g.color + '">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tierName + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
         + '<div class="gf-bar"><i style="width:' + pct + '%"></i></div>'
-        + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + (gfActiveDesc(g, lv || 1) || fmtEff(g.active, lv || 1)) + '（需装备）</div>';
+        + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + (gfActiveDesc(g, lv || 1) || fmtEff(g.active, lv || 1)) + gfActNote(g) + '</div>';
       var btns = document.createElement("div"); btns.className = "gf-btns";
       var bt = document.createElement("button"); bt.className = "tb sk-mini"; bt.textContent = training ? "修炼中" : "修炼"; bt.disabled = training; bt.onclick = function () { setTrain(g.id); };
       var be = document.createElement("button"); be.className = "tb sk-mini"; be.textContent = equipped ? "卸下" : "装备"; be.disabled = lv <= 0; be.onclick = function () { equipGongfa(g.id); };
@@ -1163,6 +1172,8 @@
       // 装备体系重构:清掉旧模型的不兼容装备(tid不在新EQUIP_TPL里)。WalyCai已确认可全删
       for (var sk in equipped) { var e = equipped[sk]; if (e && !EQUIP_TPL[e.tid]) equipped[sk] = null; }
       warehouse = warehouse.filter(function (w) { return w && EQUIP_TPL[w.tid]; });
+      // 武器分6类迁移:旧武器没有 wtype 的随机补一个(套装武器走模板wtype不用补)
+      var allW = warehouse.concat([equipped.weapon]); allW.forEach(function (it) { if (it && it.tid === "weapon" && !it.wtype) it.wtype = CORE.rollWtype(); });
       return true;
     } catch (e) { return false; }
   }
@@ -1220,7 +1231,8 @@
   function openMap() { renderZones(); $("mapModal").classList.remove("hidden"); }
   function bankResult(r) { // 静默结算(用于挑战BOSS前先把本趟战利品入库)
     stats.hp = r.outcome === "lose" ? Math.max(1, Math.round(stats.hpMax * 0.2)) : Math.max(1, r.hpRemaining);
-    var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes, rarity: d.rarity, lv: d.lv || 1 }); gained.push(d); }); // 保留掉落稀有度+装备等级(高区更好)
+    if (r.manaRemaining != null) stats.mana = Math.max(0, Math.min(stats.manaMax || 0, r.manaRemaining)); // 战斗消耗后的蓝量带回(睡觉回满,WalyCai)
+    var gained = []; r.drops.forEach(function (d) { warehouse.push({ uid: equipSeq++, tid: d.id, affixes: d.affixes, rarity: d.rarity, lv: d.lv || 1, wtype: d.wtype }); gained.push(d); }); // 保留掉落稀有度+装备等级+武器类型(高区更好)
     stats.gold = (stats.gold || 0) + (r.goldGained || 0); // 金币入账
     var lvups = 0, sp0 = spForLevel(stats.level); stats.exp += r.expGained; while (stats.exp >= CORE.nextExp(stats.level)) { stats.exp -= CORE.nextExp(stats.level); stats.level++; lvups++; } stats.sp = (stats.sp || 0) + (spForLevel(stats.level) - sp0); // 技能点 +1/3级
     syncHpMax(); saveEquip(); save(); return { gained: gained, lvups: lvups, gold: r.goldGained || 0 };
@@ -1262,7 +1274,7 @@
     opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; CV.ctx.imageSmoothingEnabled = false; }
     var bc = CORE.buildToCombat(curBuild()); // 单一源：主动技能与 attrs 同源生成
-    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() + (bc.neiRegenFlat || 0), neiDR: bc.neiDR, neiReflect: bc.neiReflect, neiRegenPct: bc.neiRegenPct }; // 附魔流debuff+射程;内功:基础回血+凝元固定回血/玄甲减伤/返震/回春%回血
+    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() + (bc.neiRegenFlat || 0), neiDR: bc.neiDR, neiReflect: bc.neiReflect, neiRegenPct: bc.neiRegenPct, startMana: stats.mana }; // 附魔流debuff+射程;内功:基础回血+凝元固定回血/玄甲减伤/返震/回春%回血;startMana=带蓝出战(睡觉回满)
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
     var bgKey = (opts.zone && opts.zone.bg) || "bg_wulin";
