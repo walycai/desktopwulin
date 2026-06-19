@@ -1530,7 +1530,14 @@
     $("homeSkillModal").addEventListener("click", function (e) { if (e.target === $("homeSkillModal")) $("homeSkillModal").classList.add("hidden"); });
     var sz = $("sellZone");
     if (sz) { sz.addEventListener("dragover", function (e) { e.preventDefault(); sz.classList.add("over"); }); sz.addEventListener("dragleave", function () { sz.classList.remove("over"); }); sz.addEventListener("drop", function (e) { e.preventDefault(); sz.classList.remove("over"); if (dollSel) sellItem(dollSel.uid); }); sz.onclick = function () { if (dollSel) sellItem(dollSel.uid); else toast("先选中仓库里的装备"); }; }
-    if (!loadEquip()) { ["weapon", "head", "body", "legs", "neck", "ring", "belt"].forEach(function (tid) { warehouse.push(rollItem(tid, 1, "common")); }); saveEquip(); } // 新手赠每部位1件lv1白装
+    if (!loadEquip()) { // 新手装:1级拳套(quan)+1级衣服 直接穿上→开局能刷怪+能用拳法;其余部位进仓库(WalyCai)
+      var fist = rollItem("weapon", 1, "common"); fist.wtype = "quan"; equipped.weapon = fist;
+      equipped.body = rollItem("body", 1, "common");
+      ["head", "legs", "neck", "ring", "belt"].forEach(function (tid) { warehouse.push(rollItem(tid, 1, "common")); });
+      APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); });
+      if (stats.gongfaEquip && !stats.gongfaEquip.wai1 && gongfaById("quan_t0")) stats.gongfaEquip.wai1 = "quan_t0"; // 新手自动装白拳法(配拳套即可放拳技)
+      syncHpMax(); saveEquip(); save();
+    }
     APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等
