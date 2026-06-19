@@ -1,30 +1,42 @@
 {
   "image": "assets/tiles/home/static_room.png",
-  "size": { "w": 1672, "h": 941 },
+  "size": { "w": 1671, "h": 941 },
   "hotspots": {
     "bed_sleep_anchor": {
-      "px": { "x": 660, "y": 325 },
-      "norm": { "x": 0.3947, "y": 0.3454 },
+      "px": { "x": 627, "y": 286 },
+      "norm": { "x": 0.3752, "y": 0.3040 },
       "action": "sleeping",
-      "note": "床铺右上枕头方向的睡眠动作落点；sleep 帧已改为头朝右上、脚朝左下的斜向平躺。"
+      "note": "带帘床中心。新方案：主角走到床边/床区后消失，床侧出 zzZ 效果。"
     },
-    "bed_pillow_head_reference": {
-      "px": { "x": 698, "y": 304 },
-      "norm": { "x": 0.4175, "y": 0.3231 },
+    "bed_zzz_reference": {
+      "px": { "x": 765, "y": 355 },
+      "norm": { "x": 0.4578, "y": 0.3773 },
       "action": "sleeping",
-      "note": "睡姿头部对齐参考点，位于右上枕头区域。"
+      "note": "床侧 zzZ 效果参考点。"
+    },
+    "training_room_door_center": {
+      "px": { "x": 1285, "y": 271 },
+      "norm": { "x": 0.7690, "y": 0.2880 },
+      "action": "meditating",
+      "note": "右墙练功室门中心，牌匾文字为“练功室”。"
+    },
+    "training_room_door_front": {
+      "px": { "x": 1288, "y": 405 },
+      "norm": { "x": 0.7703, "y": 0.4304 },
+      "action": "meditating",
+      "note": "练功室门前落脚点；新方案：打坐时走到这里，门缝冒灯光效果。"
     },
     "cushion_meditate_anchor": {
-      "px": { "x": 748, "y": 755 },
-      "norm": { "x": 0.4474, "y": 0.8023 },
+      "px": { "x": 1288, "y": 405 },
+      "norm": { "x": 0.7703, "y": 0.4304 },
       "action": "meditating",
-      "note": "打坐一体图 meditate_cushion_full.png 的落点；背景已清掉蒲团和香炉，打坐时由动作图自带蒲团。"
+      "note": "兼容旧命名；当前屋内不放蒲团，打坐改为走到练功室门前。"
     },
     "shrine_meditate_anchor": {
-      "px": { "x": 748, "y": 755 },
-      "norm": { "x": 0.4474, "y": 0.8023 },
+      "px": { "x": 1288, "y": 405 },
+      "norm": { "x": 0.7703, "y": 0.4304 },
       "action": "meditating",
-      "note": "兼容旧命名；当前背景已不是灵龛/蒲团区，打坐蒲团随人物动作图出现。"
+      "note": "兼容旧命名；当前背景已不是灵龛/蒲团区，打坐改为练功室门前效果。"
     },
     "default_player_start": {
       "px": { "x": 910, "y": 540 },
