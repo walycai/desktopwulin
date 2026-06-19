@@ -357,7 +357,7 @@
     ],
     enchant: [
       { route: "fire", col: 0, tail: "fire_conflag", stat: "ATK", per: 5, nm: "炎息" },
-      { route: "ice", col: 2, tail: "ice_permafrost", stat: "ATKspd", per: 1, nm: "冰息" },
+      { route: "ice", col: 2, tail: "ice_permafrost", stat: "DEF", per: 4, nm: "冰息" }, // 冰系=防御向(WalyCai:不加攻速),精确值待200树设计
       { route: "poison", col: 4, tail: "poison_corrode", stat: "DEF", per: 4, nm: "毒息" }
     ]
   };

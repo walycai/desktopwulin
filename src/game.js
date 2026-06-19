@@ -722,7 +722,7 @@
   // 装备数据以 combat-core.js(WULIN_CORE) 为单一真相源（含 reqLv 等级需求），与 sim 共用
   var RARITY = CORE.RARITY, EQUIP_TPL = CORE.EQUIP_TPL, AFFIX_POOL = CORE.AFFIX_POOL;
   var SLOT_DEFS = [{ key: "head", name: "头", type: "head" }, { key: "neck", name: "项链", type: "neck" }, { key: "body", name: "衣服", type: "body" }, { key: "legs", name: "下身", type: "legs" }, { key: "weapon", name: "手部武器", type: "weapon" }, { key: "ring1", name: "戒指1", type: "ring" }, { key: "ring2", name: "戒指2", type: "ring" }, { key: "belt", name: "腰带", type: "belt" }];
-  var STAT_LABEL = { HP: "气血", ATK: "攻击", DEF: "防御", Crit: "暴击率%", CritDmg: "暴击伤害%", Hit: "命中", Dodge: "闪避", ATKspd: "攻速" };
+  var STAT_LABEL = { HP: "气血", ATK: "攻击", DEF: "防御", Crit: "暴击率", CritDmg: "暴击伤害", Hit: "命中", Dodge: "闪避", ATKspd: "攻速", Tough: "韧性", Mana: "内力" };
   var equipped = { head: null, neck: null, body: null, legs: null, weapon: null, ring1: null, ring2: null, belt: null };
   var warehouse = [], equipSeq = 1, dollSel = null;
 
@@ -1058,14 +1058,22 @@
     equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(it.tid); syncHpMax(); renderDoll(); saveEquip();
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
+  function pctOf(k) { return (k === "Crit" || k === "CritDmg") ? "%" : ""; }
   function itemTipHTML(it, label) { // 单个装备的属性框(级别要求/售价/主属性/套装)
     if (!EQUIP_TPL[it.tid]) return "";
     var rar = rarOf(it), rc = RARITY[rar].color, set = setOf(it.tid);
     var h = '<div class="item-tip">';
     if (label) h += '<div class="tip-lbl">' + label + '</div>';
     h += '<h4 style="color:' + rc + '">【' + RARITY[rar].name + '】' + itemNm(it) + ' ·Lv' + (it.lv || 1) + '</h4>';
-    var s = itemStats(it); for (var k in s) h += '<div class="tip-row"><span>' + (STAT_LABEL[k] || k) + '</span><span>+' + s[k] + '</span></div>';
-    if (set) h += '<div class="tip-set">〖' + set.name + '套〗（' + set.pieces.length + '件套）</div>';
+    var s = itemStats(it); for (var k in s) h += '<div class="tip-row"><span>' + (STAT_LABEL[k] || k) + '</span><span>+' + s[k] + pctOf(k) + '</span></div>';
+    if (set) {
+      var act = 0, asList = CORE.activeSets(equipped); for (var ai = 0; ai < asList.length; ai++) if (asList[ai].set.id === set.id) act = asList[ai].count;
+      h += '<div class="tip-set">〖' + set.name + '〗套装 （已激活 ' + act + '/' + set.pieces.length + ' 件）</div>';
+      var pn = set.pieces.map(function (tid) { var on = false; for (var sk in equipped) if (equipped[sk] && equipped[sk].tid === tid) { on = true; break; } var nm = (EQUIP_TPL[tid] && EQUIP_TPL[tid].name) || tid; return '<span style="color:' + (on ? "#7fe0a0" : "#8a7656") + '">' + (on ? "✓" : "·") + nm + '</span>'; });
+      h += '<div class="tip-row" style="display:block;font-size:10px">' + pn.join(' ') + '</div>';
+      var ths = Object.keys(set.bonuses).sort(function (a, b) { return a - b; });
+      ths.forEach(function (th) { var b = set.bonuses[th], parts = []; for (var st in b) { if (st === "skillGrant") parts.push("解锁专属技能"); else parts.push((STAT_LABEL[st] || st) + "+" + b[st] + pctOf(st)); } var on = act >= +th; h += '<div class="tip-row" style="color:' + (on ? "#7fe0a0" : "#8a7656") + '"><span>' + th + '件套</span><span>' + parts.join(" ") + '</span></div>'; });
+    }
     h += '<div class="tip-row" style="margin-top:3px"><span class="tip-lbl">售价</span><span>' + sellPrice(it) + '💰</span></div>';
     h += '<div class="tip-row tip-req"><span>级别要求</span><span>Lv' + (it.lv || 1) + '</span></div>';
     return h + '</div>';
@@ -1074,12 +1082,13 @@
     var html = itemTipHTML(it, mode === "equipped" ? "已穿戴" : "仓库");
     if (mode === "warehouse") { var sk = targetSlotFor(it), cur = sk && equipped[sk]; if (cur) html += itemTipHTML(cur, "已穿戴（同位置·对比）"); }
     $("itemTip").innerHTML = html; $("itemTip").classList.remove("hidden");
+    if (mode === "warehouse") renderAttrPanel(it); // 悬停仓库件→属性区显示穿上后战力/属性变化
   }
-  function hideItemTip() { $("itemTip").classList.add("hidden"); $("itemTip").innerHTML = ""; }
+  function hideItemTip() { $("itemTip").classList.add("hidden"); $("itemTip").innerHTML = ""; renderAttrPanel(dollSel); }
 
   function rarOf(it) { return it.rarity || "common"; }
   function setOf(tid) { var ss = CORE.SET_DEFS || []; for (var i = 0; i < ss.length; i++) if (ss[i].pieces.indexOf(tid) >= 0) return ss[i]; return null; }
-  function itemTitle(it) { var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k]); var lv = it.lv || 1; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + itemNm(it) + " ·Lv" + lv + setTag + "（需Lv" + lv + "）" + " " + parts.join(" "); }
+  function itemTitle(it) { var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k] + pctOf(k)); var lv = it.lv || 1; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + itemNm(it) + " ·Lv" + lv + setTag + "（需Lv" + lv + "）" + " " + parts.join(" "); }
   function equipIconHTML(tid, glyph) {
     return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
@@ -1118,28 +1127,31 @@
     });
     var sz = $("sellZone"); if (sz) sz.innerHTML = dollSel ? ('卖出「' + itemNm(dollSel) + '」 <b>+' + sellPrice(dollSel) + '💰</b>') : ('💰 拖装备到此卖出 / 选中后点此（金币 ' + (stats.gold || 0) + '）');
     var lk = $("sellLockChk"); if (lk) lk.checked = stats.sellLock !== false;
-    // 属性 + 选中装备对比(穿上后 +/- 变化)
-    var al = $("attrList"); var a = totalAttrs(); al.innerHTML = "";
-    var pv = dollSel ? previewTotals(dollSel) : null;
+    renderAttrPanel(dollSel); // 属性区 + 选中/悬停装备对比
+  }
+  // 战斗属性区：全属性 + 穿戴预览(绿/红战力&属性变化) + 暴击封顶/暴伤溢出 + 套装阶段奖励
+  function renderAttrPanel(prev) {
+    var al = $("attrList"); if (!al) return; var a = totalAttrs(); al.innerHTML = "";
+    var pv = prev ? previewTotals(prev) : null;
+    function dlt(k) { if (!pv) return ""; var dv = (pv.totals[k] || 0) - (a[k] || 0); return dv ? ' <span style="color:' + (dv > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dv > 0 ? "+" : "") + dv + ')</span>' : ""; }
     var cp = CORE.combatPower(a), cpDelta = "";
     if (pv) { var dcp = CORE.combatPower(pv.totals) - cp; if (dcp) cpDelta = ' <span style="color:' + (dcp > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dcp > 0 ? "+" : "") + dcp + ')</span>'; }
     al.innerHTML += '<div class="row" style="border-bottom:1px solid #6a5238;font-size:15px"><span class="k" style="color:#e8c98a">⚔ 战力</span><span class="v" style="color:#ffd98a;font-size:16px">' + cp + cpDelta + '</span></div>';
     if (pv) {
-      var st = SLOT_DEFS.find(function (s) { return s.key === pv.slot; });
-      var cur = equipped[pv.slot];
-      al.innerHTML += '<div class="row" style="border:none;color:#ffd98a">对比：' + itemNm(dollSel) + ' → ' + (st ? st.name : "") + '槽</div>';
+      var st = SLOT_DEFS.find(function (s) { return s.key === pv.slot; }), cur = equipped[pv.slot];
+      al.innerHTML += '<div class="row" style="border:none;color:#ffd98a">预览：' + itemNm(prev) + ' → ' + (st ? st.name : "") + '槽</div>';
       al.innerHTML += '<div class="row" style="border:none;font-size:11px;color:#9a866a">当前该槽：' + (cur ? itemNm(cur) : "空") + '</div>';
     }
-    ["HP", "ATK", "DEF", "Crit", "CritDmg", "Hit", "Dodge"].forEach(function (k) {
-      var pct = (k === "Crit" || k === "CritDmg") ? "%" : "", ds = "";
-      if (pv) { var dv = pv.totals[k] - a[k]; if (dv) ds = ' <span style="color:' + (dv > 0 ? "#7fe0a0" : "#ff8a7a") + '">(' + (dv > 0 ? "+" : "") + dv + ')</span>'; }
-      al.innerHTML += '<div class="row"><span class="k">' + STAT_LABEL[k] + '</span><span class="v">' + a[k] + pct + ds + '</span></div>';
-    });
-    if (a.Crit > 50) { var dcr = CORE.critResolve(a.Crit, a.CritDmg); al.innerHTML += '<div class="row" style="font-size:11px;color:#9a866a"><span class="k">有效(暴击封顶50%)</span><span class="v">暴击 ' + dcr.crit + '% · 暴伤 ' + dcr.critDmg + '%</span></div>'; }
+    // 暴击封顶展示：超50%显示 "50%/50%（上限）"，溢出转暴伤显示 "200%+30%"
+    var cr = CORE.critResolve(a.Crit, a.CritDmg);
+    var critTxt = (a.Crit > 50) ? (cr.crit + '%/50%（上限）') : (a.Crit + '%');
+    var conv = cr.critDmg - a.CritDmg, cdTxt = (conv > 0) ? (a.CritDmg + '%+' + conv + '%') : (a.CritDmg + '%');
+    var rows = [["HP", a.HP + dlt("HP")], ["ATK", a.ATK + dlt("ATK")], ["DEF", a.DEF + dlt("DEF")], ["Crit", critTxt + dlt("Crit")], ["CritDmg", cdTxt + dlt("CritDmg")], ["Hit", a.Hit + dlt("Hit")], ["ATKspd", (a.ATKspd || 0) + dlt("ATKspd")], ["Dodge", (a.Dodge || 0) + dlt("Dodge")], ["Tough", (a.Tough || 0) + dlt("Tough")], ["Mana", (a.Mana || 0) + dlt("Mana")]];
+    rows.forEach(function (r) { al.innerHTML += '<div class="row"><span class="k">' + (STAT_LABEL[r[0]] || r[0]) + '</span><span class="v">' + r[1] + '</span></div>'; });
     al.innerHTML += '<div class="row"><span class="k">内功级别</span><span class="v">' + neigongLv() + '</span></div>';
     al.innerHTML += '<div class="row"><span class="k">自动回血</span><span class="v">' + neiHealRate() + '/秒</span></div>';
     var sets = CORE.activeSets(equipped); // 套装加成显示
-    if (sets.length) { al.innerHTML += '<div class="row" style="border-top:1px solid #4a3826;color:#e8c98a">⚜ 套装加成</div>'; sets.forEach(function (as) { var parts = []; for (var st in as.applied) parts.push((STAT_LABEL[st] || st) + "+" + as.applied[st]); al.innerHTML += '<div class="row"><span class="k" style="color:#7fe0a0">' + as.set.name + '（' + as.count + '/' + as.set.pieces.length + '）</span><span class="v">' + parts.join(" ") + '</span></div>'; }); }
+    if (sets.length) { al.innerHTML += '<div class="row" style="border-top:1px solid #4a3826;color:#e8c98a">⚜ 套装加成</div>'; sets.forEach(function (as) { var parts = []; for (var st2 in as.applied) parts.push((STAT_LABEL[st2] || st2) + "+" + as.applied[st2] + pctOf(st2)); al.innerHTML += '<div class="row"><span class="k" style="color:#7fe0a0">' + as.set.name + '（' + as.count + '/' + as.set.pieces.length + '）</span><span class="v">' + parts.join(" ") + '</span></div>'; }); }
   }
   function openDoll() { renderDoll(); $("dollModal").classList.remove("hidden"); }
   function saveEquip() { try { localStorage.setItem(SAVE_KEY + "_eq", JSON.stringify({ equipped: equipped, warehouse: warehouse, seq: equipSeq })); } catch (e) {} }
