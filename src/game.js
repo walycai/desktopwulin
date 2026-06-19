@@ -78,15 +78,13 @@
   var bag = {}, placed = [], occ = [], wallOcc = { left: [], right: [] };
   var selId = null, ghostRot = 0, uidSeq = 1, activeCat = "bed";
   var stats = { hp: 100, hpMax: 100, poison: false, weak: false, ng: 1, ngP: 0, level: 1, exp: 0, sp: 0, skills: {}, mana: 0, manaMax: 0, gold: 0, homeSkills: {}, homeSpSpent: 0, owned: {}, gongfa: {}, gongfaEquip: { nei: null, wai1: null, wai2: null, qing: null }, trainId: null }, NG_PER_LV = 100;
-  var ENV_PER_POINT = 50; // 居家环境值每 +50 给 1 居家技能点
+  var LV_PER_HOME_POINT = 10; // 居家(家具)技能点:每 10 级 +1 点(WalyCai:改级别制,取消环境值)
   var HOME_SKILLS = [
-    { id: "sleep_eff", name: "安眠", max: 5, desc: "睡觉回血效率 +20% / 级" },
-    { id: "meditate_eff", name: "悟道", max: 5, desc: "打坐功法效率 +20% / 级" },
+    { id: "spawn_speed", name: "诱敌", max: 1, desc: "历练刷怪速度 +50%（1点激活，可临时开关，挂机更快）" },
     { id: "sell_price", name: "精算", max: 5, desc: "装备售价 +12% / 级" },
-    { id: "spawn_speed", name: "诱敌", max: 5, desc: "历练刷怪速度提升 / 级（挂机更快）" },
     { id: "drop_quality", name: "寻宝", max: 5, desc: "装备掉落高品质概率提升 / 级" },
     { id: "elite_chance", name: "群英", max: 5, desc: "精英怪出现概率提升 / 级（精英=小怪与boss之间，掉落更好）" }
-  ];
+  ]; // WalyCai:删「安眠/悟道」(睡眠回血&打坐速率),刷怪效率改+50%开关
   // 自动化居家技能(WalyCai):学习(花1点)后得到一个开关;满血自动打坐 与 满血自动历练 互斥二选一
   var HOME_AUTO = [
     { id: "auto_sleep", name: "回家自动睡觉", desc: "在家受伤时自动上床睡觉回血" },
@@ -566,7 +564,7 @@
   // ---- 功能结算 ----
   function tickStats() {
     if (!CV.running) { // 仅在家时结算回血(战斗中走战斗自己的HP,topbar不应在战斗里被回血推高)
-      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1 + homeRank("sleep_eff") * 0.2; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if ((stats.manaMax || 0) > 0 && (stats.mana || 0) < stats.manaMax) stats.mana = Math.min(stats.manaMax, (stats.mana || 0) + Math.max(3, stats.manaMax * 0.06) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } } // 睡觉同时回血+回蓝(WalyCai:睡醒满蓝进历练好放技能)
+      if (player.state === "sleeping") { var b = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {}; var hm = 1; if (stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + (b.heal || 0) * hm); if ((stats.manaMax || 0) > 0 && (stats.mana || 0) < stats.manaMax) stats.mana = Math.min(stats.manaMax, (stats.mana || 0) + Math.max(3, stats.manaMax * 0.06) * hm); if (Math.random() < (b.cure || 0)) { if (stats.poison) stats.poison = false; else if (stats.weak) stats.weak = false; } } // 睡觉同时回血+回蓝(WalyCai:睡醒满蓝进历练好放技能)
       // 内功功法自动回血:在家睡觉(叠床=增睡眠效率) + 闲逛 期间生效,打坐时不回(WalyCai)。战斗中不生效
       if (player.state !== "meditating") { var hr = neiHealRate(); if (hr > 0 && stats.hp < stats.hpMax) stats.hp = Math.min(stats.hpMax, stats.hp + hr); }
     }
@@ -915,8 +913,7 @@
     $("skAttrs").innerHTML = "战力 <b>" + CORE.combatPower(a) + "</b> · 气血 " + a.HP + " · 攻 " + a.ATK + " · 防 " + a.DEF + " · 暴击 " + skcr.crit + "% · 暴伤 " + skcr.critDmg + "% · 命中 " + a.Hit + " · 攻速 " + a.ATKspd + " · 蓝量 " + (a.Mana || 0) + " · 自动回血 " + neiHealRate() + "/秒";
   }
   // ---- 居家经济 / 居家技能 ----
-  function homeEnv() { var e = 0, o = stats.owned || {}; for (var id in o) { var c = byId[id]; if (c && c.env) e += c.env * o[id]; } return e; } // 环境值=拥有(已购)数量×env，不依赖陈列(WalyCai设计)
-  function homeSpTotal() { return Math.floor(homeEnv() / ENV_PER_POINT); }
+  function homeSpTotal() { return Math.floor((stats.level || 1) / LV_PER_HOME_POINT); } // 居家技能点=每10级1点(WalyCai改级别制)
   function homeSpLeft() { return Math.max(0, homeSpTotal() - (stats.homeSpSpent || 0)); }
   function homeRank(id) { return (stats.homeSkills && stats.homeSkills[id]) || 0; }
   function homeSpentSum() { var s = 0, h = stats.homeSkills || {}; for (var k in h) s += h[k]; return s; }
@@ -948,13 +945,13 @@
   }
   function openHomeSkill() { renderHomeSkill(); $("homeSkillModal").classList.remove("hidden"); }
   function homeAdj(id, d) {
-    if (d > 0) { var n = HOME_SKILLS.filter(function (s) { return s.id === id; })[0]; if (!n) return; if (homeSpLeft() <= 0) { toast("居家技能点不足（多摆家具涨环境值）"); return; } if (homeRank(id) >= n.max) { toast("已满级"); return; } stats.homeSkills[id] = homeRank(id) + 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; }
+    if (d > 0) { var n = HOME_SKILLS.filter(function (s) { return s.id === id; })[0]; if (!n) return; if (homeSpLeft() <= 0) { toast("居家技能点不足（每10级+1点，升级可得）"); return; } if (homeRank(id) >= n.max) { toast("已满级"); return; } stats.homeSkills[id] = homeRank(id) + 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; }
     else { if (homeRank(id) <= 0) return; stats.homeSkills[id] = homeRank(id) - 1; if (!stats.homeSkills[id]) delete stats.homeSkills[id]; stats.homeSpSpent = Math.max(0, (stats.homeSpSpent || 0) - 1); }
     save(); renderHomeSkill();
   }
   function learnAuto(id) { // 学习自动化技能(花1居家技能点)
     if (homeRank(id) > 0) return;
-    if (homeSpLeft() <= 0) { toast("居家技能点不足（多摆家具涨环境值）"); return; }
+    if (homeSpLeft() <= 0) { toast("居家技能点不足（每10级+1点，升级可得）"); return; }
     stats.homeSkills[id] = 1; stats.homeSpSpent = (stats.homeSpSpent || 0) + 1; save(); renderHomeSkill();
   }
   function toggleAuto(id) { // 开关;满血自动打坐/历练互斥
@@ -973,7 +970,7 @@
     el.textContent = "⚙ 自动历练：" + (on ? "开（点此停）" : "关");
   }
   function renderHomeSkill() {
-    $("hsInfo").innerHTML = "居家环境值 <b>" + homeEnv() + "</b> · 居家技能点 <b>" + homeSpLeft() + "</b>/" + homeSpTotal() + " · 金币 " + (stats.gold || 0) + "💰（每 " + ENV_PER_POINT + " 环境 = 1 点）";
+    $("hsInfo").innerHTML = "居家技能点 <b>" + homeSpLeft() + "</b>/" + homeSpTotal() + " · 金币 " + (stats.gold || 0) + "💰（每 " + LV_PER_HOME_POINT + " 级 = 1 点，当前 Lv" + (stats.level || 1) + "）";
     var w = $("hsList"); w.innerHTML = "";
     HOME_SKILLS.forEach(function (n) {
       var rk = homeRank(n.id), maxed = rk >= n.max;
@@ -1313,7 +1310,7 @@
     cfg.zoneIdx = (opts.zoneIdx != null ? opts.zoneIdx : opts.bossZoneIdx); // 各区掉落稀有度权重
     cfg.eliteChance = homeRank("elite_chance") * 0.03;        // 居家技能:精英怪概率(莱布尼茨终版:满级15%,~16%死不过swingy)
     cfg.dropQuality = homeRank("drop_quality") * 0.2;         // 居家技能:掉落高品率(占位)
-    cfg.spawnInterval = 1.8 * Math.max(0.4, 1 - (stats.spawnSpeedOff ? 0 : homeRank("spawn_speed") * 0.05)); // 诱敌:刷怪速度(莱布尼茨减半0.1→0.05;有开关,关则不提速)
+    cfg.spawnInterval = 1.8 * ((homeRank("spawn_speed") > 0 && !stats.spawnSpeedOff) ? (1 / 1.5) : 1); // 诱敌:1点激活=刷怪速度+50%(WalyCai),有临时开关
     if (opts.boss) { cfg.boss = opts.boss; }                  // boss战:打到死或杀boss
     // 普通历练不封顶杀数/时间——只在 背包满(20)/气血归零/撤退 时收兵(WalyCai 设计)
     CV.bossZoneIdx = opts.boss ? opts.bossZoneIdx : null;
@@ -1416,7 +1413,7 @@
     var dt = Math.min(0.05, (ts - last) / 1000 || 0); last = ts; homeClock += dt;
     if (player.state === "meditating") { // 打坐:逐帧练所选功法熟练度(平滑进度条)
       var dd = byId[(placed.find(function (q) { return q.uid === player.actUid; }) || {}).id] || {};
-      if (dd.neigong) trainGongfa(dd.neigong * (1 + homeRank("meditate_eff") * 0.2) * 5 * dt);
+      if (dd.neigong) trainGongfa(dd.neigong * 5 * dt);
     }
     if (!$("kungfuModal").classList.contains("hidden")) { gfRefreshT += dt; if (gfRefreshT >= 0.12) { gfRefreshT = 0; renderKungfu(); } } // 功法页打开时进度条动态刷新
     updatePlayer(dt); render(); requestAnimationFrame(loop);
@@ -1498,6 +1495,8 @@
     ["nei", "wai1", "wai2", "qing"].forEach(function (k) { if (stats.gongfaEquip[k] && !gongfaById(stats.gongfaEquip[k])) stats.gongfaEquip[k] = null; });
     GONGFA.forEach(function (g) { if (g.tier === 0 && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; }); // 白功法新手免费送(每系6本白功法)
     if (!stats.trainId || !gongfaById(stats.trainId)) stats.trainId = "xuanjia_t0";
+    // 居家技能改级别制迁移(WalyCai):删已废技能(安眠/悟道),刷怪效率降为1级,按现有技能重算已花点
+    if (stats.homeSkills) { delete stats.homeSkills.sleep_eff; delete stats.homeSkills.meditate_eff; if (stats.homeSkills.spawn_speed > 1) stats.homeSkills.spawn_speed = 1; var _hsp = 0; for (var _hk in stats.homeSkills) _hsp += stats.homeSkills[_hk] || 0; stats.homeSpSpent = _hsp; }
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
     (function () { // 自动历练浮钮:短按=开关,长按(350ms)=拖拽移动位置,位置存档
