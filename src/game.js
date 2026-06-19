@@ -1173,8 +1173,12 @@
   function rarOf(it) { return it.rarity || "common"; }
   function setOf(tid) { var ss = CORE.SET_DEFS || []; for (var i = 0; i < ss.length; i++) if (ss[i].pieces.indexOf(tid) >= 0) return ss[i]; return null; }
   function itemTitle(it) { var s = itemStats(it); var parts = []; for (var k in s) parts.push(STAT_LABEL[k] + "+" + s[k] + pctOf(k)); var lv = it.lv || 1; var set = setOf(it.tid); var setTag = set ? " 〖" + set.name + "套〗" : ""; return "【" + RARITY[rarOf(it)].name + "】" + itemNm(it) + " ·Lv" + lv + setTag + "（需Lv" + lv + "）" + " " + parts.join(" "); }
-  function equipIconHTML(tid, glyph) {
-    return '<img class="equip-img" src="assets/equipment/' + tid + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
+  function equipIconSrc(it) {
+    if (it && it.tid === "weapon" && it.wtype) return "weapon_" + it.wtype + "_" + CORE.bracketOf(it.lv || 1);
+    return it ? it.tid : "";
+  }
+  function equipIconHTML(it, glyph) {
+    return '<img class="equip-img" src="assets/equipment/' + equipIconSrc(it) + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback">' + glyph + '</span>';
   }
   function slotIconHTML(sd) {
     return '<img class="slot-img" src="assets/ui/slot_' + sd.type + '.png" onerror="this.hidden=true;this.nextSibling.style.display=&quot;flex&quot;"><span class="equip-fallback empty">·</span>';
@@ -1184,7 +1188,7 @@
     SLOT_DEFS.forEach(function (sd) {
       var it = equipped[sd.key], t = it && EQUIP_TPL[it.tid];
       var d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sd.key;
-      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it.tid, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + itemNm(it) + '</span>' : '');
+      d.innerHTML = '<span class="slot-lbl">' + sd.name + '</span><span class="ico" style="' + (it ? 'border:2.5px solid ' + RARITY[rarOf(it)].color + ';box-shadow:0 0 6px ' + RARITY[rarOf(it)].color + '88' : '') + '">' + (it ? equipIconHTML(it, t.glyph) : slotIconHTML(sd)) + '</span>' + (it ? '<span class="it-nm" style="color:' + RARITY[rarOf(it)].color + '">' + itemNm(it) + '</span>' : '');
       if (it) { d.addEventListener("mouseenter", function () { showItemTip(it, "equipped"); }); d.addEventListener("mouseleave", hideItemTip); d.ondblclick = function () { hideItemTip(); unequip(sd.key); }; } // 悬停看属性,双击卸下(WalyCai)
       d.addEventListener("dragover", function (e) { e.preventDefault(); d.classList.add("over"); });
       d.addEventListener("dragleave", function () { d.classList.remove("over"); });
@@ -1200,7 +1204,7 @@
       var up = CORE.combatPower(previewTotals(it).totals) > curCP;   // 战力更高→绿▲(不论是否够级)
       var rc = RARITY[rarOf(it)].color, hi = (rarOf(it) === "epic" || rarOf(it) === "legend");
       var d = document.createElement("div"); d.className = "wh-item" + (locked ? " locked" : ""); d.draggable = true; d.title = itemTitle(it) + (up ? "（穿上↑战力）" : "") + (locked ? "（需Lv" + (it.lv || 1) + "）" : "");
-      d.innerHTML = equipIconHTML(it.tid, t.glyph) + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + (it.lv || 1) + '</span>' : '');
+      d.innerHTML = equipIconHTML(it, t.glyph) + (up ? '<span class="up-badge">▲</span>' : '') + (locked ? '<span class="lock-badge">Lv' + (it.lv || 1) + '</span>' : '');
       d.style.border = "2.5px solid " + rc; d.style.boxShadow = hi ? ("0 0 7px " + rc + ", inset 0 0 5px " + rc + "66") : ("inset 0 0 4px " + rc + "44"); // 品质彩色边框(史诗/传说加发光)
       if (dollSel === it) d.style.boxShadow = "0 0 0 3px #ffd98a, 0 0 8px " + rc;
       d.addEventListener("dragstart", function () { dollSel = it; });

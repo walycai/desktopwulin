@@ -1,0 +1,20 @@
+Use case: stylized-concept
+Asset type: game equipment icon material sheet for Desktop Wulin
+Primary request: Create a clean white-background material sheet containing exactly 30 separate weapon item icons for a Chinese wuxia idle RPG.
+Scene/backdrop: perfectly flat pure white background, no floor, no shadow, no gradients, no texture.
+Subject: a strict 6-column by 5-row grid of isolated weapon icons with generous white spacing. Columns from left to right are:
+1) quan: fist wraps / gloves / handguards
+2) jian: Chinese straight swords
+3) dao: Chinese sabers / broad knives
+4) gun: staffs / cudgels
+5) qin: guqin instruments used as weapons
+6) qimen: mystic odd weapons such as talisman disk, bagua plate, compass, ritual array tool
+Rows from top to bottom are gear tiers 0 to 4, growing progressively more powerful:
+tier 0 simple cloth/wood/iron beginner gear, tier 1 refined steel, tier 2 ornate mid-tier martial gear, tier 3 dark xuantie/dragon-pattern elite gear, tier 4 legendary glowing divine weapon.
+Style/medium: detailed pixel art / fine pixel wuxia style matching a polished Chinese ancient martial-arts game; crisp silhouette, readable at 96x96 icon size, high-quality hand-painted pixel texture.
+Composition/framing: each icon centered in its cell, isolated, full object visible, no cropping, no overlap between cells, no labels, no numbers, no text.
+Lighting/mood: neutral catalog lighting, subtle internal highlights on the object only, no cast shadow.
+Color palette: restrained Chinese wuxia palette; beginner tiers use cloth, wood, iron and muted browns; higher tiers add steel, jade, gold, red lacquer, dark xuantie, small controlled magical glow.
+Materials/textures: cloth wraps, forged metal, lacquered wood, jade inlay, engraved gold trim, aged parchment talismans; clear progression across tiers while preserving weapon type identity.
+Constraints: exactly 30 objects, one object per grid cell, pure white background, no text, no watermark, no loose VFX particles detached from the object, no people, no hands holding weapons, no cropping.
+Avoid: realistic photography, 3D render, blurry painterly style, oversized shadows, background props, labels, UI frames, duplicate identical tiers, modern weapons, guns.
