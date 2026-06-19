@@ -164,6 +164,10 @@
   var SLEEP_Y_LIFT = 0.15;              // 睡觉时再上抬比例(躺到床中央而非床脚)，可微调
   var APPEAR_SLOTS = ["body", "legs", "head", "weapon"]; // 只有这些装备改外观(叠在主角上;项链/戒指/腰带不变外观)
   var equipSprites = {};                // tid -> {idle,walk,sleep,meditate} 装备外观层(与主角同帧布局 48×64)
+  function equipOverlayKey(it) {
+    if (it && it.tid === "weapon" && it.wtype) return "weapon_" + it.wtype;
+    return it ? it.tid : "";
+  }
   function loadEquipOverlay(tid) {
     if (!tid || equipSprites[tid]) return; equipSprites[tid] = {};
     ["idle", "walk", "sleep", "meditate"].forEach(function (a) { var im = new Image(); im.onload = function () { equipSprites[tid][a] = im; }; im.src = "assets/characters/equip/" + tid + "/" + a + ".png?_=" + Date.now(); });
@@ -461,7 +465,8 @@
       ctx.drawImage(base, fi * fw, row * fh, fw, fh, dx, dy, dw, dh);
       APPEAR_SLOTS.forEach(function (slot) {   // 叠装备外观层(按各自帧尺寸,与主角同格)
         var it = equipped[slot]; if (!it) return;
-        var ov = equipSprites[it.tid] && equipSprites[it.tid][player.anim];
+        var key = equipOverlayKey(it);
+        var ov = equipSprites[key] && equipSprites[key][player.anim];
         if (ov) { var ofw = (ov.naturalWidth || ov.width) / frames, ofh = (ov.naturalHeight || ov.height) / rows; ctx.drawImage(ov, fi * ofw, row * ofh, ofw, ofh, dx, dy, dw, dh); }
       });
       if (resting) { // 头顶动态 zzZ (武侠搞怪,替代漂浮) —— 锚在头部上方
@@ -1139,7 +1144,7 @@
     var req = it.lv || 1; if (stats.level < req) { toast("需要历练等级 " + req + " 才能佩戴"); return; }
     var idx = warehouse.indexOf(it); if (idx < 0) return; warehouse.splice(idx, 1);
     if (equipped[slotKey]) warehouse.push(equipped[slotKey]);
-    equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(it.tid); syncHpMax(); renderDoll(); saveEquip();
+    equipped[slotKey] = it; dollSel = null; if (APPEAR_SLOTS.indexOf(slotKey) >= 0) loadEquipOverlay(equipOverlayKey(it)); syncHpMax(); renderDoll(); saveEquip();
   }
   function unequip(slotKey) { var it = equipped[slotKey]; if (!it) return; equipped[slotKey] = null; dollSel = null; warehouse.push(it); syncHpMax(); renderDoll(); saveEquip(); }
   function pctOf(k) { return (k === "Crit" || k === "CritDmg") ? "%" : ""; }
@@ -1538,11 +1543,11 @@
       var fist = rollItem("weapon", 1, "common"); fist.wtype = "quan"; equipped.weapon = fist;
       equipped.body = rollItem("body", 1, "common");
       ["head", "legs", "neck", "ring", "belt"].forEach(function (tid) { warehouse.push(rollItem(tid, 1, "common")); });
-      APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); });
+      APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipOverlayKey(equipped[slot])); });
       if (stats.gongfaEquip && !stats.gongfaEquip.wai1 && gongfaById("quan_t0")) stats.gongfaEquip.wai1 = "quan_t0"; // 新手自动装白拳法(配拳套即可放拳技)
       syncHpMax(); saveEquip(); save();
     }
-    APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipped[slot].tid); }); // 加载已穿装备外观层
+    APPEAR_SLOTS.forEach(function (slot) { if (equipped[slot]) loadEquipOverlay(equipOverlayKey(equipped[slot])); }); // 加载已穿装备外观层
     if (stats.zone == null) stats.zone = 0; if (stats.unlocked == null) stats.unlocked = 0; // 历练地图进度默认
     if (!stats.skills) stats.skills = {}; // 技能点迁移：补发应得点数(level-1)，幂等
     validateSkills(); // 树改版：清理旧无效技能id，点数退回
