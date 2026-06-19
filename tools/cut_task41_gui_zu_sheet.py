@@ -4,7 +4,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets/source/task41/gui_zu_anim_sheet_v2.png"
-ATTACK_SRC = ROOT / "assets/source/task41/gui_zu_attack_sheet_v1.png"
+ATTACK_SRC = ROOT / "assets/source/task41/gui_zu_attack_sheet_v4.png"
 OUT_DIR = ROOT / "assets/characters/enemies/gui_zu"
 
 FRAME_BOXES = {
@@ -15,12 +15,12 @@ FRAME_BOXES = {
         (1630, 70, 1948, 528),
     ],
     "attack": [
-        (50, 400, 430, 790),
-        (390, 120, 660, 790),
-        (630, 420, 1068, 790),
-        (980, 430, 1378, 800),
-        (1260, 420, 1740, 800),
-        (1680, 390, 2048, 790),
+        (18, 260, 326, 740),
+        (334, 174, 666, 740),
+        (668, 300, 1088, 740),
+        (1064, 292, 1368, 740),
+        (1370, 406, 1722, 742),
+        (1712, 286, 2028, 750),
     ],
     "hurt": [
         (276, 1136, 616, 1498),
