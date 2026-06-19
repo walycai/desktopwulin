@@ -95,7 +95,7 @@
   ];
   // ---- 功法系统：数据/数值以 combat-core 为单一源(与 sim 共用) ----
   var GONGFA = CORE.GONGFA, GONGFA_SLOTS = CORE.GONGFA_SLOTS, GONGFA_MAXLV = CORE.GONGFA_MAXLV;
-  function gfActiveDesc(g, lv) { return CORE.gfActiveDesc(g, lv); }
+  function gfActiveDesc(g, lv) { return CORE.gfActiveDesc(g, lv, neigongLv()); }
   function gongfaById(id) { return CORE.gongfaById(id); }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
   function gfProfReq(lv) { return CORE.gfProfReq(lv); }

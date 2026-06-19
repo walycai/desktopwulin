@@ -280,7 +280,7 @@
       if (haste > 0) haste -= dt; if (atkBuffT > 0) atkBuffT -= dt;
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; lastHeal = 0; // 狂暴期间出手更快
       if ((playerRegen > 0 || neiRegenPct > 0) && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen + Math.round(P.hpMax * neiRegenPct), P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:固定(基础+凝元)+回春%maxHP,每秒结算
-      if (P.cd <= 0) { var tg = nearest(); if (tg) { var tgE = tg.deb.defDownT > 0 ? { name: tg.E.name, ATK: tg.E.ATK, DEF: Math.round(tg.E.DEF * (1 - tg.deb.defDownPct)), Crit: tg.E.Crit, CritDmg: tg.E.CritDmg, Hit: tg.E.Hit, Dodge: tg.E.Dodge, Tough: tg.E.Tough } : tg.E; var s = strike(rng, P0, tgE); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } } // 降敌防:玩家打它时按 defDown 减其防
+      if (P.cd <= 0) { var tg = nearest(); if (tg) { var tgE = tg.deb.defDownT > 0 ? { name: tg.E.name, ATK: tg.E.ATK, DEF: Math.round(tg.E.DEF * (1 - tg.deb.defDownPct)), Crit: tg.E.Crit, CritDmg: tg.E.CritDmg, Hit: tg.E.Hit, Dodge: tg.E.Dodge, Tough: tg.E.Tough } : tg.E; var pUse = atkBuffT > 0 ? { ATK: P0.ATK * (1 + atkBuffPct), Crit: P0.Crit, CritDmg: P0.CritDmg, Hit: P0.Hit, Dodge: P0.Dodge, Tough: P0.Tough } : P0; var s = strike(rng, pUse, tgE); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } } // 琴攻击buff也作用于平砍(莱布尼茨:平砍是DPS大头);降敌防按defDown减其防
       // 主动技能：各技能独立 CD+固定耗蓝。选"最久未放的就绪技能"为下一个,蓝量够它才放、不够就攒(不放别的)→强制轮转,便宜技能不再饿死贵技能(WalyCai)
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
       if (enemies.length) {
@@ -369,19 +369,19 @@
     return null;
   }
   // 内功特效值(按 te 算,莱布尼茨表;单装不堆叠故天然有界、不硬封顶)
-  function gfNeiEffect(eff, te) {
+  function gfNeiEffect(eff, te, ngLv) {
     switch (eff) {
       case "dr": return { dr: (2 + 0.25 * te) / 100 };          // 玄甲:减伤(进 sumDR)
       case "reflect": return { reflect: (8 + 2.5 * te) / 100 }; // 返震:反弹
       case "regenPct": return { regenPct: (0.3 + 0.18 * te) / 100 }; // 回春:%回血/秒
-      case "regenFlat": return { regenFlat: 3 + 2 * te };       // 凝元:固定回血/秒
+      case "regenFlat": return { regenFlat: Math.round((3 + 2 * te) * (1 + (ngLv || 0) * 0.05)) }; // 凝元:固定回血/秒,随内力级别scale(莱布尼茨:否则后期形同虚设)
       case "tough": return { Tough: Math.round(8 + 4 * te) };   // 铁骨:韧性
-      case "dodge": return { Dodge: Math.round(6 + 3 * te) };   // 灵蛇:闪避
+      case "dodge": return { Dodge: Math.round(10 + 5 * te) };  // 灵蛇:闪避(莱布尼茨:6+3t→10+5t,够撑闪避流)
     }
     return {};
   }
   // 功法主动的人类可读描述(给UI;stat类返回null由调用方用属性渲染)
-  function gfActiveDesc(g, lv) {
+  function gfActiveDesc(g, lv, ngLv) {
     var te = gfEffTier(g.tier, lv || 1), r1 = function (x) { return Math.round(x * 1000) / 10; };
     if (g.akind === "weapon") {
       var s = gfWeaponSkill(g.wtype, te, g.id), nm = WTYPE_NAME[g.wtype];
@@ -390,7 +390,7 @@
       return nm + "·" + (s.type === "aoe" ? "群体" : "单体") + Math.round(s.mult * 100) + "%伤害" + (s.canCrit ? "(可暴)" : "") + (s.stunChance ? "+眩" + Math.round(s.stunChance * 100) + "%" : "") + "（CD" + s.cd + "s）";
     }
     if (g.akind === "nei") {
-      var e = gfNeiEffect(g.eff, te);
+      var e = gfNeiEffect(g.eff, te, ngLv);
       if (g.eff === "dr") return "受击减伤 " + r1(e.dr) + "%";
       if (g.eff === "reflect") return "反弹受到伤害 " + r1(e.reflect) + "%";
       if (g.eff === "regenPct") return "每秒回血 " + r1(e.regenPct) + "% 最大气血";
@@ -467,7 +467,7 @@
       var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return;
       var te = gfEffTier(go.tier, lv);
       if (go.akind === "weapon") { var sk2 = gfWeaponSkill(go.wtype, te, "gf_" + go.wtype + "_" + sl.key); if (sk2) gfAbilities.push(sk2); }
-      else if (go.akind === "nei") { var ne = gfNeiEffect(go.eff, te); if (ne.dr) neiDR += ne.dr; if (ne.reflect) neiReflect += ne.reflect; if (ne.regenPct) neiRegenPct += ne.regenPct; if (ne.regenFlat) neiRegenFlat += ne.regenFlat; if (ne.Tough) a.Tough = (a.Tough || 0) + ne.Tough; if (ne.Dodge) a.Dodge = (a.Dodge || 0) + ne.Dodge; }
+      else if (go.akind === "nei") { var ne = gfNeiEffect(go.eff, te, ngLv); if (ne.dr) neiDR += ne.dr; if (ne.reflect) neiReflect += ne.reflect; if (ne.regenPct) neiRegenPct += ne.regenPct; if (ne.regenFlat) neiRegenFlat += ne.regenFlat; if (ne.Tough) a.Tough = (a.Tough || 0) + ne.Tough; if (ne.Dodge) a.Dodge = (a.Dodge || 0) + ne.Dodge; }
       else { for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; } // 轻功属性
     });
     var _sets = activeSets(eqp), skGrant = {}; // 套装技能授予(某系所有技能+N,突破上限)
