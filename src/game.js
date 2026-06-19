@@ -139,7 +139,7 @@
     CATALOG.forEach(function (c) {
       tryLoad("assets/furniture/" + c.cat + "/" + c.id + (c.wall ? "_right" : "") + ".png", c.id, images);
       if (c.wall) tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_left.png", c.id + "_left", images);
-      else if (!c.rug) [1, 2, 3].forEach(function (r) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_r" + r + ".png", c.id + "_r" + r, images); }); // 方向贴图(可选 2/4 面)
+      else [1, 2, 3].forEach(function (r) { tryLoad("assets/furniture/" + c.cat + "/" + c.id + "_r" + r + ".png", c.id + "_r" + r, images); }); // 方向贴图(可选 2/4 面，地毯也可提供真四向)
     });
     ["idle", "walk", "sleep", "meditate"].forEach(function (a) { tryLoad("assets/characters/protagonist/" + a + ".png", a, sprites); });
     tryLoad("assets/tiles/indoor/floor_large.png", "floorLarge", env);
