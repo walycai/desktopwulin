@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>桌面武林 · 家园摆放原型</title>
-<link rel="stylesheet" href="src/style.css?v=0621k">
+<link rel="stylesheet" href="src/style.css?v=0621l">
 </head>
 <body>
   <header class="topbar">
@@ -18,14 +18,10 @@
       <span class="stat" title="战斗力（面板静态战力）">💪 战力 <b id="cpVal">—</b></span>
     </div>
     <div class="topbtns">
-      <button id="sortieBtn" class="tb sortie" title="出门历练(选择区域)">⚔ 出战历练</button>
-      <button id="meditateBtn" class="tb" title="去打坐台修炼">🧘 打坐</button>
-      <button id="sleepBtn" class="tb" title="去床上休息">🛌 上床休息</button>
-      <button id="dollBtn" class="tb" title="侠客装备/纸娃娃">🎒 侠客装备</button>
-      <button id="helpBtn" class="tb" title="操作/快捷键">❓ 帮助</button>
-      <button id="saveBtn" class="tb" title="存档位(3个)">💾 存档</button>
-      <button id="dbgBtn" class="tb" title="调试工具(测试用)">🐞 调试</button>
-      <button id="resetBtn" class="tb" title="清空重来">↺ 重置</button>
+      <button id="helpBtn" class="tb sys" title="操作/快捷键">❓ 帮助</button>
+      <button id="saveBtn" class="tb sys" title="存档位(3个)">💾 存档</button>
+      <button id="dbgBtn" class="tb sys" title="调试工具(测试用)">🐞 调试</button>
+      <button id="resetBtn" class="tb sys" title="清空重来">↺ 重置</button>
     </div>
   </header>
 
@@ -127,10 +123,15 @@
 
   <div class="layout">
     <aside class="sidemenu">
-      <div class="sm-title">侠客</div>
-      <button id="menuSkill" class="sm-btn" title="人物技能树"><i class="sm-ico"></i><span>人物技能</span><span id="menuSp" class="sm-badge"></span></button>
-      <button id="menuHomeSkill" class="sm-btn" title="居家技能(Phase2)"><i class="sm-ico"></i><span>居家技能</span></button>
-      <button id="menuKungfu" class="sm-btn" title="功法装备(Phase3)"><i class="sm-ico"></i><span>功法装备</span></button>
+      <div class="sm-title">行动</div>
+      <button id="sortieBtn" class="sm-btn sm-act" title="出门历练(选择区域)"><span class="sm-emo">⚔</span><span>出战历练</span></button>
+      <button id="meditateBtn" class="sm-btn" title="去打坐台修炼"><span class="sm-emo">🧘</span><span>打坐</span></button>
+      <button id="sleepBtn" class="sm-btn" title="去床上休息"><span class="sm-emo">🛌</span><span>上床休息</span></button>
+      <div class="sm-title sm-title-gap">侠客</div>
+      <button id="dollBtn" class="sm-btn" title="侠客装备/纸娃娃"><span class="sm-emo">🎒</span><span>侠客装备</span></button>
+      <button id="menuSkill" class="sm-btn" title="人物技能树"><span class="sm-emo">🌳</span><span>人物技能</span><span id="menuSp" class="sm-badge"></span></button>
+      <button id="menuKungfu" class="sm-btn" title="功法装备"><span class="sm-emo">☯</span><span>功法装备</span></button>
+      <button id="menuHomeSkill" class="sm-btn" title="居家技能"><span class="sm-emo">🏠</span><span>居家技能</span></button>
     </aside>
     <div id="roomWrap" class="room-wrap">
       <canvas id="canvas"></canvas>
@@ -202,7 +203,7 @@
 
   <button id="autoFloat" class="auto-float hidden" title="自动历练总开关：短按开/关，长按拖动改变位置（永远置顶）">⚙ 自动历练：关</button>
   <div id="toast" class="toast hidden"></div>
-  <script src="src/combat-core.js?v=0621k"></script>
-  <script src="src/game.js?v=0621k"></script>
+  <script src="src/combat-core.js?v=0621l"></script>
+  <script src="src/game.js?v=0621l"></script>
 </body>
 </html>
