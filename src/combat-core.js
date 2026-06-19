@@ -223,7 +223,7 @@
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, gold = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
     // 主动技能(Phase4)：蓝量回复+自动释放
     var mana = 0, manaMax = P0.Mana || 0, manaRegen = cfg.manaRegen || 8;
-    var abilities = (cfg.abilities || []).map(function (a) { return { id: a.id, type: a.type, cost: a.cost, cd: a.cd, mult: a.mult || 0, dur: a.dur || 0, hasteMult: a.hasteMult || 1, cdT: 0, lastT: -1e9 }; });
+    var abilities = (cfg.abilities || []).map(function (a) { return Object.assign({}, a, { mult: a.mult || 0, dur: a.dur || 0, hasteMult: a.hasteMult || 1, cdT: 0, lastT: -1e9 }); }); // 保留全部扩展字段(atkPct/healPct/canCrit/stunChance/stunDur/defDown/poiPct/radius),否则外功技能特效被strip失效(莱布尼茨)
     var haste = 0, lastCast = null; // haste=狂暴/攻速buff剩余时间
     var atkBuffT = 0, atkBuffPct = 0; // 外功琴:自身限时+攻击%
     function pAtkEff() { return P0.ATK * 100 / 106 * (atkBuffT > 0 ? 1 + atkBuffPct : 1); } // 玩家有效攻击(含琴攻击buff)
