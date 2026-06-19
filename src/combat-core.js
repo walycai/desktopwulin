@@ -218,6 +218,7 @@
     var bossFight = !!cfg.boss, bossKilled = false;
     var P = { hp: cfg.startHp != null ? Math.min(cfg.startHp, P0.HP) : P0.HP, hpMax: P0.HP, atkInt: 1 / ((P0.ATKspd || 100) / 100), cd: 0 }; // startHp=带伤出战(负伤有代价)
     var playerRegen = cfg.playerRegen || 0, regenT = 0, lastHeal = 0; // 内功自动回血:战斗中持续回血(WalyCai:主要就是为了战斗回血)
+    var neiDR = Math.min(0.9, cfg.neiDR || 0), neiReflect = cfg.neiReflect || 0, neiRegenPct = cfg.neiRegenPct || 0; // 内功特效:玄甲减伤(sumDR,无硬顶但数学<1)/返震反弹/回春%回血
     var enemies = [], spawnCd = 0, uid = 1;
     var kills = 0, drops = [], bag = [], potions = 0, exp = 0, gold = 0, dmgDealt = 0, dmgTaken = 0, t = 0, done = false, outcome = null, bagFull = false, lastHit = null;
     // 主动技能(Phase4)：蓝量回复+自动释放
@@ -278,7 +279,7 @@
       }
       if (haste > 0) haste -= dt; if (atkBuffT > 0) atkBuffT -= dt;
       P.cd -= dt * (haste > 0 ? 1.6 : 1); lastHit = null; lastCast = null; lastHeal = 0; // 狂暴期间出手更快
-      if (playerRegen > 0 && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen, P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:每秒结算一次,显示+N
+      if ((playerRegen > 0 || neiRegenPct > 0) && P.hp > 0) { regenT += dt; if (regenT >= 1) { var hAmt = Math.min(playerRegen + Math.round(P.hpMax * neiRegenPct), P.hpMax - P.hp); if (hAmt > 0) { P.hp += hAmt; lastHeal = Math.round(hAmt); } regenT -= 1; } } // 内功自动回血:固定(基础+凝元)+回春%maxHP,每秒结算
       if (P.cd <= 0) { var tg = nearest(); if (tg) { var tgE = tg.deb.defDownT > 0 ? { name: tg.E.name, ATK: tg.E.ATK, DEF: Math.round(tg.E.DEF * (1 - tg.deb.defDownPct)), Crit: tg.E.Crit, CritDmg: tg.E.CritDmg, Hit: tg.E.Hit, Dodge: tg.E.Dodge, Tough: tg.E.Tough } : tg.E; var s = strike(rng, P0, tgE); if (s.hit) { tg.hp -= s.dmg; dmgDealt += s.dmg; lastHit = { x: tg.x, dmg: s.dmg }; mana = Math.min(manaMax, mana + manaRegen); applyEnchant(tg); } tg.at = 0.18; P.cd = P.atkInt; if (tg.hp <= 0) killEnemy(tg); } } // 降敌防:玩家打它时按 defDown 减其防
       // 主动技能：各技能独立 CD+固定耗蓝。选"最久未放的就绪技能"为下一个,蓝量够它才放、不够就攒(不放别的)→强制轮转,便宜技能不再饿死贵技能(WalyCai)
       for (i = 0; i < abilities.length; i++) if (abilities[i].cdT > 0) abilities[i].cdT -= dt;
@@ -294,7 +295,7 @@
           mana -= pick.cost; pick.cdT = pick.cd; pick.lastT = t;
         }
       }
-      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.deb.stunT > 0) { if (e.at > 0) e.at -= dt; continue; } if (e.x <= melee) { var chilled = e.deb.chillT > 0; e.cd -= dt * (chilled ? (1 - e.deb.chillAs) : 1); if (e.cd <= 0) { var atkE = chilled && e.deb.chillHit ? { name: e.E.name, ATK: e.E.ATK, DEF: e.E.DEF, Crit: e.E.Crit, CritDmg: e.E.CritDmg, Hit: e.E.Hit * (1 - e.deb.chillHit), Dodge: e.E.Dodge, Tough: e.E.Tough } : e.E; var s2 = strike(rng, atkE, P0); if (s2.hit) { P.hp -= s2.dmg; dmgTaken += s2.dmg; } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; } // 冰冻:减敌攻速(cd走得慢)+减敌命中
+      for (i = 0; i < enemies.length; i++) { e = enemies[i]; if (e.dead) continue; if (e.deb.stunT > 0) { if (e.at > 0) e.at -= dt; continue; } if (e.x <= melee) { var chilled = e.deb.chillT > 0; e.cd -= dt * (chilled ? (1 - e.deb.chillAs) : 1); if (e.cd <= 0) { var atkE = chilled && e.deb.chillHit ? { name: e.E.name, ATK: e.E.ATK, DEF: e.E.DEF, Crit: e.E.Crit, CritDmg: e.E.CritDmg, Hit: e.E.Hit * (1 - e.deb.chillHit), Dodge: e.E.Dodge, Tough: e.E.Tough } : e.E; var s2 = strike(rng, atkE, P0); if (s2.hit) { var dmgIn = neiDR > 0 ? Math.round(s2.dmg * (1 - neiDR)) : s2.dmg; P.hp -= dmgIn; dmgTaken += dmgIn; if (neiReflect > 0 && !e.dead) { e.hp -= Math.round(dmgIn * neiReflect); if (e.hp <= 0) killEnemy(e); } } e.cd = e.atkInt; e.at = 0.18; } } if (e.at > 0) e.at -= dt; } // 玄甲减伤(sumDR)+返震反弹+冰冻减敌攻速/命中
       enemies = enemies.filter(function (q) { return !q.dead; });
       if (P.hp <= 0) { done = true; outcome = "lose"; }
     }
@@ -323,18 +324,89 @@
   var GONGFA_SLOTS = [{ key: "nei", sys: "nei", name: "内功" }, { key: "wai1", sys: "wai", name: "外功一" }, { key: "wai2", sys: "wai", name: "外功二" }, { key: "qing", sys: "qing", name: "轻功" }];
   var GONGFA_TIERS = ["白", "绿", "蓝", "紫", "橙", "赤", "金", "玄", "天", "绝"];
   var GONGFA_TIER_COLOR = ["#cfcfcf", "#5fbf5f", "#5a9fe0", "#a060e0", "#e08a30", "#e05050", "#e0c040", "#40c8c0", "#c060a0", "#ff7040"];
+  var WTYPE_NAME = { quan: "拳", jian: "剑", dao: "刀", gun: "棍", qin: "琴", qimen: "奇门" }; // 外功6武器(WalyCai)
+  // 功法×6(WalyCai):每系6本(各颜色6本各1)。被动按系下调(莱布尼茨降幅),主动按 kind 分流。
+  var GF_PASSIVE = { nei: { HP: 3, Mana: 2 }, wai: { ATK: 0.4 }, qing: { ATKspd: 0.4, Hit: 0.4 } }; // 莱布尼茨 provisional 降幅
   var GONGFA_LINES = [
-    { sys: "nei", base: { passive: { HP: 6, Mana: 4 }, active: { HP: 18, Mana: 12, DEF: 3 } }, names: ["基础吐纳功", "小周天", "大周天", "紫府真气", "玄牝功", "先天罡气", "混元功", "太虚神功", "九转还丹", "无极玄功"] },
-    { sys: "wai", base: { passive: { ATK: 1 }, active: { ATK: 3 } }, names: ["基础拳经", "罗汉拳", "伏虎劲", "崩山劲", "裂石掌", "金刚力", "霸王功", "破军势", "不灭金身", "战神决"] }, // 莱布尼茨:外功active去掉暴击/暴伤(暴击归装备)
-    { sys: "qing", base: { passive: { ATKspd: 0.4, Hit: 1 }, active: { ATKspd: 2, Hit: 3, Dodge: 2 } }, names: ["基础身法", "燕回身", "踏雪痕", "草上飞", "凌波微步", "追风步", "梯云纵", "缩地术", "天罡步", "御风诀"] } // 莱布尼茨:轻功攻速 passive×0.4/active×0.5(攻速归装备)
+    // 内功×6:防御/续航,active=战斗特效(钩子)或抗性属性,单装1个不堆叠→天然有界、不硬封顶
+    { sys: "nei", key: "xuanjia", nm: "玄甲功", akind: "nei", eff: "dr" },         // 减伤% = 2+0.25t → sumDR(相加)
+    { sys: "nei", key: "fanzhen", nm: "返震劲", akind: "nei", eff: "reflect" },    // 反弹受到伤害 = 8+2.5t %
+    { sys: "nei", key: "huichun", nm: "回春诀", akind: "nei", eff: "regenPct" },   // %回血/秒 = 0.3+0.18t
+    { sys: "nei", key: "ningyuan", nm: "凝元功", akind: "nei", eff: "regenFlat" }, // 固定回血/秒 = 3+2t
+    { sys: "nei", key: "tiegu", nm: "铁骨功", akind: "nei", eff: "tough" },        // +韧性 = 8+4t(走韧性递减)
+    { sys: "nei", key: "lingshe", nm: "灵蛇身法", akind: "nei", eff: "dodge" },    // +闪避 = 6+3t(走闪避递减)
+    // 外功×6:6种武器各1本,active=武器技能描述符→效果引擎(拳剑刀棍琴奇门)
+    { sys: "wai", key: "quan", nm: "罗汉伏虎拳", akind: "weapon", wtype: "quan" },
+    { sys: "wai", key: "jian", nm: "一阳剑诀", akind: "weapon", wtype: "jian" },
+    { sys: "wai", key: "dao", nm: "降龙刀法", akind: "weapon", wtype: "dao" },
+    { sys: "wai", key: "gun", nm: "齐天棍法", akind: "weapon", wtype: "gun" },
+    { sys: "wai", key: "qin", nm: "广陵琴音", akind: "weapon", wtype: "qin" },
+    { sys: "wai", key: "qimen", nm: "奇门遁甲", akind: "weapon", wtype: "qimen" },
+    // 轻功×6:敏捷主题(莱布尼茨,速/命中/闪避),active=属性(×lv)
+    { sys: "qing", key: "jifeng", nm: "疾风诀", akind: "stat", abase: { ATKspd: 3 } },
+    { sys: "qing", key: "linghu", nm: "灵狐步", akind: "stat", abase: { Dodge: 3 } },
+    { sys: "qing", key: "yingyan", nm: "鹰眼术", akind: "stat", abase: { Hit: 4 } },
+    { sys: "qing", key: "fengxing", nm: "风行步", akind: "stat", abase: { ATKspd: 2, Dodge: 2 } },
+    { sys: "qing", key: "yingzong", nm: "影踪步", akind: "stat", abase: { Dodge: 2, Hit: 2 } },
+    { sys: "qing", key: "yufeng", nm: "御风诀", akind: "stat", abase: { ATKspd: 1.5, Hit: 2, Dodge: 1.5 } }
   ];
   var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 }; // 率类每阶+固定(不×1.5)
-  var GONGFA_TIER_MULT = 1.25; // 功法每阶加成倍率(WalyCai选A:数值收敛 ×1.5→×1.25, t9≈×7不再爆炸)；可调
-  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.round(o[k] * m); return r; } // 去掉 max(1) 底,允许削弱到<1/0(莱布尼茨:轻功攻速0.4等)
-  var GONGFA_TIER0_ID = { nei: "nei_tuna", wai: "wai_quan", qing: "qing_shen" };
+  var GONGFA_TIER_MULT = 1.25; // 功法每阶加成倍率(数值收敛 ×1.25, t9≈×7)
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.round(o[k] * m); return r; } // 去掉 max(1) 底,允许<1/0
+  function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(3.5, t - 3)); } // t0-3(240/1200/6000/30000),t4起×3.5/阶
+  // 有效档 te=tier+(lv-1)/9:修炼等级在档内平滑爬升(lv10≈下一档底),用于 active 武器技能/内功特效(莱布尼茨公式按 te 算)
+  function gfEffTier(tier, lv) { return tier + (Math.max(1, lv || 1) - 1) / (GONGFA_MAXLV - 1); }
+  // 外功武器技能描述符(按 te 算,字段契约同 createCombat:single/aoe/buff/debuff,cost0不耗蓝,CD自动释放)
+  function gfWeaponSkill(wtype, te, id) {
+    switch (wtype) {
+      case "quan": { var o = { id: id, type: "single", cost: 0, cd: 5, mult: (150 + 18 * te) / 100, canCrit: true }; if (te >= 4) { o.stunChance = 0.10 + 0.02 * (te - 4); o.stunDur = 2; } return o; } // 拳:连击+控
+      case "jian": return { id: id, type: "single", cost: 0, cd: te >= 6 ? 7 : 6, mult: (180 + 35 * te) / 100, canCrit: true }; // 剑:高暴击单体爆发
+      case "dao": return { id: id, type: "aoe", cost: 0, cd: te >= 4 ? 8 : 6, radius: 220, mult: (110 + 22 * te) / 100, canCrit: true }; // 刀:大范围AoE
+      case "gun": return { id: id, type: "aoe", cost: 0, cd: 7, radius: 200, mult: (100 + 18 * te) / 100, stunChance: 0.10 + 0.03 * te, stunDur: 1.5 + 0.1 * te }; // 棍:AoE+眩
+      case "qin": { var q = { id: id, type: "buff", cost: 0, cd: te < 4 ? 14 : 16, atkPct: (8 + 2 * te) / 100, dur: 10 }; if (te >= 4) q.healPct = (6 + 1.5 * (te - 4)) / 100; return q; } // 琴:自buff+续航
+      case "qimen": { var d = { id: id, type: "debuff", cost: 0, cd: te >= 6 ? 10 : 8, dur: 8, radius: 200, defDown: (15 + 5 * te) / 100 }; if (te >= 4) d.poiPct = 0.005 + 0.001 * (te - 4); return d; } // 奇门:降敌防+中毒
+    }
+    return null;
+  }
+  // 内功特效值(按 te 算,莱布尼茨表;单装不堆叠故天然有界、不硬封顶)
+  function gfNeiEffect(eff, te) {
+    switch (eff) {
+      case "dr": return { dr: (2 + 0.25 * te) / 100 };          // 玄甲:减伤(进 sumDR)
+      case "reflect": return { reflect: (8 + 2.5 * te) / 100 }; // 返震:反弹
+      case "regenPct": return { regenPct: (0.3 + 0.18 * te) / 100 }; // 回春:%回血/秒
+      case "regenFlat": return { regenFlat: 3 + 2 * te };       // 凝元:固定回血/秒
+      case "tough": return { Tough: Math.round(8 + 4 * te) };   // 铁骨:韧性
+      case "dodge": return { Dodge: Math.round(6 + 3 * te) };   // 灵蛇:闪避
+    }
+    return {};
+  }
+  // 功法主动的人类可读描述(给UI;stat类返回null由调用方用属性渲染)
+  function gfActiveDesc(g, lv) {
+    var te = gfEffTier(g.tier, lv || 1), r1 = function (x) { return Math.round(x * 1000) / 10; };
+    if (g.akind === "weapon") {
+      var s = gfWeaponSkill(g.wtype, te, g.id), nm = WTYPE_NAME[g.wtype];
+      if (g.wtype === "qin") return nm + "·自身+攻击" + Math.round(s.atkPct * 100) + "%/" + s.dur + "s" + (s.healPct ? "、回血" + Math.round(s.healPct * 100) + "%" : "") + "（CD" + s.cd + "s）";
+      if (g.wtype === "qimen") return nm + "·降敌防" + Math.round(s.defDown * 100) + "%/" + s.dur + "s" + (s.poiPct ? "+中毒" : "") + "（CD" + s.cd + "s）";
+      return nm + "·" + (s.type === "aoe" ? "群体" : "单体") + Math.round(s.mult * 100) + "%伤害" + (s.canCrit ? "(可暴)" : "") + (s.stunChance ? "+眩" + Math.round(s.stunChance * 100) + "%" : "") + "（CD" + s.cd + "s）";
+    }
+    if (g.akind === "nei") {
+      var e = gfNeiEffect(g.eff, te);
+      if (g.eff === "dr") return "受击减伤 " + r1(e.dr) + "%";
+      if (g.eff === "reflect") return "反弹受到伤害 " + r1(e.reflect) + "%";
+      if (g.eff === "regenPct") return "每秒回血 " + r1(e.regenPct) + "% 最大气血";
+      if (g.eff === "regenFlat") return "每秒固定回血 " + e.regenFlat;
+      if (g.eff === "tough") return "韧性 +" + e.Tough;
+      if (g.eff === "dodge") return "闪避 +" + e.Dodge;
+    }
+    return null;
+  }
   var GONGFA = [], GONGFA_BY = {};
-  function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(3.5, t - 3)); } // 莱布尼茨:t0-3(240/1200/6000/紫30000),t4起×3.5/阶(橙10万/赤37万…长线gold sink,功法降为辅助)
-  GONGFA_LINES.forEach(function (line) { for (var t = 0; t < 10; t++) { var g = { id: t === 0 ? GONGFA_TIER0_ID[line.sys] : line.sys + "_t" + t, name: line.names[t], sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], passive: gfScaleTier(line.base.passive, t), active: gfScaleTier(line.base.active, t), price: gfPrice(t) }; GONGFA.push(g); GONGFA_BY[g.id] = g; } });
+  GONGFA_LINES.forEach(function (line) {
+    for (var t = 0; t < 10; t++) {
+      var g = { id: line.key + "_t" + t, key: line.key, name: line.nm, sys: line.sys, tier: t, tierName: GONGFA_TIERS[t], color: GONGFA_TIER_COLOR[t], akind: line.akind, wtype: line.wtype || null, eff: line.eff || null, passive: gfScaleTier(GF_PASSIVE[line.sys], t), active: line.akind === "stat" ? gfScaleTier(line.abase, t) : {}, price: gfPrice(t) };
+      GONGFA.push(g); GONGFA_BY[g.id] = g;
+    }
+  });
   function gongfaById(id) { return GONGFA_BY[id] || null; }
   function gfProfReq(lv) { return Math.round(40 * lv * lv); }
   // ==== 装备等级缩放 + itemStats(单一源) ====
@@ -389,7 +461,15 @@
     a.Crit += (sk.crit || 0) * 2; a.CritDmg += (sk.critdmg || 0) * 10; a.Hit += (sk.hit || 0) * 3; a.ATKspd += (sk.atkspd || 0) * 3;
     a.ATK *= 1 + (sk.weapon_mastery || 0) * 0.03;
     for (var gid in gf) { var go = GONGFA_BY[gid], lv = gf[gid] || 0; if (!go || lv <= 0) continue; for (var pk in go.passive) a[pk] = (a[pk] || 0) + go.passive[pk] * lv; }
-    GONGFA_SLOTS.forEach(function (sl) { var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return; for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; });
+    // 功法主动(仅装备槽):外功→武器技能ability、内功→战斗特效(钩子/抗性)、轻功→属性(×lv)
+    var gfAbilities = [], neiDR = 0, neiReflect = 0, neiRegenPct = 0, neiRegenFlat = 0;
+    GONGFA_SLOTS.forEach(function (sl) {
+      var eid = ge[sl.key]; if (!eid) return; var go = GONGFA_BY[eid], lv = gf[eid] || 0; if (!go || lv <= 0) return;
+      var te = gfEffTier(go.tier, lv);
+      if (go.akind === "weapon") { var sk2 = gfWeaponSkill(go.wtype, te, "gf_" + go.wtype + "_" + sl.key); if (sk2) gfAbilities.push(sk2); }
+      else if (go.akind === "nei") { var ne = gfNeiEffect(go.eff, te); if (ne.dr) neiDR += ne.dr; if (ne.reflect) neiReflect += ne.reflect; if (ne.regenPct) neiRegenPct += ne.regenPct; if (ne.regenFlat) neiRegenFlat += ne.regenFlat; if (ne.Tough) a.Tough = (a.Tough || 0) + ne.Tough; if (ne.Dodge) a.Dodge = (a.Dodge || 0) + ne.Dodge; }
+      else { for (var ak in go.active) a[ak] = (a[ak] || 0) + go.active[ak] * lv; } // 轻功属性
+    });
     var _sets = activeSets(eqp), skGrant = {}; // 套装技能授予(某系所有技能+N,突破上限)
     _sets.forEach(function (as) { (as.grants || []).forEach(function (g) { if (g && g.ext) skGrant[g.ext] = (skGrant[g.ext] || 0) + (g.lv || 0); }); });
     for (var xid in sk) { var xe = SKILL_EXT_EFF[xid], base = sk[xid] || 0; if (!xe || base <= 0) continue; var rk = base + (skGrant[extLineOf(xid)] || 0); a[xe.stat] = (a[xe.stat] || 0) + xe.per * rk; } // 扩展节点:已学等级 + 套装授予(只增已投入的技能,可超 max=突破上限)
@@ -400,13 +480,14 @@
     var ab = [], wr = sk.whirlwind || 0, br = sk.berserk || 0;
     if (wr > 0) ab.push({ id: "whirlwind", type: "aoe", cost: 40, cd: 6, mult: 0.5 + 0.3 * wr });
     if (br > 0) ab.push({ id: "berserk", type: "haste", cost: 50, cd: 12, dur: 5 });
+    for (var gi = 0; gi < gfAbilities.length; gi++) ab.push(gfAbilities[gi]); // 外功武器技能(每槽1本)
     // ---- 内功附魔流:on-hit debuff + 射程(第二树) ----
     var ench = {};
     if ((sk.fire_ignite || 0) > 0) ench.burn = { chance: ENCH.burn.chance, dps: ngLv * ENCH.burn.fireFlatPer * (1 + (sk.fire_blaze || 0) * ENCH.burn.dpsPer) * (1 + (sk.fire_conflag || 0) * ENCH.burn.ampPer), dur: ENCH.burn.durRoot + (sk.fire_inferno || 0) * ENCH.burn.durPer, canCrit: ENCH.burn.canCrit }; // 炎:定值真伤=内力等级×fireFlatPer(非百分比血),可暴击
     if ((sk.poison_venom || 0) > 0) ench.poison = { chance: ENCH.poison.chance, dps: (ENCH.poison.dpsRoot + (sk.poison_toxin || 0) * ENCH.poison.dpsPer) * (1 + (sk.poison_corrode || 0) * ENCH.poison.ampPer), dur: ENCH.poison.durRoot + (sk.poison_plague || 0) * ENCH.poison.durPer, maxStacks: ENCH.poison.maxStacks }; // 毒:每层dps,可叠 maxStacks 层
     if ((sk.ice_frost || 0) > 0) ench.chill = { chance: ENCH.chill.chance + (sk.ice_permafrost || 0) * ENCH.chill.chancePer, mv: ENCH.chill.mvRoot + (sk.ice_glacier || 0) * ENCH.chill.mvPer, as: ENCH.chill.asRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, hit: ENCH.chill.hitRoot + (sk.ice_freeze || 0) * ENCH.chill.deepPer, dur: ENCH.chill.dur + (sk.ice_permafrost || 0) * ENCH.chill.durPer };
     var playerRange = (sk.range || 0) > 0 ? Math.round(ENCH.range.base + ENCH.range.coef * ngLv) : 0;
-    return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv };
+    return { attrs: a, abilities: ab, manaRegen: 8, enchant: ench, playerRange: playerRange, neigongLevel: ngLv, neiDR: neiDR, neiReflect: neiReflect, neiRegenPct: neiRegenPct, neiRegenFlat: neiRegenFlat };
   }
-  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, mkAffixes: mkAffixes, AFFIX_TIERS: AFFIX_TIERS, baseAttrs: baseAttrs };
+  return { RARITY: RARITY, EQUIP_TPL: EQUIP_TPL, AFFIX_POOL: AFFIX_POOL, ENEMIES: ENEMIES, DROP: DROP, SELL: SELL, GONGFA: GONGFA, GONGFA_SLOTS: GONGFA_SLOTS, GONGFA_MAXLV: GONGFA_MAXLV, gongfaById: gongfaById, gfProfReq: gfProfReq, gfScaleTier: gfScaleTier, gfActiveDesc: gfActiveDesc, gfWeaponSkill: gfWeaponSkill, gfNeiEffect: gfNeiEffect, gfEffTier: gfEffTier, WTYPE_NAME: WTYPE_NAME, GEAR_LV_SCALE: GEAR_LV_SCALE, itemStats: itemStats, buildToCombat: buildToCombat, mulberry32: mulberry32, rollDrop: rollDrop, resolveCombat: resolveCombat, createCombat: createCombat, simulateRealtime: simulateRealtime, combatPower: combatPower, critResolve: critResolve, toughDR: toughDR, nextExp: nextExp, EXP_CURVE_MULT: EXP_CURVE_MULT, BOSS_HP_MULT: BOSS_HP_MULT, neigongLevel: neigongLevel, ENCH: ENCH, ELITE: ELITE, SET_DEFS: SET_DEFS, activeSets: activeSets, SKILL_EXT_NODES: SKILL_EXT_NODES, SKILL_EXT_EFF: SKILL_EXT_EFF, itemName: itemName, bracketOf: bracketOf, SLOT_DEF: SLOT_DEF, GEAR_THRESHOLDS: GEAR_THRESHOLDS, mkAffixes: mkAffixes, AFFIX_TIERS: AFFIX_TIERS, baseAttrs: baseAttrs };
 });

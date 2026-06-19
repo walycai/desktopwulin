@@ -95,6 +95,7 @@
   ];
   // ---- 功法系统：数据/数值以 combat-core 为单一源(与 sim 共用) ----
   var GONGFA = CORE.GONGFA, GONGFA_SLOTS = CORE.GONGFA_SLOTS, GONGFA_MAXLV = CORE.GONGFA_MAXLV;
+  function gfActiveDesc(g, lv) { return CORE.gfActiveDesc(g, lv); }
   function gongfaById(id) { return CORE.gongfaById(id); }
   function gfState(id) { return (stats.gongfa && stats.gongfa[id]) || { lv: 0, prof: 0 }; }
   function gfProfReq(lv) { return CORE.gfProfReq(lv); }
@@ -990,7 +991,7 @@
       var row = document.createElement("div"); row.className = "gf-row gf-" + g.sys + (equipped ? " equipped" : "");
       row.innerHTML = '<div class="gf-top"><span class="gf-nm"><i class="gf-ico" style="background-image:url(\'assets/ui/gongfa/book_' + g.id + '.png\')"></i>' + g.name + ' <span class="gf-sys" style="color:' + g.color + '">' + (g.sys === "nei" ? "内功" : g.sys === "wai" ? "外功" : "轻功") + '·' + g.tierName + '</span></span><span class="gf-lv">Lv ' + lv + '/' + GONGFA_MAXLV + (training ? ' · <b style="color:#7fd0ff">修炼中</b>' : '') + '</span></div>'
         + '<div class="gf-bar"><i style="width:' + pct + '%"></i></div>'
-        + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + fmtEff(g.active, lv || 1) + '（需装备）</div>';
+        + '<div class="gf-eff">被动：' + fmtEff(g.passive, lv || 1) + '（修炼即得）<br>主动：' + (gfActiveDesc(g, lv || 1) || fmtEff(g.active, lv || 1)) + '（需装备）</div>';
       var btns = document.createElement("div"); btns.className = "gf-btns";
       var bt = document.createElement("button"); bt.className = "tb sk-mini"; bt.textContent = training ? "修炼中" : "修炼"; bt.disabled = training; bt.onclick = function () { setTrain(g.id); };
       var be = document.createElement("button"); be.className = "tb sk-mini"; be.textContent = equipped ? "卸下" : "装备"; be.disabled = lv <= 0; be.onclick = function () { equipGongfa(g.id); };
@@ -1261,7 +1262,7 @@
     opts = opts || {};
     if (!CV.canvas) { CV.canvas = $("combatCanvas"); CV.ctx = CV.canvas.getContext("2d"); CV.canvas.width = CV.W; CV.canvas.height = CV.H; CV.ctx.imageSmoothingEnabled = false; }
     var bc = CORE.buildToCombat(curBuild()); // 单一源：主动技能与 attrs 同源生成
-    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() }; // 附魔流:debuff+射程;playerRegen=内功自动回血(战斗中也回,WalyCai)
+    var cfg = { attrs: attrs, startHp: stats.hp, bagMax: 20, seed: (Date.now() & 0x7fffffff) ^ (Math.random() * 1e9 | 0), abilities: bc.abilities, manaRegen: bc.manaRegen, enchant: bc.enchant, playerRange: bc.playerRange, playerRegen: neiHealRate() + (bc.neiRegenFlat || 0), neiDR: bc.neiDR, neiReflect: bc.neiReflect, neiRegenPct: bc.neiRegenPct }; // 附魔流debuff+射程;内功:基础回血+凝元固定回血/玄甲减伤/返震/回春%回血
     if (opts.zone) { cfg.spawnTypes = opts.zone.types; cfg.lvMin = opts.zone.lvMin; cfg.lvMax = opts.zone.lvMax; }
     else cfg.spawnPool = ["thug"];
     var bgKey = (opts.zone && opts.zone.bg) || "bg_wulin";
@@ -1450,8 +1451,10 @@
     var owed = spForLevel(stats.level) - ((stats.sp || 0) + skillSpent()); if (owed > 0) stats.sp = (stats.sp || 0) + owed; // 技能点预算=floor(level/3),只补不扣
     // 功法迁移/初始化：白色功法默认已习得 Lv1
     if (!stats.gongfa) stats.gongfa = {}; if (!stats.gongfaEquip) stats.gongfaEquip = { nei: null, wai1: null, wai2: null, qing: null };
-    GONGFA.forEach(function (g) { if (g.tier === 0 && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; }); // 白功法新手免费送
-    if (!stats.trainId) stats.trainId = "nei_tuna";
+    for (var ogid in stats.gongfa) if (!gongfaById(ogid)) delete stats.gongfa[ogid]; // 功法×6改造:清理旧存档已废弃功法id(WalyCai:旧存档可删)
+    ["nei", "wai1", "wai2", "qing"].forEach(function (k) { if (stats.gongfaEquip[k] && !gongfaById(stats.gongfaEquip[k])) stats.gongfaEquip[k] = null; });
+    GONGFA.forEach(function (g) { if (g.tier === 0 && !stats.gongfa[g.id]) stats.gongfa[g.id] = { lv: 1, prof: 0 }; }); // 白功法新手免费送(每系6本白功法)
+    if (!stats.trainId || !gongfaById(stats.trainId)) stats.trainId = "xuanjia_t0";
     syncHpMax();
     window.addEventListener("resize", function () { resize(); });
     (function () { // 自动历练浮钮:短按=开关,长按(350ms)=拖拽移动位置,位置存档
