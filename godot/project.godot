@@ -18,7 +18,7 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
 [gui]
-theme/custom_font="res://default_theme.tres"
+theme/custom="res://default_theme.tres"
 
 [rendering]
 renderer/rendering_method="gl_compatibility"

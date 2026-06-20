@@ -102,6 +102,7 @@ func _build_ui() -> void:
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	layer.add_child(bar)
 	topbar = Label.new()
+	topbar.add_theme_font_override("font", ui_font)
 	topbar.add_theme_font_size_override("font_size", 14)
 	bar.add_child(topbar)
 	# 左侧菜单
@@ -122,6 +123,7 @@ func _build_ui() -> void:
 	toast_label = Label.new()
 	toast_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	toast_label.position = Vector2(-80, -60)
+	toast_label.add_theme_font_override("font", ui_font)
 	toast_label.add_theme_font_size_override("font_size", 16)
 	toast_label.add_theme_color_override("font_color", Color(1, 0.9, 0.6))
 	toast_label.visible = false
@@ -131,6 +133,7 @@ func _build_ui() -> void:
 func _add_menu_title(menu, t) -> void:
 	var l := Label.new()
 	l.text = t
+	l.add_theme_font_override("font", ui_font)
 	l.add_theme_font_size_override("font_size", 13)
 	l.add_theme_color_override("font_color", Color(0.91, 0.79, 0.54))
 	menu.add_child(l)
@@ -138,6 +141,7 @@ func _add_menu_title(menu, t) -> void:
 func _add_menu_btn(menu, t, cb: Callable) -> void:
 	var b := Button.new()
 	b.text = t
+	b.add_theme_font_override("font", ui_font)
 	b.custom_minimum_size = Vector2(110, 30)
 	b.pressed.connect(cb)
 	menu.add_child(b)
@@ -174,6 +178,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	home_clock += dt
+	if _dw <= 0:
+		_layout()  # 自愈:viewport 尚未就绪时重算房间投影
 	_update_player(dt)
 	_update_player_sprite()
 	# wander
