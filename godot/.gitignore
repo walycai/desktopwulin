@@ -1,0 +1,5 @@
+# Godot 4 导入缓存(机器本地生成,不入库)
+.godot/
+# 导出产物
+export_presets.cfg
+*.tmp
