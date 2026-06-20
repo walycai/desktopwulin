@@ -5,7 +5,7 @@ config_version=5
 [application]
 config/name="桌面武林"
 config/description="H5 增量武侠 → Godot 4.6 原生移植"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/home.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [autoload]
