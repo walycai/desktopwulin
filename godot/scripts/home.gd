@@ -1,16 +1,16 @@
 extends Node2D
 # 家园场景(阶段2) — 还原网页版家园:静态居家图 + 主角(走动) + 顶栏状态 + 左侧菜单 + 睡觉/打坐。
-# 睡觉=走到带帘床→藏起+床侧zzZ;打坐=走到练功室门→进入(藏)+门缝灯光。点房间任意处=走过去。
+# 睡觉=走到带帘床→藏起+床侧zzZ;打坐=走到书房/练功点→藏起+暖光效果。点房间任意处=走过去。
 # 数值走 CombatCore(与网页同源)。战斗/各UI面板是后续阶段。
 
-const ROOM_W := 1671.0
-const ROOM_H := 941.0
+const ROOM_W := 1536.0
+const ROOM_H := 2048.0
 var HOTSPOTS := {
-	"bed": Vector2(0.3752, 0.3040),
-	"bedZzz": Vector2(0.4578, 0.3773),
-	"door": Vector2(0.7690, 0.2880),
-	"doorFront": Vector2(0.7703, 0.4304),
-	"def": Vector2(0.5443, 0.5739),
+	"bed": Vector2(0.8529, 0.5518),
+	"bedZzz": Vector2(0.9049, 0.5176),
+	"door": Vector2(0.4557, 0.6250),
+	"doorFront": Vector2(0.4557, 0.6250),
+	"def": Vector2(0.4948, 0.3711),
 }
 
 var bg: Sprite2D
@@ -26,10 +26,10 @@ var _dw := 0.0
 var _dh := 0.0
 
 # 主角状态(归一化坐标 0..1)
-var pcx := 0.5443
-var pcy := 0.5739
-var tx := 0.5443
-var ty := 0.5739
+var pcx := 0.4948
+var pcy := 0.3711
+var tx := 0.4948
+var ty := 0.3711
 var pstate := "wander"  # wander / walking / sleeping / meditating
 var pdir := "down"
 const PSPEED := 0.32

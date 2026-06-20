@@ -114,10 +114,9 @@
   }
   // ---- 静态居家图(WalyCai 2026-06-19:去家具系统,改吴冠中精细像素风整图+热点落点) ----
   var STATIC_HOME = true;
-  // 带帘床+练功室门居家图(WalyCai:睡觉去床消失+床侧zzZ;打坐去练功室门消失+门缝灯光)。坐标=吴冠中v2预览
-  var HOTSPOTS = { bed: { x: 0.3752, y: 0.3040 }, bedZzz: { x: 0.4578, y: 0.3773 }, door: { x: 0.7690, y: 0.2880 }, doorFront: { x: 0.7703, y: 0.4304 }, def: { x: 0.5443, y: 0.5739 } };
+  // 直面矩形格居家图(WalyCai:睡觉/打坐暂不做画面动作,到点后隐藏主角,只播放效果)。坐标=吴冠中task49 v4
+  var HOTSPOTS = { bed: { x: 0.8529, y: 0.5518 }, bedZzz: { x: 0.9049, y: 0.5176 }, door: { x: 0.4557, y: 0.6250 }, doorFront: { x: 0.4557, y: 0.6250 }, def: { x: 0.4948, y: 0.3711 } };
   var homeBg = null; (function () { var im = new Image(); im.onload = function () { homeBg = im; }; im.src = "assets/tiles/home/static_room.png?_=" + Date.now(); })();
-  var medCushion = null; (function () { var im = new Image(); im.onload = function () { medCushion = im; }; im.src = "assets/characters/protagonist/meditate_cushion_full.png?_=" + Date.now(); })(); // 打坐:人物+蒲团一体图(WalyCai:避免人和蒲团对不准)
   // 静态模式:player.cx/cy = 归一化房间坐标[0,1];速度按归一化/秒
   var player = STATIC_HOME
     ? { cx: HOTSPOTS.def.x, cy: HOTSPOTS.def.y, tx: HOTSPOTS.def.x, ty: HOTSPOTS.def.y, state: "wander", actUid: 0, speed: 0.32, dir: "down", anim: "idle", fi: 0, fclock: 0, busy: false }
@@ -437,7 +436,7 @@
     ctx.font = "bold 14px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - t1 * 0.9).toFixed(2) + ")"; ctx.fillText("z", sx + 7 + t1 * 8, sy - t1 * 20);
     ctx.font = "bold 19px sans-serif"; ctx.fillStyle = "rgba(170,205,255," + (0.9 - t2 * 0.9).toFixed(2) + ")"; ctx.fillText("Z", sx + t2 * 9, sy - 6 - t2 * 24);
   }
-  function drawDoorGlow(sx, sy, rh) { // 打坐:主角进练功室,门缝暖黄灯光(轻微呼吸)
+  function drawDoorGlow(sx, sy, rh) { // 打坐:主角隐藏,在书房/练功点播放暖黄灯光(轻微呼吸)
     var puls = 0.5 + 0.5 * Math.abs(Math.sin(homeClock * 1.8)), gw = rh * 0.05, gh = rh * 0.16;
     var g = ctx.createRadialGradient(sx, sy, 1, sx, sy, gh);
     g.addColorStop(0, "rgba(255,210,120," + (0.55 * puls).toFixed(2) + ")"); g.addColorStop(0.5, "rgba(255,180,80," + (0.3 * puls).toFixed(2) + ")"); g.addColorStop(1, "rgba(255,180,80,0)");
@@ -445,7 +444,7 @@
   }
   function drawPlayer() {
     if (STATIC_HOME && player.state === "sleeping") { var bp = roomToScreen(HOTSPOTS.bedZzz.x, HOTSPOTS.bedZzz.y); drawZzz(bp.x, bp.y); return; } // 睡觉:藏帘后,床侧zzZ(吴冠中zzZ参考点)
-    if (STATIC_HOME && player.state === "meditating") { var dp = roomToScreen(HOTSPOTS.door.x, HOTSPOTS.door.y); drawDoorGlow(dp.x, dp.y, roomRect().dh); return; } // 打坐:进练功室,门缝灯光
+    if (STATIC_HOME && player.state === "meditating") { var dp = roomToScreen(HOTSPOTS.door.x, HOTSPOTS.door.y); drawDoorGlow(dp.x, dp.y, roomRect().dh); return; } // 打坐:隐藏主角,只播效果
     var ctr = STATIC_HOME ? roomToScreen(player.cx, player.cy) : cellCenter(player.cx, player.cy);
     var dispH = STATIC_HOME ? roomRect().dh * 0.15 : PLAYER_DISP_H; // 静态图:主角约房高15%
     var base = sprites[player.anim];
