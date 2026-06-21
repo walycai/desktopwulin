@@ -138,6 +138,8 @@ func _draw() -> void:
 		draw_rect(Rect2(0, ground - 2, vp.x, vp.y - ground + 2), Color(0.18, 0.14, 0.10))
 		draw_line(Vector2(0, ground), Vector2(vp.x, ground), Color(0.34, 0.26, 0.17), 2.0)
 		draw_line(Vector2(0, (ground + vp.y) * 0.5), Vector2(vp.x, (ground + vp.y) * 0.5), Color(0.14, 0.11, 0.08), 1.0)
+	# 背景轻微压暗,让角色/血条/伤害字保持第一层级(马奈:练武场背景别抢焦)
+	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0, 0, 0, 0.16))
 	# 顶部 HUD 半透明背板(让历练状态行更醒目)
 	draw_rect(Rect2(0, 0, vp.x, 24), Color(0.03, 0.02, 0.02, 0.55))
 
