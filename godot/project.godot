@@ -5,18 +5,20 @@ config_version=5
 [application]
 config/name="桌面武林"
 config/description="H5 增量武侠 → Godot 4.6 原生移植"
-run/main_scene="res://scenes/home.tscn"
+run/main_scene="res://scenes/desktop.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [autoload]
 CombatCore="*res://scripts/combat_core.gd"
 
 [display]
-; 房间图为竖版 3:4(1536×2048),窗口同比例→contain 适配后房间铺满整屏无灰边
-window/size/viewport_width=720
-window/size/viewport_height=960
+; 桌面挂机横条:无边框置顶,运行时由 desktop.gd 设为全屏宽×屏幕高/4 贴底。这里给个横条初值。
+window/size/viewport_width=1280
+window/size/viewport_height=320
+window/size/borderless=true
+window/size/always_on_top=true
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+window/stretch/aspect="expand"
 
 [gui]
 theme/custom="res://default_theme.tres"

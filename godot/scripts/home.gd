@@ -20,9 +20,12 @@ var tex_idle: Texture2D
 var tex_walk: Texture2D
 var ui_font: SystemFont
 
-# 滚屏模式:房间在 contain 适配基础上再等比放大 ROOM_ZOOM 倍(WalyCai:长宽各2倍),相机跟随主角滚动
-const ROOM_ZOOM := 2.0
-var _vph := 960.0  # 当前视口高,用于固定主角显示高(主角大小不随房间放大变化)
+# 滚屏模式:房间用 cover(max)铺满视口(任意宽高比都不留灰边),相机跟随主角滚动浏览。
+# 桌面横条里左室内=扁宽视口,cover 后房间比视口高→相机显示横向切片。ROOM_ZOOM 再叠加放大。
+const ROOM_ZOOM := 1.0
+var _vph := 960.0  # 当前视口高,用于按视口比例定主角显示高
+var PLAYER_H_FRAC := 0.4  # 主角显示高占视口高比例(桌面横条里主角要够显眼)
+var show_ui := true  # 内嵌到桌面外壳时置 false,由外壳提供顶栏/菜单
 
 # 房间在世界坐标的矩形(原点 0,0;_ox/_oy=0,相机负责滚动)
 var _ox := 0.0
@@ -79,7 +82,8 @@ func _ready() -> void:
 
 	_recalc_attrs()
 	_layout()
-	_build_ui()
+	if show_ui:
+		_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	set_process(true)
 
@@ -96,8 +100,8 @@ func _recalc_attrs() -> void:
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	_vph = vp.y
-	# contain 适配后再 ×ROOM_ZOOM:房间比视口大,靠相机滚动浏览
-	var s = min(vp.x / ROOM_W, vp.y / ROOM_H) * ROOM_ZOOM
+	# cover(max)铺满任意宽高比视口 + ×ROOM_ZOOM:房间≥视口,靠相机滚动浏览,不留灰边
+	var s = max(vp.x / ROOM_W, vp.y / ROOM_H) * ROOM_ZOOM
 	bg.scale = Vector2(s, s)
 	bg.position = Vector2.ZERO
 	_ox = 0.0
@@ -178,9 +182,11 @@ func _add_menu_btn(menu, t, cb: Callable) -> void:
 	menu.add_child(b)
 
 func _update_topbar() -> void:
+	if topbar == null: return
 	topbar.text = "❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   ☯ 功力 0   💪 战力 %d" % [stats.hp, stats.hpMax, stats.mana, stats.manaMax, stats.gold, stats.level, stats.cp]
 
 func _toast(msg: String) -> void:
+	if toast_label == null: return
 	toast_label.text = msg
 	toast_label.visible = true
 	toast_t = 2.0
@@ -277,8 +283,8 @@ func _update_player_sprite() -> void:
 		fclock = 0.0
 		fi = (fi + 1) % frames
 	player.frame = DIR_ROW[pdir] * frames + (fi % frames)
-	# 缩放 + 落点(脚底对齐)。显示高固定按视口(主角大小不随房间放大变化,WalyCai);约 _vph*0.11≈105px
-	var disp_h = _vph * 0.11
+	# 缩放 + 落点(脚底对齐)。显示高按视口比例(桌面横条里主角够显眼)
+	var disp_h = _vph * PLAYER_H_FRAC
 	var sc = disp_h / 96.0
 	player.scale = Vector2(sc, sc)
 	var ctr = room_to_screen(pcx, pcy)
