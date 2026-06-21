@@ -121,7 +121,7 @@ func _frame_of(tex, t: float) -> int:
 func _draw() -> void:
 	var vp = get_viewport_rect().size
 	var ground = vp.y * 0.86
-	var ch = vp.y * 0.5
+	var ch = vp.y * 0.34  # 与左侧居家主角显示高度统一(WalyCai+马奈:右侧不得明显大于左侧)
 	# 背景:暗色墙+地面带(临时基底,正式横版战斗场景待美术)
 	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0.10, 0.08, 0.07))
 	draw_rect(Rect2(0, ground * 0.5, vp.x, ground * 0.5), Color(0.12, 0.095, 0.075))  # 墙裙
