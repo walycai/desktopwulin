@@ -273,6 +273,63 @@ func sell_item(uid: int) -> int:
 	changed.emit()
 	return g
 
+# ---- 功法系统(P3)----
+func gf_state(id: String) -> Dictionary:
+	var g = s.gongfa.get(id, null)
+	if g == null: return {"lv": 0, "prof": 0}
+	return {"lv": int(g.get("lv", 0)), "prof": int(g.get("prof", 0))}
+
+func gf_owned_ids() -> Array:
+	var out := []
+	for g in CombatCore.GONGFA:
+		if s.gongfa.has(g.id): out.append(g.id)
+	return out
+
+func gf_buy(id: String) -> bool:
+	if s.gongfa.has(id): return false
+	var g = CombatCore.gongfa_by_id(id)
+	if g == null or int(s.gold) < int(g.price): return false
+	s.gold = int(s.gold) - int(g.price)
+	s.gongfa[id] = {"lv": 1, "prof": 0}
+	_recalc(); save_slot(slot); changed.emit()
+	return true
+
+func _slot_sys(slot_key: String) -> String:
+	for sl in CombatCore.GONGFA_SLOTS:
+		if sl.key == slot_key: return sl.sys
+	return ""
+
+func gf_equip(slot_key: String, id: String) -> bool:
+	var g = CombatCore.gongfa_by_id(id)
+	if g == null or not s.gongfa.has(id): return false
+	if g.sys != _slot_sys(slot_key): return false  # 系别需匹配槽位
+	# 同一功法已装其他槽则先卸
+	for k in s.gongfaEquip:
+		if s.gongfaEquip[k] == id: s.gongfaEquip[k] = null
+	s.gongfaEquip[slot_key] = id
+	_recalc(); save_slot(slot); changed.emit()
+	return true
+
+func gf_unequip(slot_key: String) -> void:
+	s.gongfaEquip[slot_key] = null
+	_recalc(); save_slot(slot); changed.emit()
+
+func set_train(id: String) -> void:
+	s.trainId = id
+	save_slot(slot); changed.emit()
+
+# 打坐修炼:给当前 trainId 加熟练度,够则升级(P4 打坐每秒调用)
+func train_gongfa(amt: int) -> void:
+	var id = s.get("trainId", null)
+	if id == null or not s.gongfa.has(id): return
+	var st = s.gongfa[id]
+	if int(st.get("lv", 1)) >= CombatCore.GONGFA_MAXLV: return
+	st["prof"] = int(st.get("prof", 0)) + amt
+	while int(st.lv) < CombatCore.GONGFA_MAXLV and int(st.prof) >= CombatCore.gf_prof_req(int(st.lv)):
+		st["prof"] = int(st.prof) - CombatCore.gf_prof_req(int(st.lv))
+		st["lv"] = int(st.lv) + 1
+	_recalc(); changed.emit()
+
 func _path(n: int) -> String:
 	return "user://save_%d.json" % n
 

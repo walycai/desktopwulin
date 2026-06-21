@@ -229,6 +229,7 @@ func _open_menu(key: String) -> void:
 	match key:
 		"equip": _open_panel("侠客装备", _fill_equip)
 		"skill": _open_panel("人物技能", _fill_skill)
+		"kungfu": _open_panel("功法", _fill_kungfu)
 		_: _open_panel("敬请期待", func(c): _placeholder(c, key))
 
 func _placeholder(c: Control, key: String) -> void:
@@ -522,3 +523,154 @@ func _refresh_skill() -> void:
 	for ch in panel_body.get_children():
 		ch.queue_free()
 	_fill_skill(panel_body)
+
+# ---- 功法面板(P3:装备4槽 + 已学修炼 + 商店购买)----
+func _fill_kungfu(c: Control) -> void:
+	var root := VBoxContainer.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 6)
+	c.add_child(root)
+	var tid = Player.s.get("trainId", null)
+	var tname = "—"
+	if tid != null and CombatCore.gongfa_by_id(tid) != null: tname = CombatCore.gongfa_by_id(tid).name
+	root.add_child(_hdr("金币 %d 💰   ·   打坐修炼中: %s" % [int(Player.s.gold), tname]))
+
+	# 功法装备槽(4)
+	var slots := HBoxContainer.new()
+	slots.add_theme_constant_override("separation", 8)
+	root.add_child(slots)
+	for sl in CombatCore.GONGFA_SLOTS:
+		slots.add_child(_kf_slot(sl))
+
+	# 已学 | 商店 两列
+	var cols := HBoxContainer.new()
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cols.add_theme_constant_override("separation", 12)
+	root.add_child(cols)
+	cols.add_child(_kf_list_owned())
+	cols.add_child(_kf_list_shop())
+
+func _kf_slot(sl: Dictionary) -> Control:
+	var p := PanelContainer.new()
+	p.custom_minimum_size = Vector2(170, 56)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.07, 0.95)
+	sb.border_color = Color(0.55, 0.44, 0.26)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(5)
+	sb.set_content_margin_all(5)
+	p.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	p.add_child(v)
+	var eid = Player.s.gongfaEquip.get(sl.key, null)
+	var t := Label.new()
+	t.add_theme_font_override("font", ui_font)
+	t.add_theme_font_size_override("font_size", 12)
+	t.add_theme_color_override("font_color", Color(0.8, 0.74, 0.5))
+	if eid != null and CombatCore.gongfa_by_id(eid) != null:
+		var g = CombatCore.gongfa_by_id(eid)
+		t.text = "[%s] %s Lv%d" % [sl.name, g.name, Player.gf_state(eid).lv]
+		t.add_theme_color_override("font_color", Color(g.color))
+		v.add_child(t)
+		var bu := Button.new()
+		bu.text = "卸下"
+		bu.add_theme_font_override("font", ui_font)
+		_style_btn(bu, false)
+		var k = sl.key
+		bu.pressed.connect(func(): Player.gf_unequip(k); _kf_refresh())
+		v.add_child(bu)
+	else:
+		t.text = "[%s] 空" % sl.name
+		v.add_child(t)
+	return p
+
+func _kf_list_owned() -> Control:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(_hdr("已学功法"))
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(sc)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(list)
+	for id in Player.gf_owned_ids():
+		var g = CombatCore.gongfa_by_id(id)
+		var stt = Player.gf_state(id)
+		var row := HBoxContainer.new()
+		var nm := Label.new()
+		nm.add_theme_font_override("font", ui_font)
+		nm.add_theme_font_size_override("font_size", 13)
+		nm.custom_minimum_size = Vector2(280, 0)
+		nm.text = "[%s]%s Lv%d (熟练 %d/%d)" % [g.tierName, g.name, stt.lv, stt.prof, CombatCore.gf_prof_req(stt.lv)]
+		nm.add_theme_color_override("font_color", Color(g.color))
+		row.add_child(nm)
+		var be := Button.new()
+		be.text = "装备"
+		be.add_theme_font_override("font", ui_font)
+		_style_btn(be, false)
+		var gid = id
+		be.pressed.connect(func(): _kf_equip(gid); _kf_refresh())
+		row.add_child(be)
+		var bt := Button.new()
+		bt.text = "修炼"
+		bt.add_theme_font_override("font", ui_font)
+		_style_btn(bt, Player.s.get("trainId", null) == id)
+		be.add_theme_font_override("font", ui_font)
+		bt.pressed.connect(func(): Player.set_train(gid); _kf_refresh())
+		row.add_child(bt)
+		list.add_child(row)
+	return box
+
+func _kf_list_shop() -> Control:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(_hdr("功法商店"))
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(sc)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(list)
+	for g in CombatCore.GONGFA:
+		if Player.s.gongfa.has(g.id): continue
+		var row := HBoxContainer.new()
+		var nm := Label.new()
+		nm.add_theme_font_override("font", ui_font)
+		nm.add_theme_font_size_override("font_size", 13)
+		nm.custom_minimum_size = Vector2(280, 0)
+		nm.text = "[%s]%s · %s系 · %d💰" % [g.tierName, g.name, _sys_cn(g.sys), int(g.price)]
+		nm.add_theme_color_override("font_color", Color(g.color))
+		row.add_child(nm)
+		var bb := Button.new()
+		bb.text = "购买"
+		bb.add_theme_font_override("font", ui_font)
+		bb.disabled = int(Player.s.gold) < int(g.price)
+		_style_btn(bb, false)
+		var gid = g.id
+		bb.pressed.connect(func(): Player.gf_buy(gid); _kf_refresh())
+		row.add_child(bb)
+		list.add_child(row)
+	return box
+
+func _kf_equip(id: String) -> void:
+	var g = CombatCore.gongfa_by_id(id)
+	if g == null: return
+	# 找本系第一个空槽,没有则用第一个本系槽替换
+	var first = null
+	for sl in CombatCore.GONGFA_SLOTS:
+		if sl.sys == g.sys:
+			if first == null: first = sl.key
+			if Player.s.gongfaEquip.get(sl.key, null) == null:
+				Player.gf_equip(sl.key, id); return
+	if first != null: Player.gf_equip(first, id)
+
+func _kf_refresh() -> void:
+	for ch in panel_body.get_children():
+		ch.queue_free()
+	_fill_kungfu(panel_body)
+
+func _sys_cn(sys: String) -> String:
+	return {"nei": "内功", "wai": "外功", "qing": "轻功"}.get(sys, sys)
