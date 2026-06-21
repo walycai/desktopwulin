@@ -3,14 +3,16 @@ extends Node2D
 # 睡觉=走到带帘床→藏起+床侧zzZ;打坐=走到书房/练功点→藏起+暖光效果。点房间任意处=走过去。
 # 数值走 CombatCore(与网页同源)。战斗/各UI面板是后续阶段。
 
-const ROOM_W := 1536.0
-const ROOM_H := 2048.0
+# 横向室内长卷(吴冠中 task#50,2048×768,侧视)。HOTSPOTS 归一化坐标来自其 hotspots.json。
+const ROOM_W := 2048.0
+const ROOM_H := 768.0
 var HOTSPOTS := {
-	"bed": Vector2(0.8529, 0.5518),
-	"bedZzz": Vector2(0.9049, 0.5176),
-	"door": Vector2(0.4557, 0.6250),
-	"doorFront": Vector2(0.4557, 0.6250),
-	"def": Vector2(0.4948, 0.3711),
+	"bed": Vector2(0.0859, 0.3724),       # 左侧帘床休息点
+	"bedZzz": Vector2(0.1396, 0.2695),    # 床头 zzZ 参考
+	"meditate": Vector2(0.8271, 0.5768),  # 右侧练功毯/木桩打坐点
+	"door": Vector2(0.9658, 0.5625),      # 右侧出门/历练衔接
+	"doorFront": Vector2(0.9658, 0.5625),
+	"def": Vector2(0.3174, 0.5469),       # 中左开阔木地板活动区(接近 room_shot4 比例)
 }
 
 var bg: Sprite2D
@@ -20,13 +22,10 @@ var tex_idle: Texture2D
 var tex_walk: Texture2D
 var ui_font: SystemFont
 
-# 桌面横条左室内(strip 模式, show_ui=false):**保持 room_shot4 的人物/家具/地砖比例**(WalyCai+马奈),
-# 不为塞进横条而整体压小;横条只是低高度视窗,相机跟随主角滚屏看房间。
-# → 用 FIXED 缩放(锚定 room_shot4:720×960 视口 contain×2 = 0.9375)+ 固定主角像素高(≈room_shot4 的 105px),
-#   与视口大小无关;视口越小看到越少、滚屏越多(正是 WalyCai 要的"画面框架缩小→更多滚屏")。
-const ROOM_FIXED_SCALE := 0.9375  # room_shot4 的家具/地砖缩放;吴冠中横向图到位后按新图重定
-const CHAR_FIXED_PX := 105.0      # room_shot4 的主角显示高(锁定 人物:家具 比例)
-# 全屏 legacy 模式(show_ui=true)仍用 cover×ROOM_ZOOM
+# 桌面横条左室内(strip 模式, show_ui=false):横向室内长卷用 cover 铺满面板,相机跟随主角横向滚屏。
+# 主角显示高 = 渲染后房间高 ×CHAR_H_FRAC → 人物随房间同比缩放,人物:家具 比例恒定(=吴冠中画进图里的 room_shot4 比例)。
+const CHAR_H_FRAC := 0.34   # 主角占渲染房间高比例(锁人物:家具比;按截图微调)
+# 全屏 legacy 模式(show_ui=true)用 cover×ROOM_ZOOM + 视口比例主角
 const ROOM_ZOOM := 2.0
 var _vph := 960.0
 var PLAYER_H_FRAC := 0.11
@@ -39,10 +38,10 @@ var _dw := 0.0
 var _dh := 0.0
 
 # 主角状态(归一化坐标 0..1)。初始站位=中部偏下的公共活动区(中庭主通道前),不压桌面/隔断(马奈)
-var pcx := 0.5
-var pcy := 0.68
-var tx := 0.5
-var ty := 0.68
+var pcx := 0.3174
+var pcy := 0.5469
+var tx := 0.3174
+var ty := 0.5469
 var pstate := "wander"  # wander / walking / sleeping / meditating
 var pdir := "down"
 const PSPEED := 0.32
@@ -67,7 +66,7 @@ func _ready() -> void:
 	ui_font.allow_system_fallback = true
 
 	bg = Sprite2D.new()
-	bg.texture = load("res://assets/home/static_room.png")
+	bg.texture = load("res://assets/home/static_room_horizontal.png")
 	bg.centered = false
 	add_child(bg)
 
@@ -105,13 +104,8 @@ func _recalc_attrs() -> void:
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	_vph = vp.y
-	var cover_s = max(vp.x / ROOM_W, vp.y / ROOM_H)  # 铺满视口的最小缩放(防白边保底)
-	var s: float
-	if show_ui:
-		s = cover_s * ROOM_ZOOM  # 全屏 legacy
-	else:
-		# strip:固定缩放保 room_shot4 比例;但不低于 cover 以防露白边
-		s = max(ROOM_FIXED_SCALE, cover_s)
+	var cover_s = max(vp.x / ROOM_W, vp.y / ROOM_H)  # 铺满视口的最小缩放(不留白边)
+	var s: float = cover_s * ROOM_ZOOM if show_ui else cover_s
 	bg.scale = Vector2(s, s)
 	bg.position = Vector2.ZERO
 	_ox = 0.0
@@ -207,7 +201,7 @@ func _on_sortie() -> void:
 func _go_action(action: String) -> void:
 	# 走到对应热点→到达后进入状态(睡/打坐都是藏起+特效)
 	pstate = "walking"
-	var target = HOTSPOTS.bed if action == "sleeping" else HOTSPOTS.doorFront
+	var target = HOTSPOTS.bed if action == "sleeping" else HOTSPOTS.meditate
 	tx = target.x
 	ty = target.y
 	set_meta("pending_action", action)
@@ -236,8 +230,8 @@ func _process(dt: float) -> void:
 		if wander_cd <= 0:
 			wander_cd = 2.2
 			if randf() < 0.6:
-				tx = 0.34 + randf() * 0.32
-				ty = 0.58 + randf() * 0.2
+				tx = 0.22 + randf() * 0.6
+				ty = 0.5 + randf() * 0.12
 	# toast 计时
 	if toast_t > 0:
 		toast_t -= dt
@@ -294,7 +288,7 @@ func _update_player_sprite() -> void:
 		fi = (fi + 1) % frames
 	player.frame = DIR_ROW[pdir] * frames + (fi % frames)
 	# 缩放 + 落点(脚底对齐)。strip:固定像素高保 人物:家具 比例(room_shot4);legacy:按视口比例
-	var disp_h = CHAR_FIXED_PX if not show_ui else _vph * PLAYER_H_FRAC
+	var disp_h = _dh * CHAR_H_FRAC if not show_ui else _vph * PLAYER_H_FRAC
 	var sc = disp_h / 96.0
 	player.scale = Vector2(sc, sc)
 	var ctr = room_to_screen(pcx, pcy)
@@ -307,7 +301,7 @@ func _draw() -> void:
 	if pstate == "sleeping":
 		_draw_zzz(room_to_screen(HOTSPOTS.bedZzz.x, HOTSPOTS.bedZzz.y))
 	elif pstate == "meditating":
-		_draw_door_glow(room_to_screen(HOTSPOTS.door.x, HOTSPOTS.door.y))
+		_draw_door_glow(room_to_screen(HOTSPOTS.meditate.x, HOTSPOTS.meditate.y))
 
 func _draw_zzz(p: Vector2) -> void:
 	var t1 = fmod(home_clock, 1.6) / 1.6
