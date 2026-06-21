@@ -12,8 +12,9 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 CombatCore="*res://scripts/combat_core.gd"
 
 [display]
-window/size/viewport_width=900
-window/size/viewport_height=540
+; 房间图为竖版 3:4(1536×2048),窗口同比例→contain 适配后房间铺满整屏无灰边
+window/size/viewport_width=720
+window/size/viewport_height=960
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
