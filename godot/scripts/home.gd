@@ -22,7 +22,7 @@ var ui_font: SystemFont
 
 # 滚屏模式:房间用 cover(max)铺满视口(任意宽高比都不留灰边),相机跟随主角滚动浏览。
 # 桌面横条里左室内=扁宽视口,cover 后房间比视口高→相机显示横向切片。ROOM_ZOOM 再叠加放大。
-const ROOM_ZOOM := 1.0
+const ROOM_ZOOM := 1.5  # >1 使房间宽于面板,相机裁掉竖图左右白边(临时;待吴冠中横向室内图)
 var _vph := 960.0  # 当前视口高,用于按视口比例定主角显示高
 var PLAYER_H_FRAC := 0.4  # 主角显示高占视口高比例(桌面横条里主角要够显眼)
 var show_ui := true  # 内嵌到桌面外壳时置 false,由外壳提供顶栏/菜单
