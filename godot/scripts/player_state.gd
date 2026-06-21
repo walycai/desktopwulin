@@ -80,8 +80,16 @@ func apply_combat_result(r: Dictionary) -> Dictionary:
 	# 掉落装备入仓库(P3 用),保留 稀有度/等级/词缀/武器类型
 	var drops = r.get("drops", [])
 	for d in drops:
-		var item = d.duplicate(true) if typeof(d) == TYPE_DICTIONARY else {}
-		item["uid"] = int(s.equipSeq)
+		if typeof(d) != TYPE_DICTIONARY: continue
+		# 掉落用 id 字段,装备/item_stats 用 tid → 统一存为 tid(对齐 H5 bankResult)
+		var item = {
+			"uid": int(s.equipSeq),
+			"tid": d.get("id", d.get("tid", "")),
+			"lv": int(d.get("lv", 1)),
+			"rarity": d.get("rarity", "common"),
+			"affixes": d.get("affixes", []),
+		}
+		if d.has("wtype") and d.wtype != null: item["wtype"] = d.wtype
 		s.equipSeq = int(s.equipSeq) + 1
 		s.warehouse.append(item)
 	s.gold = int(s.gold) + int(r.get("goldGained", 0))
@@ -105,6 +113,63 @@ func apply_combat_result(r: Dictionary) -> Dictionary:
 	save_slot(slot)
 	changed.emit()
 	return {"lvups": lvups, "drops": drops.size(), "unlocked_zone": unlocked_zone}
+
+# ---- 装备/仓库(P3)----
+const EQUIP_SLOTS := ["weapon", "head", "body", "legs", "neck", "ring", "belt"]
+
+func slot_of(item) -> String:
+	var tid = item.get("tid", "")
+	var d = CombatCore.SLOT_DEF.get(tid, null)
+	if d != null: return d.type
+	return str(tid)
+
+func item_name(item) -> String:
+	return CombatCore.item_name(item)
+
+func item_stats(item) -> Dictionary:
+	return CombatCore.item_stats(item)
+
+func rarity_color(item) -> Color:
+	var r = CombatCore.RARITY.get(item.get("rarity", "common"), null)
+	return Color(r.color) if r else Color(0.6, 0.6, 0.6)
+
+func _wh_index(uid: int) -> int:
+	for i in range(s.warehouse.size()):
+		if int(s.warehouse[i].get("uid", -1)) == uid: return i
+	return -1
+
+# 穿上后的战力(用于对比);不改动状态
+func cp_after_equip(item) -> int:
+	var es = slot_of(item)
+	var saved = s.equipped.get(es, null)
+	s.equipped[es] = item
+	var cp = combat_power()
+	if saved == null: s.equipped.erase(es)
+	else: s.equipped[es] = saved
+	return cp
+
+func equip_item(uid: int) -> void:
+	var idx = _wh_index(uid)
+	if idx < 0: return
+	var item = s.warehouse[idx]
+	var es = slot_of(item)
+	s.warehouse.remove_at(idx)
+	if s.equipped.has(es) and s.equipped[es] != null:
+		s.warehouse.append(s.equipped[es])  # 换下的回仓库
+	s.equipped[es] = item
+	_recalc()
+	save_slot(slot)
+	changed.emit()
+
+func sell_item(uid: int) -> int:
+	var idx = _wh_index(uid)
+	if idx < 0: return 0
+	var g = int(CombatCore.SELL.get(s.warehouse[idx].get("rarity", "common"), 0))
+	s.warehouse.remove_at(idx)
+	s.gold = int(s.gold) + g
+	save_slot(slot)
+	changed.emit()
+	return g
 
 func _path(n: int) -> String:
 	return "user://save_%d.json" % n

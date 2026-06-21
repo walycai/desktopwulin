@@ -17,6 +17,11 @@ var main_ui: Control
 var win_hidden := false
 var _full_size: Vector2i
 var _full_pos: Vector2i
+var panel_layer: Control
+var panel_body: Control
+var panel_title: Label
+var panel_open := false
+const EXPAND := Vector2i(1000, 640)  # 管理态窗口尺寸
 
 func _ready() -> void:
 	ui_font = SystemFont.new()
@@ -145,6 +150,9 @@ func _build() -> void:
 	restore_btn.pressed.connect(_toggle_hide)
 	add_child(restore_btn)
 
+	_build_menu()
+	_build_panel()
+
 func _style_btn(b: Button, prominent: bool) -> void:
 	# 古风按钮:深木底 + 金边;prominent(恢复键)金边更亮更厚
 	var edge := Color(0.82, 0.66, 0.34) if prominent else Color(0.55, 0.44, 0.26)
@@ -188,3 +196,227 @@ func _process(_dt: float) -> void:
 	# 顶栏读共享养成状态 Player(左家园+右历练同源)
 	var p = Player.s
 	topbar.text = "  ❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   💪 战力 %d" % [int(p.hp), int(p.hpMax), int(p.mana), int(p.manaMax), int(p.gold), int(p.level), Player.combat_power()]
+
+# ---- 左侧菜单(P3/P4 入口)----
+func _build_menu() -> void:
+	var mp := PanelContainer.new()
+	mp.position = Vector2(6, TOPBAR_H + 6)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.05, 0.04, 0.66)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(5)
+	sb.border_color = Color(0.5, 0.4, 0.24, 0.6)
+	sb.set_border_width_all(1)
+	mp.add_theme_stylebox_override("panel", sb)
+	main_ui.add_child(mp)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 4)
+	mp.add_child(col)
+	for it in [["🎒 装备", "equip"], ["🌳 技能", "skill"], ["☯ 功法", "kungfu"], ["🏠 居家", "home"]]:
+		var b := Button.new()
+		b.text = it[0]
+		b.add_theme_font_override("font", ui_font)
+		b.add_theme_font_size_override("font_size", 12)
+		b.custom_minimum_size = Vector2(74, 26)
+		_style_btn(b, false)
+		var key = it[1]
+		b.pressed.connect(func(): _open_menu(key))
+		col.add_child(b)
+
+func _open_menu(key: String) -> void:
+	match key:
+		"equip": _open_panel("侠客装备", _fill_equip)
+		_: _open_panel("敬请期待", func(c): _placeholder(c, key))
+
+func _placeholder(c: Control, key: String) -> void:
+	var l := Label.new()
+	l.text = "「%s」面板 · 迁移进行中" % key
+	l.add_theme_font_override("font", ui_font)
+	l.add_theme_font_size_override("font_size", 18)
+	l.add_theme_color_override("font_color", Color(0.7, 0.62, 0.45))
+	l.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	c.add_child(l)
+
+# ---- 管理态面板框架(点菜单→窗口放大→面板)----
+func _build_panel() -> void:
+	panel_layer = Control.new()
+	panel_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel_layer.visible = false
+	add_child(panel_layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.07, 0.06, 0.05, 0.99)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel_layer.add_child(bg)
+	# 标题栏
+	var bar := PanelContainer.new()
+	bar.anchor_right = 1.0
+	bar.offset_bottom = 36
+	var bsb := StyleBoxFlat.new()
+	bsb.bg_color = Color(0.12, 0.09, 0.06, 1.0)
+	bsb.border_color = Color(0.6, 0.46, 0.26)
+	bsb.set_border_width_all(1)
+	bar.add_theme_stylebox_override("panel", bsb)
+	panel_layer.add_child(bar)
+	panel_title = Label.new()
+	panel_title.add_theme_font_override("font", ui_font)
+	panel_title.add_theme_font_size_override("font_size", 18)
+	panel_title.add_theme_color_override("font_color", Color(0.96, 0.86, 0.6))
+	panel_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel_title.position = Vector2(14, 0)
+	bar.add_child(panel_title)
+	var close := Button.new()
+	close.text = "✕ 关闭"
+	close.add_theme_font_override("font", ui_font)
+	close.anchor_left = 1.0
+	close.anchor_right = 1.0
+	close.offset_left = -86
+	close.offset_right = -8
+	close.offset_top = 4
+	close.offset_bottom = 32
+	_style_btn(close, true)
+	close.pressed.connect(_close_panel)
+	bar.add_child(close)
+	# 内容区
+	panel_body = Control.new()
+	panel_body.anchor_right = 1.0
+	panel_body.anchor_bottom = 1.0
+	panel_body.offset_top = 44
+	panel_body.offset_left = 10
+	panel_body.offset_right = -10
+	panel_body.offset_bottom = -10
+	panel_layer.add_child(panel_body)
+
+func _open_panel(title: String, fill: Callable) -> void:
+	panel_open = true
+	panel_title.text = title
+	for c in panel_body.get_children():
+		c.queue_free()
+	fill.call(panel_body)
+	panel_layer.visible = true
+	main_ui.visible = false
+	if DisplayServer.get_name() != "headless" and _full_size.x > 0:
+		var ss := DisplayServer.screen_get_size()
+		DisplayServer.window_set_size(EXPAND)
+		DisplayServer.window_set_position(Vector2i((ss.x - EXPAND.x) / 2, (ss.y - EXPAND.y) / 2))
+
+func _close_panel() -> void:
+	panel_open = false
+	panel_layer.visible = false
+	main_ui.visible = true
+	if DisplayServer.get_name() != "headless" and _full_size.x > 0:
+		DisplayServer.window_set_size(_full_size)
+		DisplayServer.window_set_position(_full_pos)
+
+# ---- 装备面板(P3:纸娃娃 + 仓库 + 穿戴/对比/出售)----
+func _fill_equip(c: Control) -> void:
+	var hb := HBoxContainer.new()
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.add_theme_constant_override("separation", 12)
+	c.add_child(hb)
+
+	# 左:已装备(纸娃娃)
+	var left := VBoxContainer.new()
+	left.custom_minimum_size = Vector2(330, 0)
+	hb.add_child(left)
+	var lt := _hdr("已装备 · 战力 %d" % Player.combat_power())
+	left.add_child(lt)
+	for sl in Player.EQUIP_SLOTS:
+		var it = Player.s.equipped.get(sl, null)
+		var row := Label.new()
+		row.add_theme_font_override("font", ui_font)
+		row.add_theme_font_size_override("font_size", 14)
+		if it == null:
+			row.text = "[%s] —— 空 ——" % _slot_cn(sl)
+			row.add_theme_color_override("font_color", Color(0.5, 0.48, 0.42))
+		else:
+			row.text = "[%s] %s  %s" % [_slot_cn(sl), Player.item_name(it), _stat_brief(Player.item_stats(it))]
+			row.add_theme_color_override("font_color", Player.rarity_color(it))
+		left.add_child(row)
+
+	# 右:仓库(可滚动列表)
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(right)
+	right.add_child(_hdr("武器仓库 %d 件 · 金币 %d" % [Player.s.warehouse.size(), int(Player.s.gold)]))
+	var tools := HBoxContainer.new()
+	right.add_child(tools)
+	var sellc := Button.new()
+	sellc.text = "一键卖凡品+精良"
+	sellc.add_theme_font_override("font", ui_font)
+	_style_btn(sellc, false)
+	sellc.pressed.connect(_sell_low)
+	tools.add_child(sellc)
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_child(sc)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(list)
+	var cur_cp = Player.combat_power()
+	var shown = 0
+	for item in Player.s.warehouse:
+		if shown >= 60:  # 列表上限,避免一次铺太多(后续做分页/筛选)
+			break
+		shown += 1
+		list.add_child(_equip_row(item, cur_cp))
+
+func _equip_row(item: Dictionary, cur_cp: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var nm := Label.new()
+	nm.add_theme_font_override("font", ui_font)
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.custom_minimum_size = Vector2(360, 0)
+	var delta = Player.cp_after_equip(item) - cur_cp
+	var arrow = ("  ▲+%d" % delta) if delta > 0 else (("  ▼%d" % delta) if delta < 0 else "  =")
+	nm.text = "【%s】%s Lv%d  %s%s" % [CombatCore.RARITY[item.get("rarity", "common")].name, Player.item_name(item), int(item.get("lv", 1)), _stat_brief(Player.item_stats(item)), arrow]
+	nm.add_theme_color_override("font_color", Player.rarity_color(item))
+	row.add_child(nm)
+	var uid = int(item.get("uid", -1))
+	var be := Button.new()
+	be.text = "穿"
+	be.add_theme_font_override("font", ui_font)
+	be.custom_minimum_size = Vector2(40, 0)
+	_style_btn(be, false)
+	be.pressed.connect(func(): Player.equip_item(uid); _refresh_equip())
+	row.add_child(be)
+	var bs := Button.new()
+	bs.text = "卖 %d💰" % int(CombatCore.SELL.get(item.get("rarity", "common"), 0))
+	bs.add_theme_font_override("font", ui_font)
+	_style_btn(bs, false)
+	bs.pressed.connect(func(): Player.sell_item(uid); _refresh_equip())
+	row.add_child(bs)
+	return row
+
+func _refresh_equip() -> void:
+	for c in panel_body.get_children():
+		c.queue_free()
+	_fill_equip(panel_body)
+
+func _sell_low() -> void:
+	var to_sell := []
+	for item in Player.s.warehouse:
+		if item.get("rarity", "common") in ["common", "fine"]:
+			to_sell.append(int(item.get("uid", -1)))
+	for uid in to_sell:
+		Player.sell_item(uid)
+	_refresh_equip()
+
+func _hdr(t: String) -> Label:
+	var l := Label.new()
+	l.text = t
+	l.add_theme_font_override("font", ui_font)
+	l.add_theme_font_size_override("font_size", 15)
+	l.add_theme_color_override("font_color", Color(0.95, 0.84, 0.55))
+	return l
+
+func _stat_brief(st: Dictionary) -> String:
+	var parts := []
+	for k in ["ATK", "HP", "DEF", "Crit", "CritDmg", "Hit", "Dodge", "ATKspd", "Mana"]:
+		if st.has(k) and st[k] != 0:
+			parts.append("%s+%d" % [k, int(st[k])])
+	return " ".join(parts)
+
+func _slot_cn(sl: String) -> String:
+	return {"weapon": "武器", "head": "头", "body": "身", "legs": "腿", "neck": "项", "ring": "戒", "belt": "带"}.get(sl, sl)
