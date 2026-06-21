@@ -3,9 +3,9 @@ extends Node2D
 # 本脚本只做渲染:主角+敌人精灵、血条、漂浮伤害、内力/技能、HUD。挂机式:打完(死/cap)自动重开。
 
 const FRAME := 64.0          # 战斗精灵单帧 64×64(单行横向帧表)
-const PLAYER_SX := 64.0      # 主角屏幕 x
 const SEEDV := 7
-const LANE := 820.0          # 与 sim laneLen 一致
+const VIEW_LANE := 360.0     # 可视战场只映射近战段(sim laneLen=820);远处敌人从右侧屏外走入,战斗更集中不空
+var player_sx := 80.0        # 主角屏幕 x(每帧按视口宽重算,见 _refresh_layout)
 
 var sim
 var ui_font: SystemFont
@@ -24,9 +24,11 @@ func _ready() -> void:
 	ui_font.allow_system_fallback = true
 	info = Label.new()
 	info.add_theme_font_override("font", ui_font)
-	info.add_theme_font_size_override("font_size", 13)
-	info.add_theme_color_override("font_color", Color(0.95, 0.88, 0.66))
-	info.position = Vector2(8, 5)
+	info.add_theme_font_size_override("font_size", 14)
+	info.add_theme_color_override("font_color", Color(1.0, 0.93, 0.72))
+	info.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	info.add_theme_constant_override("outline_size", 3)
+	info.position = Vector2(10, 4)
 	add_child(info)
 	_start()
 	set_process(true)
@@ -55,6 +57,7 @@ func _tex(path: String):
 func _process(dt: float) -> void:
 	if sim == null:
 		return
+	player_sx = get_viewport_rect().size.x * 0.18
 	anim_t += dt
 	if sim.is_done():
 		restart_t += dt
@@ -74,13 +77,13 @@ func _process(dt: float) -> void:
 	if st.lastCast != null:
 		var nm = _ability_name(st.lastCast)
 		if nm != "":
-			_add_float(PLAYER_SX + 30, -0.85, nm, Color(1.0, 0.82, 0.35))
+			_add_float(player_sx + 30, -0.85, nm, Color(1.0, 0.82, 0.35))
 	# 回血绿字
 	if st.lastHeal > 0:
-		_add_float(PLAYER_SX, -0.9, "+" + str(int(st.lastHeal)), Color(0.5, 1.0, 0.5))
+		_add_float(player_sx, -0.9, "+" + str(int(st.lastHeal)), Color(0.5, 1.0, 0.5))
 	# 主角受击黄字
 	if st.P.hp < prev_hp - 0.5:
-		_add_float(PLAYER_SX, -0.7, str(int(prev_hp - st.P.hp)), Color(1.0, 0.85, 0.3))
+		_add_float(player_sx, -0.7, str(int(prev_hp - st.P.hp)), Color(1.0, 0.85, 0.3))
 	prev_hp = st.P.hp
 	prev_kills = st.kills
 	for f in floats:
@@ -106,8 +109,8 @@ func _add_float(sx: float, y_frac: float, text: String, col: Color) -> void:
 
 func _sx(simx: float) -> float:
 	var vp = get_viewport_rect().size
-	var lane_px = vp.x - PLAYER_SX - 36.0
-	return PLAYER_SX + (simx / LANE) * lane_px
+	var lane_px = vp.x - player_sx - 28.0
+	return player_sx + (simx / VIEW_LANE) * lane_px  # 远敌(simx>VIEW_LANE)映到屏外右,自然走入
 
 func _frame_of(tex, t: float) -> int:
 	if tex == null:
@@ -119,10 +122,15 @@ func _draw() -> void:
 	var vp = get_viewport_rect().size
 	var ground = vp.y * 0.86
 	var ch = vp.y * 0.5
-	# 背景:暗色地面带
-	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0.09, 0.07, 0.06))
-	draw_rect(Rect2(0, ground - 2, vp.x, vp.y - ground + 2), Color(0.16, 0.12, 0.09))
-	draw_line(Vector2(0, ground), Vector2(vp.x, ground), Color(0.3, 0.24, 0.16), 2.0)
+	# 背景:暗色墙+地面带(临时基底,正式横版战斗场景待美术)
+	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0.10, 0.08, 0.07))
+	draw_rect(Rect2(0, ground * 0.5, vp.x, ground * 0.5), Color(0.12, 0.095, 0.075))  # 墙裙
+	draw_line(Vector2(0, ground * 0.5), Vector2(vp.x, ground * 0.5), Color(0.16, 0.12, 0.09), 1.0)
+	draw_rect(Rect2(0, ground - 2, vp.x, vp.y - ground + 2), Color(0.18, 0.14, 0.10))  # 地面
+	draw_line(Vector2(0, ground), Vector2(vp.x, ground), Color(0.34, 0.26, 0.17), 2.0)
+	draw_line(Vector2(0, (ground + vp.y) * 0.5), Vector2(vp.x, (ground + vp.y) * 0.5), Color(0.14, 0.11, 0.08), 1.0)
+	# 顶部 HUD 半透明背板(让历练状态行更醒目)
+	draw_rect(Rect2(0, 0, vp.x, 24), Color(0.03, 0.02, 0.02, 0.55))
 
 	if sim == null:
 		return
@@ -150,18 +158,18 @@ func _draw() -> void:
 	# 主角
 	var p_anim = "down" if st.P.hp <= 0 else ("attack" if p_atk > 0 else "idle")
 	var ptex = _tex("res://assets/characters/protagonist_combat/%s.png" % p_anim)
-	_draw_sprite(ptex, PLAYER_SX, ground, ch, false)
+	_draw_sprite(ptex, player_sx, ground, ch, false)
 	# 主角血条 + 内力条
-	_draw_hp_bar(PLAYER_SX, ground - ch - 8, 56, float(max(0, st.P.hp)) / float(st.P.hpMax), Color(0.37, 0.75, 0.37))
+	_draw_hp_bar(player_sx, ground - ch - 8, 56, float(max(0, st.P.hp)) / float(st.P.hpMax), Color(0.37, 0.75, 0.37))
 	if st.manaMax > 0:
-		_draw_hp_bar(PLAYER_SX, ground - ch - 1, 56, float(st.mana) / float(st.manaMax), Color(0.35, 0.62, 0.88))
+		_draw_hp_bar(player_sx, ground - ch - 1, 56, float(st.mana) / float(st.manaMax), Color(0.35, 0.62, 0.88))
 	# 挥击弧光
 	if p_atk > 0:
 		var a = p_atk / 0.18
-		draw_arc(Vector2(PLAYER_SX + ch * 0.35, ground - ch * 0.5), ch * 0.5, -0.7, 0.7, 10, Color(1.0, 0.92, 0.6, a), 3.0)
+		draw_arc(Vector2(player_sx + ch * 0.35, ground - ch * 0.5), ch * 0.5, -0.7, 0.7, 10, Color(1.0, 0.92, 0.6, a), 3.0)
 	# 狂暴光环
 	if st.haste > 0:
-		draw_arc(Vector2(PLAYER_SX, ground - ch * 0.5), ch * 0.55, 0, TAU, 24, Color(1.0, 0.6, 0.2, 0.5), 2.0)
+		draw_arc(Vector2(player_sx, ground - ch * 0.5), ch * 0.55, 0, TAU, 24, Color(1.0, 0.6, 0.2, 0.5), 2.0)
 
 	# 漂浮文字
 	for f in floats:
