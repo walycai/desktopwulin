@@ -1,0 +1,36 @@
+{
+  "image": "assets/tiles/home/static_room_horizontal.png",
+  "size": { "w": 2048, "h": 768 },
+  "hotspots": {
+    "bed_sleep_anchor": {
+      "px": { "x": 176, "y": 286 },
+      "norm": { "x": 0.0859, "y": 0.3724 },
+      "action": "sleeping",
+      "note": "左侧帘床休息点。主角走到床区后隐藏，只触发睡觉效果。"
+    },
+    "bed_zzz_reference": {
+      "px": { "x": 286, "y": 207 },
+      "norm": { "x": 0.1396, "y": 0.2695 },
+      "action": "sleeping",
+      "note": "床头/床侧 zzZ 效果参考点。"
+    },
+    "meditate_anchor": {
+      "px": { "x": 1694, "y": 443 },
+      "norm": { "x": 0.8271, "y": 0.5768 },
+      "action": "meditating",
+      "note": "右侧练功毯/木桩区打坐或练功效果中心。"
+    },
+    "expedition_door": {
+      "px": { "x": 1978, "y": 432 },
+      "norm": { "x": 0.9658, "y": 0.5625 },
+      "action": "sortie",
+      "note": "右侧出门/历练衔接点，给横条右侧历练面板过渡使用。"
+    },
+    "default_player_start": {
+      "px": { "x": 650, "y": 420 },
+      "norm": { "x": 0.3174, "y": 0.5469 },
+      "action": "idle",
+      "note": "中左开阔木地板活动区，接近 room_shot4 的主角与家具比例关系。"
+    }
+  }
+}

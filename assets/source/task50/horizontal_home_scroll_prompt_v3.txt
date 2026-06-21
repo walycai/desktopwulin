@@ -1,0 +1,12 @@
+Use case: style-transfer
+Asset type: horizontal scrolling home background for Desktop Wulin desktop idle widget
+Input images: Image 1 is the required scale reference from room_shot4: preserve the relative size of protagonist, chairs, tables, cabinets, shelves, floor planks and furniture. Image 2 is a rough horizontal draft; use only its wide-room idea, not its smaller compressed object scale.
+Primary request: Create v2 horizontal indoor home background as a wide scrolling room strip for the LEFT panel of a desktop idle widget. The viewport is low-height, but assets must NOT be scaled down to fit. Keep the same object/person/floor-tile scale as Image 1, and solve space by making the room wider horizontally with shallow depth.
+Composition/framing: 2048x768 wide room/house interior, rectilinear top-down/front orthographic wuxia room slice. It should be a horizontal long-scroll room: left section curtained bed/rest area, center protagonist activity/tea-study area, right section meditation/training area with weapons/scrolls, plus shelves/cabinets distributed along the back wall. Shallow vertical depth; clear walkable lane along the lower-middle. No white or empty border at left/right edges.
+Scale constraints: protagonist should be about the same apparent height relative to chairs/tables as in Image 1; chair seats, table top, cabinets and floor planks should feel identical in scale to Image 1. Do not shrink furniture or protagonist to show the whole room in one small strip.
+Functional hotspots to make visually clear: bed/rest point in left third; default protagonist/central activity point near center; meditation/training point in right third; exit/expedition door or threshold at far right or lower-right edge.
+Style/medium: refined Chinese martial-arts pixel-game background, hand-painted pixel feel, warm aged wood floor, beige paper walls, dark carved furniture, muted jade/ink accents, consistent with current Desktop Wulin room art.
+Constraints: background art only, no UI overlay, no topbar, no side menu, no labels, no character speech, no modern appliances, no western bathroom, no full portrait courtyard, no isometric diamond grid, no gray/white side strips.
+Avoid: compressing the entire tall house into the strip, tiny furniture, tiny protagonist, large empty garden, visible UI buttons, watermark, signature.
+
+Follow-up edit: remove only the visible protagonist/character from the room background and naturally restore the wood floor behind them. Keep room scale and composition unchanged.
