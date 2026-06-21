@@ -35,13 +35,18 @@ func _ready() -> void:
 	_start()
 	set_process(true)
 
+var run_n := 0
+var result_applied := false
+
 func _start() -> void:
-	var bc = CombatCore.build_to_combat({"level": 12, "skills": {}, "gongfa": {}, "gongfaEquip": {}, "equipped": {}})
+	# 用真实共享养成状态的 build(P1):等级/技能/功法/装备 → 属性,与左家园同源
+	var bc = CombatCore.build_to_combat(Player.build())
+	run_n += 1
 	var cfg = {
-		"attrs": bc.attrs, "seed": SEEDV,
+		"attrs": bc.attrs, "seed": SEEDV + run_n,
 		"abilities": bc.get("abilities", []), "enchant": bc.get("enchant", {}),
 		"manaRegen": bc.get("manaRegen", 8), "playerRange": bc.get("playerRange", 0),
-		"spawnTypes": ["thug", "bandit"], "lvMin": 1, "lvMax": 3,
+		"spawnTypes": ["thug"], "lvMin": 1, "lvMax": 2,  # P1:暂锚牛家村(zone0);10地图分区留 P2
 		"zoneIdx": 0, "startMana": 0, "cap": 99999,
 		"playerRegen": bc.get("neiRegenFlat", 0),
 	}
@@ -50,6 +55,7 @@ func _start() -> void:
 	prev_hp = bc.attrs.HP
 	floats.clear()
 	p_atk = 0.0
+	result_applied = false
 
 func _tex(path: String):
 	if not tex_cache.has(path):
@@ -62,6 +68,11 @@ func _process(dt: float) -> void:
 	player_sx = get_viewport_rect().size.x * 0.18
 	anim_t += dt
 	if sim.is_done():
+		if not result_applied:
+			result_applied = true
+			var res = Player.apply_combat_result(sim.result())  # 经验/金币回流→升级,存档
+			if res.lvups > 0:
+				_add_float(player_sx, -1.0, "升级! Lv%d" % int(Player.s.level), Color(1.0, 0.9, 0.3))
 		restart_t += dt
 		if restart_t > 1.6:
 			restart_t = 0.0
@@ -94,7 +105,8 @@ func _process(dt: float) -> void:
 	var mana_s = ""
 	if st.manaMax > 0:
 		mana_s = " · 内力 %d/%d" % [int(st.mana), int(st.manaMax)]
-	info.text = "历练中 · 已杀 %d · 气血 %d/%d%s · 场上敌 %d" % [st.kills, int(max(0, st.P.hp)), int(st.P.hpMax), mana_s, st.enemies.size()]
+	# HUD 显示共享养成状态(等级/金币,与左家园同源)+ 本场战况
+	info.text = "Lv%d · 历练 已杀%d · 气血%d/%d%s · 金币%d" % [int(Player.s.level), st.kills, int(max(0, st.P.hp)), int(st.P.hpMax), mana_s, int(Player.s.gold)]
 	queue_redraw()
 
 func _ability_name(lc) -> String:

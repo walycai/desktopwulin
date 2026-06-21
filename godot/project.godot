@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 [autoload]
 CombatCore="*res://scripts/combat_core.gd"
+Player="*res://scripts/player_state.gd"
 
 [display]
 ; 桌面挂机横条:无边框置顶,运行时由 desktop.gd 设为全屏宽×屏幕高/4 贴底。这里给个横条初值。

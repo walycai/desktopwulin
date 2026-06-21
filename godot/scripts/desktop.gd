@@ -183,7 +183,8 @@ func _toggle_hide() -> void:
 		DisplayServer.window_set_position(_full_pos)
 
 func _process(_dt: float) -> void:
-	if win_hidden or home_view == null or topbar == null:
+	if win_hidden or topbar == null:
 		return
-	var s = home_view.stats
-	topbar.text = "  ❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   💪 战力 %d" % [s.hp, s.hpMax, s.get("mana", 0), s.get("manaMax", 0), s.gold, s.level, s.get("cp", 0)]
+	# 顶栏读共享养成状态 Player(左家园+右历练同源)
+	var p = Player.s
+	topbar.text = "  ❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   💪 战力 %d" % [int(p.hp), int(p.hpMax), int(p.mana), int(p.manaMax), int(p.gold), int(p.level), Player.combat_power()]
