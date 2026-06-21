@@ -50,8 +50,13 @@ func _start() -> void:
 		"abilities": bc.get("abilities", []), "enchant": bc.get("enchant", {}),
 		"manaRegen": bc.get("manaRegen", 8), "playerRange": bc.get("playerRange", 0),
 		"spawnTypes": z.types, "lvMin": z.lvMin, "lvMax": z.lvMax,
-		"zoneIdx": int(Player.s.zone), "startMana": 0, "cap": 99999,
+		"zoneIdx": int(Player.s.zone), "cap": 99999,
+		"startHp": int(Player.s.hp), "startMana": int(Player.s.mana),  # 从持久气血/内力续战(打坐/睡觉恢复)
 		"playerRegen": bc.get("neiRegenFlat", 0),
+		# 居家技能 → 战斗(P4):精英概率/掉落品质/刷怪速度
+		"eliteChance": Player.combat_elite_chance(),
+		"dropQuality": Player.combat_drop_quality(),
+		"spawnInterval": Player.combat_spawn_interval(),
 	}
 	if is_boss_run:
 		cfg["boss"] = z.boss

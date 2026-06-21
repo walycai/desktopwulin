@@ -173,9 +173,6 @@ func _recalc() -> void:
 func home_sp_total() -> int:
 	return int(int(s.level) / 10)  # 每10级+1居家技能点(WalyCai:取消环境值,改级别制)
 
-func home_sp_left() -> int:
-	return max(0, home_sp_total() - int(s.get("homeSpSpent", 0)))
-
 # 战斗结算回流:掉落入库 + 经验/金币 → 升级 + boss击杀解锁下一区。返回 {lvups,drops,unlocked_zone}
 func apply_combat_result(r: Dictionary) -> Dictionary:
 	var lvups := 0
@@ -194,6 +191,12 @@ func apply_combat_result(r: Dictionary) -> Dictionary:
 		if d.has("wtype") and d.wtype != null: item["wtype"] = d.wtype
 		s.equipSeq = int(s.equipSeq) + 1
 		s.warehouse.append(item)
+	# 战斗后持久气血/内力带回(对齐 H5 bankResult):败=20%上限,胜=剩余
+	if r.get("outcome", "win") == "lose":
+		s.hp = max(1, int(s.hpMax * 0.2))
+	else:
+		s.hp = max(1, int(r.get("hpRemaining", s.hpMax)))
+	s.mana = clampi(int(r.get("manaRemaining", 0)), 0, int(s.manaMax))
 	s.gold = int(s.gold) + int(r.get("goldGained", 0))
 	s.exp = int(s.exp) + int(r.get("expGained", 0))
 	while s.exp >= CombatCore.next_exp(int(s.level)):
@@ -266,12 +269,77 @@ func equip_item(uid: int) -> void:
 func sell_item(uid: int) -> int:
 	var idx = _wh_index(uid)
 	if idx < 0: return 0
-	var g = int(CombatCore.SELL.get(s.warehouse[idx].get("rarity", "common"), 0))
+	var it = s.warehouse[idx]
+	var base = float(CombatCore.SELL.get(it.get("rarity", "common"), 0))
+	var af = it.get("affixes", []).size()
+	# 精算(sell_price)每级+12% + 词缀加成(对齐 H5)
+	var g = roundi(base * (1.0 + af * 0.15) * (1.0 + home_rank("sell_price") * 0.12))
 	s.warehouse.remove_at(idx)
 	s.gold = int(s.gold) + g
 	save_slot(slot)
 	changed.emit()
 	return g
+
+# ---- 居家技能(P4)----
+const HOME_SKILLS := [
+	{"id": "spawn_speed", "name": "诱敌", "max": 1, "desc": "历练刷怪速度+50%(可开关)"},
+	{"id": "sell_price", "name": "精算", "max": 5, "desc": "装备售价+12%/级"},
+	{"id": "drop_quality", "name": "寻宝", "max": 5, "desc": "高品质掉落概率+/级"},
+	{"id": "elite_chance", "name": "群英", "max": 5, "desc": "精英怪概率+3%/级"},
+]
+const HOME_AUTO := [
+	{"id": "auto_sleep", "name": "回家自动睡觉", "desc": "受伤自动上床回血", "excl": ""},
+	{"id": "auto_meditate", "name": "满血自动打坐", "desc": "满血自动打坐修炼(与自动历练互斥)", "excl": "auto_sortie"},
+	{"id": "auto_sortie", "name": "满血自动历练", "desc": "满血自动进上次地图(与自动打坐互斥)", "excl": "auto_meditate"},
+]
+
+func home_rank(id: String) -> int:
+	return int(s.homeSkills.get(id, 0))
+
+func home_spent() -> int:
+	var t := 0
+	for k in s.homeSkills: t += int(s.homeSkills[k])
+	return t
+
+func home_sp_left() -> int:
+	return max(0, home_sp_total() - home_spent())
+
+func home_adj(id: String, d: int) -> void:
+	var n = null
+	for x in HOME_SKILLS:
+		if x.id == id: n = x
+	if n == null: return
+	if d > 0:
+		if home_sp_left() <= 0 or home_rank(id) >= int(n.max): return
+		s.homeSkills[id] = home_rank(id) + 1
+	else:
+		if home_rank(id) <= 0: return
+		s.homeSkills[id] = home_rank(id) - 1
+		if s.homeSkills[id] == 0: s.homeSkills.erase(id)
+	_recalc(); save_slot(slot); changed.emit()
+
+func learn_auto(id: String) -> void:
+	if home_rank(id) > 0 or home_sp_left() <= 0: return
+	s.homeSkills[id] = 1
+	save_slot(slot); changed.emit()
+
+func auto_on(id: String) -> bool:
+	return home_rank(id) > 0 and bool(s.autoOn.get(id, false))
+
+func toggle_auto(id: String) -> void:
+	if home_rank(id) <= 0: return
+	var on = not bool(s.autoOn.get(id, false))
+	s.autoOn[id] = on
+	if on:
+		for x in HOME_AUTO:
+			if x.id == id and x.excl != "": s.autoOn[x.excl] = false
+	save_slot(slot); changed.emit()
+
+# 居家技能 → 战斗 cfg(对齐 H5 startCombat)
+func combat_elite_chance() -> float: return home_rank("elite_chance") * 0.03
+func combat_drop_quality() -> float: return home_rank("drop_quality") * 0.2
+func combat_spawn_interval() -> float:
+	return 1.8 * ((1.0 / 1.5) if (home_rank("spawn_speed") > 0 and not bool(s.get("spawnSpeedOff", false))) else 1.0)
 
 # ---- 功法系统(P3)----
 func gf_state(id: String) -> Dictionary:

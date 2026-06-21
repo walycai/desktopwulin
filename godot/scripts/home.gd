@@ -232,11 +232,34 @@ func _process(dt: float) -> void:
 			if randf() < 0.6:
 				tx = 0.22 + randf() * 0.6
 				ty = 0.5 + randf() * 0.12
+	_home_tick(dt)
 	# toast 计时
 	if toast_t > 0:
 		toast_t -= dt
 		if toast_t <= 0: toast_label.visible = false
 	queue_redraw()
+
+# P4:打坐→修炼功法 / 睡觉→回血 / 自动行为(居家技能开关)
+var _train_acc := 0.0
+var _heal_acc := 0.0
+func _home_tick(dt: float) -> void:
+	if pstate == "meditating":
+		_train_acc += dt
+		if _train_acc >= 0.4:
+			_train_acc = 0.0
+			Player.train_gongfa(2)  # 打坐积累功法熟练度
+	elif pstate == "sleeping":
+		if int(Player.s.hp) < int(Player.s.hpMax):
+			_heal_acc += dt
+			if _heal_acc >= 0.3:
+				_heal_acc = 0.0
+				Player.s.hp = min(int(Player.s.hpMax), int(Player.s.hp) + max(1, int(Player.s.hpMax * 0.03)))
+	elif pstate == "wander":
+		# 自动行为:受伤自动睡 / 满血自动打坐
+		if Player.auto_on("auto_sleep") and int(Player.s.hp) < int(Player.s.hpMax) * 0.5:
+			_go_action("sleeping")
+		elif Player.auto_on("auto_meditate") and int(Player.s.hp) >= int(Player.s.hpMax) and Player.s.get("trainId", null) != null:
+			_go_action("meditating")
 
 func _update_player(dt: float) -> void:
 	if pstate == "walking" or pstate == "wander":

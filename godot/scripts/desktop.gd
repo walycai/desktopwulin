@@ -212,12 +212,12 @@ func _build_menu() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	mp.add_child(col)
-	for it in [["🎒 装备", "equip"], ["🌳 技能", "skill"], ["☯ 功法", "kungfu"], ["🏠 居家", "home"]]:
+	for it in [["🎒 装备", "equip"], ["🌳 技能", "skill"], ["☯ 功法", "kungfu"], ["🏠 居家", "home"], ["⚔ 出战", "sortie"], ["🧘 打坐", "meditate"], ["🛌 睡觉", "sleep"]]:
 		var b := Button.new()
 		b.text = it[0]
 		b.add_theme_font_override("font", ui_font)
 		b.add_theme_font_size_override("font_size", 12)
-		b.custom_minimum_size = Vector2(74, 26)
+		b.custom_minimum_size = Vector2(74, 24)
 		_style_btn(b, false)
 		var key = it[1]
 		b.pressed.connect(func(): _open_menu(key))
@@ -230,6 +230,12 @@ func _open_menu(key: String) -> void:
 		"equip": _open_panel("侠客装备", _fill_equip)
 		"skill": _open_panel("人物技能", _fill_skill)
 		"kungfu": _open_panel("功法", _fill_kungfu)
+		"home": _open_panel("居家技能", _fill_home)
+		"sortie": _open_panel("出战历练", _fill_sortie)
+		"meditate":
+			if home_view: home_view._go_action("meditating")
+		"sleep":
+			if home_view: home_view._go_action("sleeping")
 		_: _open_panel("敬请期待", func(c): _placeholder(c, key))
 
 func _placeholder(c: Control, key: String) -> void:
@@ -674,3 +680,90 @@ func _kf_refresh() -> void:
 
 func _sys_cn(sys: String) -> String:
 	return {"nei": "内功", "wai": "外功", "qing": "轻功"}.get(sys, sys)
+
+# ---- 居家技能面板(P4:4技能 + 3自动开关)----
+func _fill_home(c: Control) -> void:
+	var root := VBoxContainer.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 6)
+	c.add_child(root)
+	root.add_child(_hdr("居家技能点 %d / %d  (每10级+1点,当前 Lv%d)" % [Player.home_sp_left(), Player.home_sp_total(), int(Player.s.level)]))
+	for n in Player.HOME_SKILLS:
+		var rk = Player.home_rank(n.id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var nm := Label.new()
+		nm.add_theme_font_override("font", ui_font)
+		nm.add_theme_font_size_override("font_size", 14)
+		nm.custom_minimum_size = Vector2(440, 0)
+		nm.text = "%s  %d/%d  · %s" % [n.name, rk, int(n.max), n.desc]
+		nm.add_theme_color_override("font_color", Color(0.95, 0.86, 0.6) if rk > 0 else Color(0.7, 0.66, 0.5))
+		row.add_child(nm)
+		var nid = n.id
+		var bp := Button.new(); bp.text = "+"; bp.add_theme_font_override("font", ui_font); bp.custom_minimum_size = Vector2(30, 0)
+		_style_btn(bp, false); bp.pressed.connect(func(): Player.home_adj(nid, 1); _home_refresh()); row.add_child(bp)
+		var bm := Button.new(); bm.text = "−"; bm.add_theme_font_override("font", ui_font); bm.custom_minimum_size = Vector2(30, 0)
+		_style_btn(bm, false); bm.pressed.connect(func(): Player.home_adj(nid, -1); _home_refresh()); row.add_child(bm)
+		if nid == "spawn_speed" and rk > 0:
+			var tg := Button.new()
+			tg.text = "● 开" if not bool(Player.s.get("spawnSpeedOff", false)) else "○ 关"
+			tg.add_theme_font_override("font", ui_font)
+			_style_btn(tg, not bool(Player.s.get("spawnSpeedOff", false)))
+			tg.pressed.connect(func(): Player.s["spawnSpeedOff"] = not bool(Player.s.get("spawnSpeedOff", false)); Player.save_slot(Player.slot); _home_refresh())
+			row.add_child(tg)
+		root.add_child(row)
+	root.add_child(_hdr("自动挂机(学习后开关)"))
+	for a in Player.HOME_AUTO:
+		var learned = Player.home_rank(a.id) > 0
+		var row2 := HBoxContainer.new()
+		row2.add_theme_constant_override("separation", 8)
+		var nm2 := Label.new()
+		nm2.add_theme_font_override("font", ui_font)
+		nm2.add_theme_font_size_override("font_size", 14)
+		nm2.custom_minimum_size = Vector2(440, 0)
+		nm2.text = "%s · %s" % [a.name, a.desc]
+		nm2.add_theme_color_override("font_color", Color(0.9, 0.84, 0.6) if learned else Color(0.7, 0.66, 0.5))
+		row2.add_child(nm2)
+		var aid = a.id
+		if not learned:
+			var bl := Button.new(); bl.text = "学习(1点)"; bl.add_theme_font_override("font", ui_font)
+			bl.disabled = Player.home_sp_left() <= 0
+			_style_btn(bl, false); bl.pressed.connect(func(): Player.learn_auto(aid); _home_refresh()); row2.add_child(bl)
+		else:
+			var on = Player.auto_on(aid)
+			var tg2 := Button.new(); tg2.text = "● 开启" if on else "○ 关闭"; tg2.add_theme_font_override("font", ui_font)
+			_style_btn(tg2, on); tg2.pressed.connect(func(): Player.toggle_auto(aid); _home_refresh()); row2.add_child(tg2)
+		root.add_child(row2)
+
+func _home_refresh() -> void:
+	for ch in panel_body.get_children(): ch.queue_free()
+	_fill_home(panel_body)
+
+# ---- 出战历练:选区(P4)----
+func _fill_sortie(c: Control) -> void:
+	var root := VBoxContainer.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 5)
+	c.add_child(root)
+	root.add_child(_hdr("选择历练地图(已解锁到 %s)" % Player.ZONES[clampi(int(Player.s.unlocked), 0, Player.ZONES.size() - 1)].name))
+	for i in range(Player.ZONES.size()):
+		var z = Player.ZONES[i]
+		var locked = i > int(Player.s.unlocked)
+		var row := HBoxContainer.new()
+		var nm := Label.new()
+		nm.add_theme_font_override("font", ui_font)
+		nm.add_theme_font_size_override("font_size", 14)
+		nm.custom_minimum_size = Vector2(420, 0)
+		nm.text = "%s  (Lv%d-%d)%s" % [z.name, int(z.lvMin), int(z.lvMax), "  · 当前" if i == int(Player.s.zone) else ""]
+		nm.add_theme_color_override("font_color", Color(0.4, 0.38, 0.34) if locked else (Color(1.0, 0.9, 0.5) if i == int(Player.s.zone) else Color(0.9, 0.84, 0.6)))
+		row.add_child(nm)
+		if not locked:
+			var bg := Button.new(); bg.text = "前往"; bg.add_theme_font_override("font", ui_font)
+			_style_btn(bg, i == int(Player.s.zone))
+			var zi = i
+			bg.pressed.connect(func(): Player.s["zone"] = zi; Player.save_slot(Player.slot); Player.changed.emit(); _close_panel())
+			row.add_child(bg)
+		else:
+			var lk := Label.new(); lk.text = "🔒未解锁"; lk.add_theme_font_override("font", ui_font)
+			lk.add_theme_color_override("font_color", Color(0.5, 0.45, 0.4)); row.add_child(lk)
+		root.add_child(row)
