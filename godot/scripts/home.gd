@@ -25,11 +25,11 @@ var _oy := 0.0
 var _dw := 0.0
 var _dh := 0.0
 
-# 主角状态(归一化坐标 0..1)
-var pcx := 0.4948
-var pcy := 0.3711
-var tx := 0.4948
-var ty := 0.3711
+# 主角状态(归一化坐标 0..1)。初始站位=中部偏下的公共活动区(中庭主通道前),不压桌面/隔断(马奈)
+var pcx := 0.5
+var pcy := 0.68
+var tx := 0.5
+var ty := 0.68
 var pstate := "wander"  # wander / walking / sleeping / meditating
 var pdir := "down"
 const PSPEED := 0.32
@@ -197,8 +197,8 @@ func _process(dt: float) -> void:
 		if wander_cd <= 0:
 			wander_cd = 2.2
 			if randf() < 0.6:
-				tx = 0.32 + randf() * 0.34
-				ty = 0.5 + randf() * 0.22
+				tx = 0.34 + randf() * 0.32
+				ty = 0.58 + randf() * 0.2
 	# toast 计时
 	if toast_t > 0:
 		toast_t -= dt
@@ -254,8 +254,8 @@ func _update_player_sprite() -> void:
 		fclock = 0.0
 		fi = (fi + 1) % frames
 	player.frame = DIR_ROW[pdir] * frames + (fi % frames)
-	# 缩放 + 落点(脚底对齐)
-	var disp_h = _dh * 0.15
+	# 缩放 + 落点(脚底对齐)。显示高降一档,减少相对新房间图的过大与放大糊(马奈,最终比例待主角资源统一)
+	var disp_h = _dh * 0.11
 	var sc = disp_h / 96.0
 	player.scale = Vector2(sc, sc)
 	var ctr = room_to_screen(pcx, pcy)
