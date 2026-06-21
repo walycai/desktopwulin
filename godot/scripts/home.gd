@@ -20,11 +20,16 @@ var tex_idle: Texture2D
 var tex_walk: Texture2D
 var ui_font: SystemFont
 
-# 滚屏模式:房间用 cover(max)铺满视口(任意宽高比都不留灰边),相机跟随主角滚动浏览。
-# 桌面横条里左室内=扁宽视口,cover 后房间比视口高→相机显示横向切片。ROOM_ZOOM 再叠加放大。
-const ROOM_ZOOM := 1.5  # >1 使房间宽于面板,相机裁掉竖图左右白边(临时;待吴冠中横向室内图)
-var _vph := 960.0  # 当前视口高,用于按视口比例定主角显示高
-var PLAYER_H_FRAC := 0.4  # 主角显示高占视口高比例(桌面横条里主角要够显眼)
+# 桌面横条左室内(strip 模式, show_ui=false):**保持 room_shot4 的人物/家具/地砖比例**(WalyCai+马奈),
+# 不为塞进横条而整体压小;横条只是低高度视窗,相机跟随主角滚屏看房间。
+# → 用 FIXED 缩放(锚定 room_shot4:720×960 视口 contain×2 = 0.9375)+ 固定主角像素高(≈room_shot4 的 105px),
+#   与视口大小无关;视口越小看到越少、滚屏越多(正是 WalyCai 要的"画面框架缩小→更多滚屏")。
+const ROOM_FIXED_SCALE := 0.9375  # room_shot4 的家具/地砖缩放;吴冠中横向图到位后按新图重定
+const CHAR_FIXED_PX := 105.0      # room_shot4 的主角显示高(锁定 人物:家具 比例)
+# 全屏 legacy 模式(show_ui=true)仍用 cover×ROOM_ZOOM
+const ROOM_ZOOM := 2.0
+var _vph := 960.0
+var PLAYER_H_FRAC := 0.11
 var show_ui := true  # 内嵌到桌面外壳时置 false,由外壳提供顶栏/菜单
 
 # 房间在世界坐标的矩形(原点 0,0;_ox/_oy=0,相机负责滚动)
@@ -100,8 +105,13 @@ func _recalc_attrs() -> void:
 func _layout() -> void:
 	var vp := get_viewport_rect().size
 	_vph = vp.y
-	# cover(max)铺满任意宽高比视口 + ×ROOM_ZOOM:房间≥视口,靠相机滚动浏览,不留灰边
-	var s = max(vp.x / ROOM_W, vp.y / ROOM_H) * ROOM_ZOOM
+	var cover_s = max(vp.x / ROOM_W, vp.y / ROOM_H)  # 铺满视口的最小缩放(防白边保底)
+	var s: float
+	if show_ui:
+		s = cover_s * ROOM_ZOOM  # 全屏 legacy
+	else:
+		# strip:固定缩放保 room_shot4 比例;但不低于 cover 以防露白边
+		s = max(ROOM_FIXED_SCALE, cover_s)
 	bg.scale = Vector2(s, s)
 	bg.position = Vector2.ZERO
 	_ox = 0.0
@@ -283,8 +293,8 @@ func _update_player_sprite() -> void:
 		fclock = 0.0
 		fi = (fi + 1) % frames
 	player.frame = DIR_ROW[pdir] * frames + (fi % frames)
-	# 缩放 + 落点(脚底对齐)。显示高按视口比例(桌面横条里主角够显眼)
-	var disp_h = _vph * PLAYER_H_FRAC
+	# 缩放 + 落点(脚底对齐)。strip:固定像素高保 人物:家具 比例(room_shot4);legacy:按视口比例
+	var disp_h = CHAR_FIXED_PX if not show_ui else _vph * PLAYER_H_FRAC
 	var sc = disp_h / 96.0
 	player.scale = Vector2(sc, sc)
 	var ctr = room_to_screen(pcx, pcy)
