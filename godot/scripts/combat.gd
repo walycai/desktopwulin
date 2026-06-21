@@ -37,19 +37,24 @@ func _ready() -> void:
 
 var run_n := 0
 var result_applied := false
+var is_boss_run := false
 
 func _start() -> void:
-	# 用真实共享养成状态的 build(P1):等级/技能/功法/装备 → 属性,与左家园同源
+	# 用真实共享养成状态的 build:等级/技能/功法/装备 → 属性,与左家园同源
 	var bc = CombatCore.build_to_combat(Player.build())
 	run_n += 1
+	var z = Player.cur_zone()  # P2:当前分区的敌人/等级/boss
+	is_boss_run = (run_n % 4 == 0)  # 每4趟挑战一次本区BOSS(挂机自动推图)
 	var cfg = {
 		"attrs": bc.attrs, "seed": SEEDV + run_n,
 		"abilities": bc.get("abilities", []), "enchant": bc.get("enchant", {}),
 		"manaRegen": bc.get("manaRegen", 8), "playerRange": bc.get("playerRange", 0),
-		"spawnTypes": ["thug"], "lvMin": 1, "lvMax": 2,  # P1:暂锚牛家村(zone0);10地图分区留 P2
-		"zoneIdx": 0, "startMana": 0, "cap": 99999,
+		"spawnTypes": z.types, "lvMin": z.lvMin, "lvMax": z.lvMax,
+		"zoneIdx": int(Player.s.zone), "startMana": 0, "cap": 99999,
 		"playerRegen": bc.get("neiRegenFlat", 0),
 	}
+	if is_boss_run:
+		cfg["boss"] = z.boss
 	sim = CombatCore.create_combat(cfg)
 	prev_kills = 0
 	prev_hp = bc.attrs.HP
@@ -70,8 +75,10 @@ func _process(dt: float) -> void:
 	if sim.is_done():
 		if not result_applied:
 			result_applied = true
-			var res = Player.apply_combat_result(sim.result())  # 经验/金币回流→升级,存档
-			if res.lvups > 0:
+			var res = Player.apply_combat_result(sim.result())  # 掉落入库+经验金币回流→升级+boss解锁
+			if res.unlocked_zone >= 0:
+				_add_float(player_sx, -1.1, "通关! 解锁 %s" % Player.ZONES[res.unlocked_zone].name, Color(0.5, 1.0, 0.55))
+			elif res.lvups > 0:
 				_add_float(player_sx, -1.0, "升级! Lv%d" % int(Player.s.level), Color(1.0, 0.9, 0.3))
 		restart_t += dt
 		if restart_t > 1.6:
@@ -105,8 +112,9 @@ func _process(dt: float) -> void:
 	var mana_s = ""
 	if st.manaMax > 0:
 		mana_s = " · 内力 %d/%d" % [int(st.mana), int(st.manaMax)]
-	# HUD 显示共享养成状态(等级/金币,与左家园同源)+ 本场战况
-	info.text = "Lv%d · 历练 已杀%d · 气血%d/%d%s · 金币%d" % [int(Player.s.level), st.kills, int(max(0, st.P.hp)), int(st.P.hpMax), mana_s, int(Player.s.gold)]
+	# HUD:共享养成状态(等级/金币/战利品,与左家园同源)+ 当前分区 + 本场战况
+	var zname = Player.cur_zone().name + (" · BOSS战" if is_boss_run else "")
+	info.text = "Lv%d · %s · 已杀%d · 气血%d/%d%s · 金币%d · 战利品%d" % [int(Player.s.level), zname, st.kills, int(max(0, st.P.hp)), int(st.P.hpMax), mana_s, int(Player.s.gold), Player.s.warehouse.size()]
 	queue_redraw()
 
 func _ability_name(lc) -> String:

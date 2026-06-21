@@ -8,6 +8,23 @@ const SLOTS := 3
 var slot := 1
 var s := {}  # 状态字典(镜像 H5 stats 的迁移子集)
 
+# 10 地图分区(P2,迁移自 H5 game.js ZONES)。boss: type/lv/hpMult/atkMult/name/bossId
+const ZONES := [
+	{"id": "niujia", "name": "牛家村", "lvMin": 1, "lvMax": 1, "types": ["thug"], "boss": {"type": "thug", "lv": 2, "hpMult": 20, "atkMult": 1.5, "name": "山贼王", "bossId": "shanzeiwang"}},
+	{"id": "milin", "name": "幽密林", "lvMin": 3, "lvMax": 5, "types": ["thug", "bandit"], "boss": {"type": "bandit", "lv": 6, "hpMult": 20, "atkMult": 1.5, "name": "幽林鬼影", "bossId": "youlinguiying"}},
+	{"id": "qingcheng", "name": "青城派", "lvMin": 6, "lvMax": 8, "types": ["bandit", "sect_novice"], "boss": {"type": "sect_novice", "lv": 9, "hpMult": 20, "atkMult": 1.5, "name": "青城逆徒", "bossId": "qingchengnitu"}},
+	{"id": "xuedao", "name": "血刀门", "lvMin": 9, "lvMax": 12, "types": ["sect_novice", "xie_jiao"], "boss": {"type": "xie_jiao", "lv": 13, "hpMult": 20, "atkMult": 1.5, "name": "血刀老祖", "bossId": "xuedaolaozu"}},
+	{"id": "mojiao", "name": "魔教总坛", "lvMin": 13, "lvMax": 17, "types": ["xie_jiao", "mo_jiao"], "boss": {"type": "mo_jiao", "lv": 18, "hpMult": 20, "atkMult": 1.5, "name": "天魔教主", "bossId": "tianmojiaozhu"}},
+	{"id": "huangquan", "name": "黄泉古道", "lvMin": 18, "lvMax": 24, "types": ["mo_jiao", "gui_zu"], "boss": {"type": "gui_zu", "lv": 25, "hpMult": 20, "atkMult": 1.5, "name": "黄泉鬼王", "bossId": "huangquanguiwang"}},
+	{"id": "luosha", "name": "罗刹海市", "lvMin": 25, "lvMax": 33, "types": ["gui_zu", "yao_xiu"], "boss": {"type": "yao_xiu", "lv": 34, "hpMult": 20, "atkMult": 1.5, "name": "罗刹女君", "bossId": "luoshanvjun"}},
+	{"id": "yaolin", "name": "妖兽森林", "lvMin": 34, "lvMax": 45, "types": ["yao_xiu", "mo_jiang"], "boss": {"type": "mo_jiang", "lv": 46, "hpMult": 20, "atkMult": 1.5, "name": "妖兽之王", "bossId": "yaoshouwang"}},
+	{"id": "jiuyou", "name": "九幽魔渊", "lvMin": 46, "lvMax": 60, "types": ["mo_jiang", "gu_mo"], "boss": {"type": "gu_mo", "lv": 61, "hpMult": 20, "atkMult": 1.5, "name": "九幽魔尊", "bossId": "jiuyoumozun"}},
+	{"id": "tianwai", "name": "天外魔域", "lvMin": 61, "lvMax": 80, "types": ["gu_mo", "mo_jiang"], "boss": {"type": "gu_mo", "lv": 82, "hpMult": 20, "atkMult": 1.5, "name": "万古魔神", "bossId": "wangumoshen"}},
+]
+
+func cur_zone() -> Dictionary:
+	return ZONES[clampi(int(s.get("zone", 0)), 0, ZONES.size() - 1)]
+
 func _ready() -> void:
 	load_slot(slot)
 
@@ -17,7 +34,9 @@ func _default() -> void:
 		"hp": 0, "hpMax": 0, "mana": 0, "manaMax": 0,
 		"sp": 0, "skills": {},
 		"gongfa": {}, "gongfaEquip": {"nei": null, "wai1": null, "wai2": null, "qing": null},
-		"equipped": {}, "trainId": null, "zone": 0,
+		"equipped": {}, "trainId": null,
+		"zone": 0, "unlocked": 0,        # 当前区 / 已解锁最高区(打过boss解锁下一区)
+		"warehouse": [], "equipSeq": 1,  # 掉落装备仓库(P3 用)+ 装备uid计数
 		"homeSkills": {}, "homeSpSpent": 0, "autoOn": {},
 	}
 	_recalc()
@@ -55,9 +74,16 @@ func home_sp_total() -> int:
 func home_sp_left() -> int:
 	return max(0, home_sp_total() - int(s.get("homeSpSpent", 0)))
 
-# 战斗结算回流:经验/金币 → 升级。返回 {lvups}
+# 战斗结算回流:掉落入库 + 经验/金币 → 升级 + boss击杀解锁下一区。返回 {lvups,drops,unlocked_zone}
 func apply_combat_result(r: Dictionary) -> Dictionary:
 	var lvups := 0
+	# 掉落装备入仓库(P3 用),保留 稀有度/等级/词缀/武器类型
+	var drops = r.get("drops", [])
+	for d in drops:
+		var item = d.duplicate(true) if typeof(d) == TYPE_DICTIONARY else {}
+		item["uid"] = int(s.equipSeq)
+		s.equipSeq = int(s.equipSeq) + 1
+		s.warehouse.append(item)
 	s.gold = int(s.gold) + int(r.get("goldGained", 0))
 	s.exp = int(s.exp) + int(r.get("expGained", 0))
 	while s.exp >= CombatCore.next_exp(int(s.level)):
@@ -65,11 +91,20 @@ func apply_combat_result(r: Dictionary) -> Dictionary:
 		s.level = int(s.level) + 1
 		lvups += 1
 	s.sp = max(0, int(s.level) - 1)  # 技能点=每级+1(spForLevel=lv-1)
-	if lvups > 0:
+	# 击败当前区 boss → 解锁并前往下一区(挂机自动推图)
+	var unlocked_zone := -1
+	if r.get("bossKilled", false):
+		var ni = int(s.zone) + 1
+		if ni < ZONES.size():
+			if ni > int(s.get("unlocked", 0)):
+				s.unlocked = ni
+				unlocked_zone = ni
+			s.zone = ni  # 自动进新区继续挂机
+	if lvups > 0 or unlocked_zone >= 0:
 		_recalc()
 	save_slot(slot)
 	changed.emit()
-	return {"lvups": lvups}
+	return {"lvups": lvups, "drops": drops.size(), "unlocked_zone": unlocked_zone}
 
 func _path(n: int) -> String:
 	return "user://save_%d.json" % n
