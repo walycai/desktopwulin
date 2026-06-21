@@ -83,25 +83,19 @@ func _build() -> void:
 	divider.offset_right = 1
 	main_ui.add_child(divider)
 
-	# 右:历练界面(占位)
-	var right := Panel.new()
+	# 右:历练界面(横版自动战斗,内嵌 combat 场景)
+	var right := SubViewportContainer.new()
+	right.stretch = true
 	right.anchor_left = LEFT_FRAC
 	right.anchor_right = 1.0
 	right.anchor_top = 0.0
 	right.anchor_bottom = 1.0
-	var rsb := StyleBoxFlat.new()
-	rsb.bg_color = Color(0.10, 0.08, 0.07, 1.0)
-	right.add_theme_stylebox_override("panel", rsb)
 	main_ui.add_child(right)
-	var rlabel := Label.new()
-	rlabel.text = "历练界面\n横版战斗 · 即将接入"
-	rlabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rlabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rlabel.add_theme_font_override("font", ui_font)
-	rlabel.add_theme_font_size_override("font_size", 18)
-	rlabel.add_theme_color_override("font_color", Color(0.7, 0.62, 0.45))
-	rlabel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	right.add_child(rlabel)
+	var rvp := SubViewport.new()
+	rvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	rvp.handle_input_locally = true
+	right.add_child(rvp)
+	rvp.add_child(load("res://scenes/combat.tscn").instantiate())
 
 	# 顶栏(横条压缩状态栏,浮在画面上)
 	var bar := PanelContainer.new()
