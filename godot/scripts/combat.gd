@@ -2,7 +2,7 @@ extends Node2D
 # 历练:横版自动战斗(桌面横条右panel)。战斗逻辑用 CombatCore.CombatSim(与 H5 src/combat-core.js 同源),
 # 本脚本只做渲染:主角+敌人精灵、血条、漂浮伤害、内力/技能、HUD。挂机式:打完(死/cap)自动重开。
 
-const FRAME := 64.0          # 战斗精灵单帧 64×64(单行横向帧表)
+# 战斗精灵=单行横向帧表,帧为正方形→帧边长=纹理高(自动适配 64 或吴冠中新出的 96 帧,换图无需改码)
 const SEEDV := 7
 const VIEW_LANE := 360.0     # 可视战场只映射近战段(sim laneLen=820);远处敌人从右侧屏外走入,战斗更集中不空
 var player_sx := 80.0        # 主角屏幕 x(每帧按视口宽重算,见 _refresh_layout)
@@ -115,7 +115,8 @@ func _sx(simx: float) -> float:
 func _frame_of(tex, t: float) -> int:
 	if tex == null:
 		return 0
-	var frames = max(1, int(tex.get_width() / FRAME))
+	var fh = tex.get_height()
+	var frames = max(1, int(tex.get_width() / fh))
 	return int(t * 8.0) % frames
 
 func _draw() -> void:
@@ -190,8 +191,9 @@ func _draw_sprite(tex, cx: float, ground: float, dh: float, flip: bool) -> void:
 		var w = dh * 0.6
 		draw_rect(Rect2(cx - w / 2, ground - dh, w, dh), Color(0.4, 0.3, 0.3, 0.8))
 		return
+	var fh = tex.get_height()
 	var fr = _frame_of(tex, anim_t)
-	var src = Rect2(fr * FRAME, 0, FRAME, FRAME)
+	var src = Rect2(fr * fh, 0, fh, fh)
 	var dw = dh  # 方形帧
 	if flip:
 		draw_set_transform(Vector2(cx, ground), 0.0, Vector2(-1, 1))
