@@ -10,6 +10,7 @@ var player_sx := 80.0        # 主角屏幕 x(每帧按视口宽重算,见 _refr
 var sim
 var ui_font: SystemFont
 var info: Label
+var bg_tex: Texture2D
 var tex_cache := {}
 var floats := []             # [{x,y,text,color,t,t0}]
 var p_atk := 0.0
@@ -30,6 +31,7 @@ func _ready() -> void:
 	info.add_theme_constant_override("outline_size", 3)
 	info.position = Vector2(10, 4)
 	add_child(info)
+	bg_tex = load("res://assets/combat/bg_training_strip.png")
 	_start()
 	set_process(true)
 
@@ -123,13 +125,19 @@ func _draw() -> void:
 	var vp = get_viewport_rect().size
 	var ground = vp.y * 0.86
 	var ch = vp.y * 0.34  # 与左侧居家主角显示高度统一(WalyCai+马奈:右侧不得明显大于左侧)
-	# 背景:暗色墙+地面带(临时基底,正式横版战斗场景待美术)
-	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0.10, 0.08, 0.07))
-	draw_rect(Rect2(0, ground * 0.5, vp.x, ground * 0.5), Color(0.12, 0.095, 0.075))  # 墙裙
-	draw_line(Vector2(0, ground * 0.5), Vector2(vp.x, ground * 0.5), Color(0.16, 0.12, 0.09), 1.0)
-	draw_rect(Rect2(0, ground - 2, vp.x, vp.y - ground + 2), Color(0.18, 0.14, 0.10))  # 地面
-	draw_line(Vector2(0, ground), Vector2(vp.x, ground), Color(0.34, 0.26, 0.17), 2.0)
-	draw_line(Vector2(0, (ground + vp.y) * 0.5), Vector2(vp.x, (ground + vp.y) * 0.5), Color(0.14, 0.11, 0.08), 1.0)
+	if bg_tex:
+		var s = max(vp.x / bg_tex.get_width(), vp.y / bg_tex.get_height())
+		var dw = bg_tex.get_width() * s
+		var dh = bg_tex.get_height() * s
+		draw_texture_rect(bg_tex, Rect2((vp.x - dw) * 0.5, (vp.y - dh) * 0.5, dw, dh), false)
+	else:
+		# 背景兜底:暗色墙+地面带
+		draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0.10, 0.08, 0.07))
+		draw_rect(Rect2(0, ground * 0.5, vp.x, ground * 0.5), Color(0.12, 0.095, 0.075))
+		draw_line(Vector2(0, ground * 0.5), Vector2(vp.x, ground * 0.5), Color(0.16, 0.12, 0.09), 1.0)
+		draw_rect(Rect2(0, ground - 2, vp.x, vp.y - ground + 2), Color(0.18, 0.14, 0.10))
+		draw_line(Vector2(0, ground), Vector2(vp.x, ground), Color(0.34, 0.26, 0.17), 2.0)
+		draw_line(Vector2(0, (ground + vp.y) * 0.5), Vector2(vp.x, (ground + vp.y) * 0.5), Color(0.14, 0.11, 0.08), 1.0)
 	# 顶部 HUD 半透明背板(让历练状态行更醒目)
 	draw_rect(Rect2(0, 0, vp.x, 24), Color(0.03, 0.02, 0.02, 0.55))
 

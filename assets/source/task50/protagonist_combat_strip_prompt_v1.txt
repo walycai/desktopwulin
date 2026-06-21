@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: white-background pixel-art sprite sheet for Godot desktop combat
+Input image: use the provided protagonist reference only for identity, costume, hair, palette, and fine pixel-art rendering style.
+Primary request: Create a clean sprite sheet of the same wuxia male protagonist for side-view combat, facing right.
+Subject: young Chinese wuxia hero, navy outer robe, cream inner robe, black hair tied in a topknot, subtle gold trim, same face and outfit identity as the reference image.
+Sheet layout: two rows on a pure white background. Row 1 has 4 idle combat stance frames, standing side-view facing right with guarded fists and subtle breathing. Row 2 has 6 short-range attack frames, facing right, stepping and striking with a compact palm/fist attack. Keep weaponless attacks; no sword, no loose VFX except a very faint close-body motion smear if needed.
+Style: fine pixel-art game sprite, crisp 2D pixels, clear silhouette, same clarity as the current home protagonist, readable at 96px frame height.
+Constraints: pure white background, no cast shadow, no floor shadow, no contact shadow, no grid lines, no labels, no text, no watermark, no detached particles, no separate weapon pieces, no cropped body parts. Each frame must keep the full body inside its cell with generous padding and consistent character scale.
+Technical: output a single 2048x1024 source sheet suitable for cutting into transparent 96x96 frames.

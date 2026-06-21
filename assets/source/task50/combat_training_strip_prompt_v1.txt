@@ -1,0 +1,8 @@
+Use case: stylized-concept
+Asset type: Godot desktop right-panel horizontal combat background for 桌面武林
+Primary request: Create a refined detailed pixel-art wuxia training ground background for a bottom-quarter desktop idle strip.
+Scene/backdrop: side-view horizontal martial arts practice hall and courtyard edge, ancient Chinese wooden wall panels, muted stone-and-wood floor lane, a few simple weapon racks and training posts pushed into the far background.
+Style: fine pixel-art game background matching the current 桌面武林 home-room clarity; crisp edges, readable pixel texture, restrained hand-painted pixel detail, warm wood and stone tones.
+Composition: very wide horizontal strip, clear empty combat lane across the lower third, horizon/wall line in the middle, low-noise background so characters, HP bars, and damage numbers remain readable.
+Constraints: no characters, no monsters, no UI, no text, no logo, no watermark, no dramatic lighting, no dense foreground props, no blurry photo texture, no modern objects.
+Technical: output as a clean full background image, 2048 by 768 pixels, suitable for cover/crop inside a Godot SubViewport.
