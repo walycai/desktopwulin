@@ -121,31 +121,58 @@ func _build() -> void:
 	topbar.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	bar.add_child(topbar)
 
-	# 隐藏按钮(右上角)
+	# 隐藏按钮(右上角,古风小按钮,常态不抢画面)
 	hide_btn = Button.new()
-	hide_btn.text = "✕ 隐藏"
+	hide_btn.text = "—  收起"
 	hide_btn.add_theme_font_override("font", ui_font)
 	hide_btn.add_theme_font_size_override("font_size", 12)
 	hide_btn.anchor_left = 1.0
 	hide_btn.anchor_right = 1.0
 	hide_btn.anchor_top = 0.0
 	hide_btn.anchor_bottom = 0.0
-	hide_btn.offset_left = -72
-	hide_btn.offset_right = -4
-	hide_btn.offset_top = 2
-	hide_btn.offset_bottom = TOPBAR_H - 2
+	hide_btn.offset_left = -76
+	hide_btn.offset_right = -5
+	hide_btn.offset_top = 3
+	hide_btn.offset_bottom = TOPBAR_H - 3
+	hide_btn.tooltip_text = "收起到桌面角落"
+	_style_btn(hide_btn, false)
 	hide_btn.pressed.connect(_toggle_hide)
 	main_ui.add_child(hide_btn)
 
-	# 恢复按钮(隐藏态显示,小而醒目)
+	# 恢复按钮(隐藏态显示,古风牌匾样式,小而醒目)
 	restore_btn = Button.new()
-	restore_btn.text = "桌面武林 ▢"
+	restore_btn.text = "▣  桌面武林"
 	restore_btn.add_theme_font_override("font", ui_font)
-	restore_btn.add_theme_font_size_override("font_size", 13)
+	restore_btn.add_theme_font_size_override("font_size", 14)
 	restore_btn.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	restore_btn.tooltip_text = "点开恢复桌面武林"
+	_style_btn(restore_btn, true)
 	restore_btn.visible = false
 	restore_btn.pressed.connect(_toggle_hide)
 	add_child(restore_btn)
+
+func _style_btn(b: Button, prominent: bool) -> void:
+	# 古风按钮:深木底 + 金边;prominent(恢复键)金边更亮更厚
+	var edge := Color(0.82, 0.66, 0.34) if prominent else Color(0.55, 0.44, 0.26)
+	var bw := 2 if prominent else 1
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.14, 0.10, 0.07, 0.96) if prominent else Color(0.10, 0.08, 0.06, 0.82)
+	normal.border_color = edge
+	normal.set_border_width_all(bw)
+	normal.set_corner_radius_all(5)
+	normal.set_content_margin_all(6 if prominent else 4)
+	if prominent:
+		normal.shadow_color = Color(0, 0, 0, 0.5)
+		normal.shadow_size = 4
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.20, 0.15, 0.10, 0.98)
+	hover.border_color = Color(0.95, 0.80, 0.45)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", hover)
+	b.add_theme_stylebox_override("focus", normal)
+	b.add_theme_color_override("font_color", Color(0.96, 0.88, 0.66))
+	b.add_theme_color_override("font_hover_color", Color(1.0, 0.94, 0.74))
 
 func _toggle_hide() -> void:
 	win_hidden = not win_hidden
