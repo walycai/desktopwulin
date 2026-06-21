@@ -15,11 +15,16 @@ var HOTSPOTS := {
 
 var bg: Sprite2D
 var player: Sprite2D
+var cam: Camera2D
 var tex_idle: Texture2D
 var tex_walk: Texture2D
 var ui_font: SystemFont
 
-# 房间投影矩形(contain)
+# 滚屏模式:房间在 contain 适配基础上再等比放大 ROOM_ZOOM 倍(WalyCai:长宽各2倍),相机跟随主角滚动
+const ROOM_ZOOM := 2.0
+var _vph := 960.0  # 当前视口高,用于固定主角显示高(主角大小不随房间放大变化)
+
+# 房间在世界坐标的矩形(原点 0,0;_ox/_oy=0,相机负责滚动)
 var _ox := 0.0
 var _oy := 0.0
 var _dw := 0.0
@@ -65,6 +70,13 @@ func _ready() -> void:
 	player.centered = true
 	add_child(player)
 
+	# 滚屏相机:跟随主角,限制在房间范围内(不滚出边界)
+	cam = Camera2D.new()
+	cam.position_smoothing_enabled = true
+	cam.position_smoothing_speed = 6.0
+	add_child(cam)
+	cam.make_current()
+
 	_recalc_attrs()
 	_layout()
 	_build_ui()
@@ -83,13 +95,23 @@ func _recalc_attrs() -> void:
 
 func _layout() -> void:
 	var vp := get_viewport_rect().size
-	var s = min(vp.x / ROOM_W, vp.y / ROOM_H)
+	_vph = vp.y
+	# contain 适配后再 ×ROOM_ZOOM:房间比视口大,靠相机滚动浏览
+	var s = min(vp.x / ROOM_W, vp.y / ROOM_H) * ROOM_ZOOM
 	bg.scale = Vector2(s, s)
+	bg.position = Vector2.ZERO
+	_ox = 0.0
+	_oy = 0.0
 	_dw = ROOM_W * s
 	_dh = ROOM_H * s
-	_ox = (vp.x - _dw) / 2.0
-	_oy = (vp.y - _dh) / 2.0
-	bg.position = Vector2(_ox, _oy)
+	# 相机限制在房间范围内 + 初始对准主角(snap,避免开场从角落滑入)
+	if cam:
+		cam.limit_left = 0
+		cam.limit_top = 0
+		cam.limit_right = int(_dw)
+		cam.limit_bottom = int(_dh)
+		cam.position = room_to_screen(pcx, pcy)
+		cam.reset_smoothing()
 
 func room_to_screen(nx: float, ny: float) -> Vector2:
 	return Vector2(_ox + nx * _dw, _oy + ny * _dh)
@@ -176,9 +198,10 @@ func _go_action(action: String) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var m = event.position
-		var nx = (m.x - _ox) / _dw
-		var ny = (m.y - _oy) / _dh
+		# 滚屏下:屏幕坐标→世界坐标(经相机变换)→归一化房间坐标
+		var w = get_global_mouse_position()
+		var nx = w.x / _dw
+		var ny = w.y / _dh
 		if nx >= 0 and nx <= 1 and ny >= 0 and ny <= 1:
 			pstate = "wander"
 			if has_meta("pending_action"): remove_meta("pending_action")
@@ -254,12 +277,15 @@ func _update_player_sprite() -> void:
 		fclock = 0.0
 		fi = (fi + 1) % frames
 	player.frame = DIR_ROW[pdir] * frames + (fi % frames)
-	# 缩放 + 落点(脚底对齐)。显示高降一档,减少相对新房间图的过大与放大糊(马奈,最终比例待主角资源统一)
-	var disp_h = _dh * 0.11
+	# 缩放 + 落点(脚底对齐)。显示高固定按视口(主角大小不随房间放大变化,WalyCai);约 _vph*0.11≈105px
+	var disp_h = _vph * 0.11
 	var sc = disp_h / 96.0
 	player.scale = Vector2(sc, sc)
 	var ctr = room_to_screen(pcx, pcy)
 	player.position = Vector2(ctr.x, ctr.y - disp_h / 2.0)
+	# 相机跟随主角(滚屏)
+	if cam:
+		cam.position = player.position
 
 func _draw() -> void:
 	if pstate == "sleeping":
