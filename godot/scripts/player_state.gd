@@ -25,6 +25,108 @@ const ZONES := [
 func cur_zone() -> Dictionary:
 	return ZONES[clampi(int(s.get("zone", 0)), 0, ZONES.size() - 1)]
 
+# 技能树(P3,基础节点迁移自 H5 SKILL_TREES;深度EXT节点后续)。效果由 CombatCore.build_to_combat 应用
+const SKILL_TREES := [
+	{"id": "warrior", "name": "力量战士", "nodes": [
+		{"id": "foundation", "name": "武者根基", "max": 3, "row": 0, "col": 2, "reqPts": 0, "reqLv": 1, "prereq": [], "desc": "气血+15、攻击+2/级"},
+		{"id": "str_atk", "name": "千钧之力", "max": 5, "row": 1, "col": 0, "reqPts": 3, "reqLv": 2, "prereq": ["foundation"], "desc": "攻击+4/级"},
+		{"id": "crit", "name": "致命强击", "max": 5, "row": 2, "col": 0, "reqPts": 10, "reqLv": 5, "prereq": ["str_atk"], "desc": "暴击率+2%/级"},
+		{"id": "critdmg", "name": "狂暴打击", "max": 5, "row": 3, "col": 0, "reqPts": 18, "reqLv": 8, "prereq": ["crit"], "desc": "暴击伤害+10%/级"},
+		{"id": "whirlwind", "name": "旋风斩", "max": 3, "row": 4, "col": 0, "reqPts": 28, "reqLv": 12, "prereq": ["critdmg"], "active": true, "desc": "主动·满蓝自动群攻"},
+		{"id": "weapon_mastery", "name": "重兵精通", "max": 5, "row": 1, "col": 2, "reqPts": 3, "reqLv": 3, "prereq": ["foundation"], "desc": "总攻击+3%/级"},
+		{"id": "hit", "name": "百战之身", "max": 3, "row": 2, "col": 1, "reqPts": 10, "reqLv": 5, "prereq": ["weapon_mastery"], "desc": "命中+3/级"},
+		{"id": "atkspd", "name": "疾风步", "max": 3, "row": 2, "col": 3, "reqPts": 10, "reqLv": 6, "prereq": ["weapon_mastery"], "desc": "攻速+3/级"},
+		{"id": "equip_atk", "name": "力压千钧", "max": 3, "row": 3, "col": 2, "reqPts": 18, "reqLv": 8, "prereq": ["hit"], "desc": "装备攻击+5%/级"},
+		{"id": "str_hp", "name": "强健体魄", "max": 5, "row": 1, "col": 4, "reqPts": 3, "reqLv": 2, "prereq": ["foundation"], "desc": "气血+30/级"},
+		{"id": "str_def", "name": "铜皮铁骨", "max": 5, "row": 2, "col": 4, "reqPts": 10, "reqLv": 5, "prereq": ["str_hp"], "desc": "防御+3/级"},
+		{"id": "equip_hp", "name": "负重前行", "max": 3, "row": 3, "col": 4, "reqPts": 18, "reqLv": 8, "prereq": ["str_def"], "desc": "装备气血+5%/级"},
+		{"id": "berserk", "name": "狂暴", "max": 1, "row": 4, "col": 4, "reqPts": 28, "reqLv": 12, "prereq": ["equip_hp"], "active": true, "desc": "主动·满蓝自动狂暴(出手大幅加快)"},
+	]},
+	{"id": "enchant", "name": "内功附魔流", "nodes": [
+		{"id": "range", "name": "内功射程", "max": 5, "row": 0, "col": 2, "reqPts": 0, "reqLv": 1, "prereq": [], "desc": "远程攻击:射程随功力增长"},
+		{"id": "fire_ignite", "name": "点燃", "max": 3, "row": 1, "col": 0, "reqPts": 3, "reqLv": 3, "prereq": ["range"], "desc": "命中几率点燃(灼烧DoT)"},
+		{"id": "fire_blaze", "name": "烈焰", "max": 5, "row": 2, "col": 0, "reqPts": 8, "reqLv": 8, "prereq": ["fire_ignite"], "desc": "灼烧每秒伤害+/级"},
+		{"id": "fire_inferno", "name": "燎原", "max": 5, "row": 3, "col": 0, "reqPts": 16, "reqLv": 15, "prereq": ["fire_blaze"], "desc": "灼烧持续时间+/级"},
+		{"id": "fire_conflag", "name": "焚天", "max": 3, "row": 4, "col": 0, "reqPts": 24, "reqLv": 22, "prereq": ["fire_inferno"], "desc": "灼烧伤害增幅×/级"},
+		{"id": "ice_frost", "name": "冰霜", "max": 3, "row": 1, "col": 2, "reqPts": 3, "reqLv": 3, "prereq": ["range"], "desc": "命中几率冰冻(减移速/攻速/命中)"},
+		{"id": "ice_glacier", "name": "玄冰", "max": 5, "row": 2, "col": 2, "reqPts": 8, "reqLv": 8, "prereq": ["ice_frost"], "desc": "冰冻减敌移速+/级"},
+		{"id": "ice_freeze", "name": "凝寒", "max": 5, "row": 3, "col": 2, "reqPts": 16, "reqLv": 15, "prereq": ["ice_glacier"], "desc": "冰冻额外减攻速/命中+/级"},
+		{"id": "ice_permafrost", "name": "万载玄冰", "max": 3, "row": 4, "col": 2, "reqPts": 24, "reqLv": 22, "prereq": ["ice_freeze"], "desc": "冰冻持续&触发几率+/级"},
+		{"id": "poison_venom", "name": "淬毒", "max": 3, "row": 1, "col": 4, "reqPts": 3, "reqLv": 3, "prereq": ["range"], "desc": "命中几率中毒(DoT)"},
+		{"id": "poison_toxin", "name": "剧毒", "max": 5, "row": 2, "col": 4, "reqPts": 8, "reqLv": 8, "prereq": ["poison_venom"], "desc": "中毒每秒伤害+/级"},
+		{"id": "poison_plague", "name": "瘟疫", "max": 5, "row": 3, "col": 4, "reqPts": 16, "reqLv": 15, "prereq": ["poison_toxin"], "desc": "中毒持续时间+/级"},
+		{"id": "poison_corrode", "name": "腐蚀", "max": 3, "row": 4, "col": 4, "reqPts": 24, "reqLv": 22, "prereq": ["poison_plague"], "desc": "中毒伤害增幅×/级"},
+	]},
+]
+
+func _tree_by_id(tid: String) -> Dictionary:
+	for t in SKILL_TREES:
+		if t.id == tid: return t
+	return SKILL_TREES[0]
+
+func _node_tree_id(node_id: String) -> String:
+	for t in SKILL_TREES:
+		for n in t.nodes:
+			if n.id == node_id: return t.id
+	return ""
+
+func _node_by_id(node_id: String):
+	for t in SKILL_TREES:
+		for n in t.nodes:
+			if n.id == node_id: return n
+	return null
+
+func skill_rank(id: String) -> int:
+	return int(s.skills.get(id, 0))
+
+func skill_spent(tree_id := "") -> int:
+	var tot := 0
+	for k in s.skills:
+		if tree_id == "" or _node_tree_id(k) == tree_id:
+			tot += int(s.skills[k])
+	return tot
+
+func sp_total() -> int:
+	return max(0, int(s.level) - 1)
+
+func sp_left() -> int:
+	return sp_total() - skill_spent()
+
+func node_lock_reason(n: Dictionary) -> String:
+	if int(s.level) < int(n.reqLv): return "需等级 Lv%d" % int(n.reqLv)
+	if skill_spent(_node_tree_id(n.id)) < int(n.reqPts): return "需本树已投 %d 点" % int(n.reqPts)
+	for pid in n.prereq:
+		if skill_rank(pid) < 1:
+			var pn = _node_by_id(pid)
+			return "需先学「%s」" % (pn.name if pn else pid)
+	return ""
+
+func _refund_blocked(id: String):
+	var tr = _tree_by_id(_node_tree_id(id))
+	for m in tr.nodes:
+		if skill_rank(m.id) > 0 and id in m.prereq: return m
+	return null
+
+func spend_skill(id: String) -> bool:
+	var n = _node_by_id(id)
+	if n == null or sp_left() <= 0 or skill_rank(id) >= int(n.max): return false
+	if node_lock_reason(n) != "": return false
+	s.skills[id] = skill_rank(id) + 1
+	_recalc(); save_slot(slot); changed.emit()
+	return true
+
+func refund_skill(id: String) -> bool:
+	if skill_rank(id) <= 0: return false
+	if skill_rank(id) == 1 and _refund_blocked(id) != null: return false
+	s.skills[id] = skill_rank(id) - 1
+	if s.skills[id] == 0: s.skills.erase(id)
+	_recalc(); save_slot(slot); changed.emit()
+	return true
+
+func reset_skills() -> void:
+	s.skills = {}
+	_recalc(); save_slot(slot); changed.emit()
+
 func _ready() -> void:
 	load_slot(slot)
 
@@ -98,7 +200,7 @@ func apply_combat_result(r: Dictionary) -> Dictionary:
 		s.exp -= CombatCore.next_exp(int(s.level))
 		s.level = int(s.level) + 1
 		lvups += 1
-	s.sp = max(0, int(s.level) - 1)  # 技能点=每级+1(spForLevel=lv-1)
+# 技能点为计算值: sp_total=lv-1, sp_left=total-已投, 不再存 s.sp(见 sp_* 方法)
 	# 击败当前区 boss → 解锁并前往下一区(挂机自动推图)
 	var unlocked_zone := -1
 	if r.get("bossKilled", false):

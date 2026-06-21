@@ -223,9 +223,12 @@ func _build_menu() -> void:
 		b.pressed.connect(func(): _open_menu(key))
 		col.add_child(b)
 
+var skill_tab := 0
+
 func _open_menu(key: String) -> void:
 	match key:
 		"equip": _open_panel("侠客装备", _fill_equip)
+		"skill": _open_panel("人物技能", _fill_skill)
 		_: _open_panel("敬请期待", func(c): _placeholder(c, key))
 
 func _placeholder(c: Control, key: String) -> void:
@@ -420,3 +423,102 @@ func _stat_brief(st: Dictionary) -> String:
 
 func _slot_cn(sl: String) -> String:
 	return {"weapon": "武器", "head": "头", "body": "身", "legs": "腿", "neck": "项", "ring": "戒", "belt": "带"}.get(sl, sl)
+
+# ---- 技能树面板(P3:力量战士 + 内功附魔流 两树 tab,投点/退点/对比)----
+const SK_CW := 150.0
+const SK_CH := 96.0
+func _fill_skill(c: Control) -> void:
+	var tree = Player.SKILL_TREES[skill_tab]
+	# 顶部:tab + 技能点 + 重置
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	c.add_child(top)
+	for i in range(Player.SKILL_TREES.size()):
+		var tb := Button.new()
+		tb.text = Player.SKILL_TREES[i].name
+		tb.add_theme_font_override("font", ui_font)
+		_style_btn(tb, i == skill_tab)
+		var idx = i
+		tb.pressed.connect(func(): skill_tab = idx; _refresh_skill())
+		top.add_child(tb)
+	var sp := _hdr("   技能点 %d / %d" % [Player.sp_left(), Player.sp_total()])
+	top.add_child(sp)
+	var rs := Button.new()
+	rs.text = "重置本树"
+	rs.add_theme_font_override("font", ui_font)
+	_style_btn(rs, false)
+	rs.pressed.connect(func(): Player.reset_skills(); _refresh_skill())
+	top.add_child(rs)
+	# 节点区(按 row/col 绝对定位)
+	var area := Control.new()
+	area.position = Vector2(0, 44)
+	area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.add_child(area)
+	for n in tree.nodes:
+		area.add_child(_skill_cell(n))
+
+func _skill_cell(n: Dictionary) -> Control:
+	var rank = Player.skill_rank(n.id)
+	var lock = Player.node_lock_reason(n)
+	var maxed = rank >= int(n.max)
+	var cell := PanelContainer.new()
+	cell.position = Vector2(int(n.col) * SK_CW, int(n.row) * SK_CH)
+	cell.custom_minimum_size = Vector2(SK_CW - 10, SK_CH - 10)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.07, 0.95)
+	sb.set_corner_radius_all(5)
+	sb.set_content_margin_all(5)
+	sb.set_border_width_all(2)
+	# 状态配色:已学金/可学暗金/锁灰
+	if rank > 0: sb.border_color = Color(0.95, 0.78, 0.32)
+	elif lock == "": sb.border_color = Color(0.6, 0.5, 0.3)
+	else: sb.border_color = Color(0.32, 0.28, 0.22)
+	cell.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 1)
+	cell.add_child(v)
+	var nm := Label.new()
+	nm.text = n.name + ("  ★" if n.get("active", false) else "")
+	nm.add_theme_font_override("font", ui_font)
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.add_theme_color_override("font_color", Color(0.97, 0.88, 0.6) if (rank > 0 or lock == "") else Color(0.55, 0.5, 0.42))
+	v.add_child(nm)
+	var rk := Label.new()
+	rk.text = "%d / %d" % [rank, int(n.max)]
+	rk.add_theme_font_override("font", ui_font)
+	rk.add_theme_font_size_override("font_size", 12)
+	rk.add_theme_color_override("font_color", Color(0.85, 0.82, 0.6))
+	v.add_child(rk)
+	var ds := Label.new()
+	ds.text = lock if (lock != "" and rank == 0) else n.desc
+	ds.add_theme_font_override("font", ui_font)
+	ds.add_theme_font_size_override("font_size", 10)
+	ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ds.custom_minimum_size = Vector2(SK_CW - 20, 0)
+	ds.add_theme_color_override("font_color", Color(0.95, 0.55, 0.45) if (lock != "" and rank == 0) else Color(0.66, 0.62, 0.5))
+	v.add_child(ds)
+	var btns := HBoxContainer.new()
+	v.add_child(btns)
+	var nid = n.id
+	if not maxed and lock == "" and Player.sp_left() > 0:
+		var bp := Button.new()
+		bp.text = "+"
+		bp.add_theme_font_override("font", ui_font)
+		bp.custom_minimum_size = Vector2(28, 0)
+		_style_btn(bp, true)
+		bp.pressed.connect(func(): Player.spend_skill(nid); _refresh_skill())
+		btns.add_child(bp)
+	if rank > 0:
+		var bm := Button.new()
+		bm.text = "−"
+		bm.add_theme_font_override("font", ui_font)
+		bm.custom_minimum_size = Vector2(28, 0)
+		_style_btn(bm, false)
+		bm.pressed.connect(func(): Player.refund_skill(nid); _refresh_skill())
+		btns.add_child(bm)
+	return cell
+
+func _refresh_skill() -> void:
+	for ch in panel_body.get_children():
+		ch.queue_free()
+	_fill_skill(panel_body)
