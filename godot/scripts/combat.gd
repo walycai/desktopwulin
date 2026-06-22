@@ -32,7 +32,7 @@ func _ready() -> void:
 	info.position = Vector2(10, 4)
 	add_child(info)
 	bg_tex = load("res://assets/combat/bg_training_strip.png")
-	_start()
+	# 不在此处开打:默认在家修整,由 _process 侦测 Player.sortieActive 才 _start()(bug1)
 	set_process(true)
 
 var run_n := 0
@@ -44,7 +44,10 @@ func _start() -> void:
 	var bc = CombatCore.build_to_combat(Player.build())
 	run_n += 1
 	var z = Player.cur_zone()  # P2:当前分区的敌人/等级/boss
-	is_boss_run = (run_n % 4 == 0)  # 每4趟挑战一次本区BOSS(挂机自动推图)
+	# BOSS 战=手动触发(挑战首领键),不再每4趟自动(对齐 H5,WalyCai:要boss激活键)
+	is_boss_run = bool(Player.s.get("bossRequested", false))
+	if is_boss_run:
+		Player.s["bossRequested"] = false
 	var cfg = {
 		"attrs": bc.attrs, "seed": SEEDV + run_n,
 		"abilities": bc.get("abilities", []), "enchant": bc.get("enchant", {}),
@@ -72,11 +75,42 @@ func _tex(path: String):
 		tex_cache[path] = (load(path) if ResourceLoader.exists(path) else null)
 	return tex_cache[path]
 
+var _was_active := false
+
+# 中断出战:把当前趟已打的战利品/经验/金币入库带回家(对齐 H5"中断=带走当前包裹回家")
+func _bank_partial() -> void:
+	if sim != null and not result_applied:
+		result_applied = true
+		Player.apply_combat_result(sim.result())
+
+# 挑战本区首领(出战面板按钮):入库当前趟 → 立即开打 boss
+func force_boss() -> void:
+	Player.s["bossRequested"] = true
+	Player.s["sortieActive"] = true
+	Player.save_slot(Player.slot)
+	_bank_partial()
+	_was_active = true
+	_start()
+
 func _process(dt: float) -> void:
-	if sim == null:
-		return
 	player_sx = get_viewport_rect().size.x * 0.18
 	anim_t += dt
+	var active = bool(Player.s.get("sortieActive", false))
+	# 未出战:在家修整,战斗暂停(不刷怪/不自动重开)。刚从出战切回→入库当前趟战利品
+	if not active:
+		if _was_active:
+			_bank_partial()
+			_was_active = false
+			sim = null  # 清掉上一趟战场,未出战面板只显练武场背景
+		info.text = "未出战 · 在家修整 — 点左侧【⚔ 出战】开始历练"
+		queue_redraw()
+		return
+	# 进入出战(刚从未出战切来)→ 开新一趟
+	if not _was_active:
+		_was_active = true
+		_start()
+	if sim == null:
+		_start()
 	if sim.is_done():
 		if not result_applied:
 			result_applied = true

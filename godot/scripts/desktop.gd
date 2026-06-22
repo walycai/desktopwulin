@@ -9,6 +9,7 @@ const TOPBAR_H := 26
 
 var ui_font: SystemFont
 var home_view: Node2D
+var combat_view: Node2D
 var home_vp: SubViewport
 var topbar: Label
 var hide_btn: Button
@@ -100,7 +101,8 @@ func _build() -> void:
 	rvp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	rvp.handle_input_locally = true
 	right.add_child(rvp)
-	rvp.add_child(load("res://scenes/combat.tscn").instantiate())
+	combat_view = load("res://scenes/combat.tscn").instantiate()
+	rvp.add_child(combat_view)
 
 	# 顶栏(横条压缩状态栏,浮在画面上)
 	var bar := PanelContainer.new()
@@ -195,7 +197,8 @@ func _process(_dt: float) -> void:
 		return
 	# 顶栏读共享养成状态 Player(左家园+右历练同源)
 	var p = Player.s
-	topbar.text = "  ❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   💪 战力 %d" % [int(p.hp), int(p.hpMax), int(p.mana), int(p.manaMax), int(p.gold), int(p.level), Player.combat_power()]
+	var mode = "⚔历练中" if bool(p.get("sortieActive", false)) else "🏠修整"
+	topbar.text = "  ❤ %d/%d   🔷 %d/%d   💰 %d   ⚔ Lv%d   💪 战力 %d   · %s" % [int(p.hp), int(p.hpMax), int(p.mana), int(p.manaMax), int(p.gold), int(p.level), Player.combat_power(), mode]
 
 # ---- 左侧菜单(P3/P4 入口)----
 func _build_menu() -> void:
@@ -233,8 +236,10 @@ func _open_menu(key: String) -> void:
 		"home": _open_panel("居家技能", _fill_home)
 		"sortie": _open_panel("出战历练", _fill_sortie)
 		"meditate":
+			_stop_sortie()  # 打坐与出战互斥:先收兵回家(带回当前包裹)
 			if home_view: home_view._go_action("meditating")
 		"sleep":
+			_stop_sortie()
 			if home_view: home_view._go_action("sleeping")
 		_: _open_panel("敬请期待", func(c): _placeholder(c, key))
 
@@ -739,12 +744,54 @@ func _home_refresh() -> void:
 	for ch in panel_body.get_children(): ch.queue_free()
 	_fill_home(panel_body)
 
-# ---- 出战历练:选区(P4)----
+# ---- 出战状态控制(bug1 状态机 / bug4 boss键)----
+func _start_sortie() -> void:
+	Player.s["sortieActive"] = true
+	Player.save_slot(Player.slot)
+	if home_view and home_view.has_method("exit_home_action"):
+		home_view.exit_home_action()  # 出战与打坐/睡觉互斥:把主角从居家状态拉回
+
+func _stop_sortie() -> void:
+	if not bool(Player.s.get("sortieActive", false)):
+		return
+	Player.s["sortieActive"] = false
+	Player.save_slot(Player.slot)
+	# combat_view 的 _process 下一帧会侦测到 active=false 并入库当前趟战利品
+
+# ---- 出战历练:开打/收兵 + 挑战首领 + 选区(P4 / bug1+4)----
 func _fill_sortie(c: Control) -> void:
 	var root := VBoxContainer.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_theme_constant_override("separation", 5)
 	c.add_child(root)
+	var active = bool(Player.s.get("sortieActive", false))
+	root.add_child(_hdr("当前状态:%s   ·   当前地图:%s" % ["⚔ 历练中" if active else "🏠 在家修整", Player.cur_zone().name]))
+
+	# 开打 / 收兵 + 挑战本区首领
+	var ctrl := HBoxContainer.new()
+	ctrl.add_theme_constant_override("separation", 10)
+	root.add_child(ctrl)
+	var toggle := Button.new()
+	toggle.text = "■ 收兵回家(带回战利品)" if active else "▶ 开始历练"
+	toggle.add_theme_font_override("font", ui_font)
+	toggle.custom_minimum_size = Vector2(220, 34)
+	_style_btn(toggle, not active)
+	toggle.pressed.connect(func():
+		if bool(Player.s.get("sortieActive", false)): _stop_sortie()
+		else: _start_sortie()
+		_refresh_sortie())
+	ctrl.add_child(toggle)
+	var boss := Button.new()
+	boss.text = "⚔ 挑战本区首领「%s」" % Player.cur_zone().boss.name
+	boss.add_theme_font_override("font", ui_font)
+	boss.custom_minimum_size = Vector2(260, 34)
+	_style_btn(boss, true)
+	boss.pressed.connect(func():
+		_start_sortie()
+		if combat_view and combat_view.has_method("force_boss"): combat_view.force_boss()
+		_refresh_sortie())
+	ctrl.add_child(boss)
+
 	root.add_child(_hdr("选择历练地图(已解锁到 %s)" % Player.ZONES[clampi(int(Player.s.unlocked), 0, Player.ZONES.size() - 1)].name))
 	for i in range(Player.ZONES.size()):
 		var z = Player.ZONES[i]
@@ -758,12 +805,20 @@ func _fill_sortie(c: Control) -> void:
 		nm.add_theme_color_override("font_color", Color(0.4, 0.38, 0.34) if locked else (Color(1.0, 0.9, 0.5) if i == int(Player.s.zone) else Color(0.9, 0.84, 0.6)))
 		row.add_child(nm)
 		if not locked:
-			var bg := Button.new(); bg.text = "前往"; bg.add_theme_font_override("font", ui_font)
+			var bg := Button.new(); bg.text = "前往并历练"; bg.add_theme_font_override("font", ui_font)
 			_style_btn(bg, i == int(Player.s.zone))
 			var zi = i
-			bg.pressed.connect(func(): Player.s["zone"] = zi; Player.save_slot(Player.slot); Player.changed.emit(); _close_panel())
+			bg.pressed.connect(func():
+				Player.s["zone"] = zi
+				_start_sortie()  # 前往=去该区开打
+				Player.changed.emit()
+				_refresh_sortie())
 			row.add_child(bg)
 		else:
 			var lk := Label.new(); lk.text = "🔒未解锁"; lk.add_theme_font_override("font", ui_font)
 			lk.add_theme_color_override("font_color", Color(0.5, 0.45, 0.4)); row.add_child(lk)
 		root.add_child(row)
+
+func _refresh_sortie() -> void:
+	for ch in panel_body.get_children(): ch.queue_free()
+	_fill_sortie(panel_body)

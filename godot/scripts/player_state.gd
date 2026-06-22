@@ -140,8 +140,35 @@ func _default() -> void:
 		"zone": 0, "unlocked": 0,        # 当前区 / 已解锁最高区(打过boss解锁下一区)
 		"warehouse": [], "equipSeq": 1,  # 掉落装备仓库(P3 用)+ 装备uid计数
 		"homeSkills": {}, "homeSpSpent": 0, "autoOn": {},
+		"sortieActive": false, "bossRequested": false,  # 出战状态机:默认在家修整,不自动开打(WalyCai:前期能修炼不被迫送死)
 	}
+	_grant_starter()  # 新手白装 + 白功法(对齐 H5:开荒不裸奔)
 	_recalc()
+
+# 新手开荒装备/功法(对齐 H5 game.js,幂等=新档发放+老档迁移补发):
+# 1级拳套(quan)+1级衣服 直接穿上→开局能刷怪+用拳法;其余 5 部位进仓库;
+# 每系白功法(tier0)免费送 Lv1;白拳法 quan_t0 自动装 wai1;默认修炼玄甲功。
+func _grant_starter() -> void:
+	# 无武器(新档或裸装老档)→ 发整套新手白装(拳套+衣服穿上,其余进仓库)
+	if s.equipped.get("weapon", null) == null:
+		s.equipped["weapon"] = {"uid": _next_uid(), "tid": "weapon", "lv": 1, "rarity": "common", "affixes": [], "wtype": "quan"}
+		if s.equipped.get("body", null) == null:
+			s.equipped["body"] = {"uid": _next_uid(), "tid": "body", "lv": 1, "rarity": "common", "affixes": []}
+		for tid in ["head", "legs", "neck", "ring", "belt"]:
+			s.warehouse.append({"uid": _next_uid(), "tid": tid, "lv": 1, "rarity": "common", "affixes": []})
+	# 白功法(每系 tier0)免费送 Lv1(幂等:缺则补)
+	for g in CombatCore.GONGFA:
+		if int(g.get("tier", 0)) == 0 and not s.gongfa.has(g.id):
+			s.gongfa[g.id] = {"lv": 1, "prof": 0}
+	if s.gongfaEquip.get("wai1", null) == null and CombatCore.gongfa_by_id("quan_t0") != null:
+		s.gongfaEquip["wai1"] = "quan_t0"   # 配拳套即可用拳技
+	if (s.get("trainId", null) == null or CombatCore.gongfa_by_id(s.get("trainId", null)) == null) and CombatCore.gongfa_by_id("xuanjia_t0") != null:
+		s.trainId = "xuanjia_t0"            # 默认打坐修炼目标
+
+func _next_uid() -> int:
+	var u = int(s.equipSeq)
+	s.equipSeq = u + 1
+	return u
 
 func reset() -> void:
 	_default()
@@ -418,6 +445,7 @@ func load_slot(n: int) -> void:
 				_default()  # 先铺默认键,再覆盖(老存档缺字段也安全)
 				for k in d:
 					s[k] = d[k]
+				_grant_starter()  # 老档迁移:补发新手白装/白功法(幂等)
 				_recalc()
 				changed.emit()
 				return

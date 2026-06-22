@@ -206,6 +206,11 @@ func _go_action(action: String) -> void:
 	ty = target.y
 	set_meta("pending_action", action)
 
+# 出战时把主角从居家状态(打坐/睡觉/走向其)拉回普通游荡(打坐/睡觉 与 出战 互斥)
+func exit_home_action() -> void:
+	if has_meta("pending_action"): remove_meta("pending_action")
+	pstate = "wander"
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		# 滚屏下:屏幕坐标→世界坐标(经相机变换)→归一化房间坐标
@@ -254,12 +259,20 @@ func _home_tick(dt: float) -> void:
 			if _heal_acc >= 0.3:
 				_heal_acc = 0.0
 				Player.s.hp = min(int(Player.s.hpMax), int(Player.s.hp) + max(1, int(Player.s.hpMax * 0.03)))
+		elif Player.auto_on("auto_sleep"):
+			pstate = "wander"  # 满血自动起床(让自动打坐/历练接力)
 	elif pstate == "wander":
-		# 自动行为:受伤自动睡 / 满血自动打坐
+		# 出战中:居家不触发自动打坐/睡觉(打坐与出战互斥,bug1)
+		if bool(Player.s.get("sortieActive", false)):
+			return
+		# 自动行为:受伤自动睡 / 满血自动打坐 / 满血自动历练(互斥,见 HOME_AUTO excl)
 		if Player.auto_on("auto_sleep") and int(Player.s.hp) < int(Player.s.hpMax) * 0.5:
 			_go_action("sleeping")
 		elif Player.auto_on("auto_meditate") and int(Player.s.hp) >= int(Player.s.hpMax) and Player.s.get("trainId", null) != null:
 			_go_action("meditating")
+		elif Player.auto_on("auto_sortie") and int(Player.s.hp) >= int(Player.s.hpMax):
+			Player.s["sortieActive"] = true  # 满血自动出战(右历练接管)
+			Player.save_slot(Player.slot)
 
 func _update_player(dt: float) -> void:
 	if pstate == "walking" or pstate == "wander":

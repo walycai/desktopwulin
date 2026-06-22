@@ -294,8 +294,9 @@ const GONGFA_TIER_MULT := 1.25
 func gf_scale_tier(o, t) -> Dictionary:
 	var r := {}
 	var m = pow(GONGFA_TIER_MULT, t)
+	# 不在此处逐项取整:白档被动(如0.4)会被round成0。保留小数,由 build_to_combat 累积"被动×等级"后整体 round(莱布尼茨,同金币原则)
 	for k in o:
-		r[k] = (o[k] + GF_RATE_ADD[k] * t) if GF_RATE_ADD.has(k) else roundi(o[k] * m)
+		r[k] = (o[k] + GF_RATE_ADD[k] * t) if GF_RATE_ADD.has(k) else (o[k] * m)
 	return r
 func gf_price(t) -> int:
 	return roundi(240.0 * pow(5.0, t)) if t <= 3 else roundi(30000.0 * pow(3.5, t - 3))
@@ -732,7 +733,7 @@ class CombatSim extends RefCounted:
 		e.dead = true
 		kills += 1
 		exp += e.E.get("exp", 0)
-		gold += roundi(e.E.get("exp", 0) * C.GOLD_PER_EXP * (2 if e.isBoss else 1))
+		gold += e.E.get("exp", 0) * C.GOLD_PER_EXP * (2 if e.isBoss else 1)  # 小数累积,整场结算再 round(逐杀 round 会把早期 <1 金币丢成 0,莱布尼茨定位)
 		if e.isBoss:
 			bossKilled = true
 			done = true
@@ -950,4 +951,4 @@ class CombatSim extends RefCounted:
 		return {"P": P, "enemies": enemies, "kills": kills, "t": t, "lastHit": lastHit, "lastHeal": lastHeal, "lane": lane, "melee": melee, "mana": mana, "manaMax": manaMax, "haste": haste, "lastCast": lastCast}
 
 	func result() -> Dictionary:
-		return {"outcome": outcome if outcome else "win", "ttk": snappedf(t, 0.01), "kills": kills, "drops": drops, "expGained": exp, "goldGained": gold, "potionsUsed": potions, "hpRemaining": max(0, roundi(P.hp)), "manaRemaining": max(0, roundi(mana)), "bagFull": bagFull, "bossKilled": bossKilled, "dmgDealt": dmgDealt, "dmgTaken": dmgTaken}
+		return {"outcome": outcome if outcome else "win", "ttk": snappedf(t, 0.01), "kills": kills, "drops": drops, "expGained": exp, "goldGained": roundi(gold), "potionsUsed": potions, "hpRemaining": max(0, roundi(P.hp)), "manaRemaining": max(0, roundi(mana)), "bagFull": bagFull, "bossKilled": bossKilled, "dmgDealt": dmgDealt, "dmgTaken": dmgTaken}

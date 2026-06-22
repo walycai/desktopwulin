@@ -277,7 +277,7 @@
       if (enchant.chill && rng() < enchant.chill.chance) { var cc = ENCH.chillCap; tg.deb.chillMv = Math.min(cc, enchant.chill.mv); tg.deb.chillAs = Math.min(cc, enchant.chill.as); tg.deb.chillHit = Math.min(cc, enchant.chill.hit); tg.deb.chillT = enchant.chill.dur; }
     }
     function killEnemy(e) {
-      e.dead = true; kills++; exp += (e.E.exp || 0); gold += Math.round((e.E.exp || 0) * GOLD_PER_EXP * (e.isBoss ? 2 : 1)); // 金币=经验×系数(boss额外2x)，待莱布尼茨调
+      e.dead = true; kills++; exp += (e.E.exp || 0); gold += (e.E.exp || 0) * GOLD_PER_EXP * (e.isBoss ? 2 : 1); // 金币小数累积,整场结算再round(逐杀round会把早期<1金币丢成0,莱布尼茨定位)
       if (e.isBoss) {
         bossKilled = true; done = true; outcome = "win";
         // boss 首杀必掉高品质(高稀有度,非高等级需求)
@@ -330,7 +330,7 @@
     return {
       step: step, isDone: function () { return done; },
       state: function () { return { P: P, enemies: enemies, kills: kills, t: t, lastHit: lastHit, lastHeal: lastHeal, lane: lane, melee: melee, mana: mana, manaMax: manaMax, haste: haste, lastCast: lastCast }; },
-      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: gold, potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), manaRemaining: Math.max(0, Math.round(mana)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
+      result: function () { return { outcome: outcome || "win", ttk: Math.round(t * 100) / 100, kills: kills, drops: drops, expGained: exp, goldGained: Math.round(gold), potionsUsed: potions, hpRemaining: Math.max(0, Math.round(P.hp)), manaRemaining: Math.max(0, Math.round(mana)), bagFull: bagFull, bossKilled: bossKilled, dmgDealt: dmgDealt, dmgTaken: dmgTaken }; }
     };
   }
   function simulateRealtime(cfg) { var c = createCombat(cfg), dt = cfg.dt || 0.05, n = 0, lim = (cfg.cap || 5000) / dt + 10; while (!c.isDone() && n++ < lim) c.step(dt); return c.result(); }
@@ -380,7 +380,7 @@
   ];
   var GF_RATE_ADD = { Crit: 2, Hit: 2, Dodge: 1 }; // 率类每阶+固定(不×1.5)
   var GONGFA_TIER_MULT = 1.25; // 功法每阶加成倍率(数值收敛 ×1.25, t9≈×7)
-  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : Math.round(o[k] * m); return r; } // 去掉 max(1) 底,允许<1/0
+  function gfScaleTier(o, t) { var r = {}, m = Math.pow(GONGFA_TIER_MULT, t); for (var k in o) r[k] = (GF_RATE_ADD[k] != null) ? (o[k] + GF_RATE_ADD[k] * t) : (o[k] * m); return r; } // 保留小数不逐项round(白档被动0.4会被round成0),由 buildToCombat 累积"被动×等级"后整体round(莱布尼茨,同金币原则)
   function gfPrice(t) { return t <= 3 ? Math.round(240 * Math.pow(5, t)) : Math.round(30000 * Math.pow(3.5, t - 3)); } // t0-3(240/1200/6000/30000),t4起×3.5/阶
   // 有效档 te=tier+(lv-1)/9:修炼等级在档内平滑爬升(lv10≈下一档底),用于 active 武器技能/内功特效(莱布尼茨公式按 te 算)
   function gfEffTier(tier, lv) { return tier + (Math.max(1, lv || 1) - 1) / (GONGFA_MAXLV - 1); }
