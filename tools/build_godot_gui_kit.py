@@ -85,15 +85,19 @@ def panel(name, emphasis=False, tooltip=False):
     w, h = (96, 96)
     im = img(w, h)
     d = ImageDraw.Draw(im)
-    base = COL["paper"] if not tooltip else (67, 45, 33, 245)
-    inset = COL["paper_dark"] if not tooltip else (103, 73, 47, 248)
+    # Godot 1366x768 validation showed the first panel paper was too bright
+    # when stretched across the whole management panel. Keep the wuxia paper
+    # read, but move it into a calmer mid tone so text and buttons lead.
+    base = (174, 137, 86, 255) if not tooltip else (67, 45, 33, 245)
+    inset = (133, 99, 63, 255) if not tooltip else (103, 73, 47, 248)
     edge = COL["wood"] if not emphasis else COL["red"]
     edge_hi = COL["bronze"] if not emphasis else COL["gold"]
     rect(d, (2, 2, w - 3, h - 3), edge, COL["wood_dark"], 2)
     rect(d, (7, 7, w - 8, h - 8), base, edge_hi, 2)
     rect(d, (13, 13, w - 14, h - 14), inset, None)
     rect(d, (16, 16, w - 17, h - 17), base, None)
-    add_noise(im, (16, 16, w - 16, h - 16), [(222, 194, 143, 255), (199, 160, 101, 255)] if not tooltip else [(76, 52, 38, 255), (91, 63, 42, 255)], 5)
+    noise_cols = [(184, 148, 94, 255), (151, 112, 70, 255)] if not tooltip else [(76, 52, 38, 255), (91, 63, 42, 255)]
+    add_noise(im, (16, 16, w - 16, h - 16), noise_cols, 5 if tooltip else 7)
     draw_corner_caps(d, w, h, edge_hi)
     if emphasis:
         d.line([(23, 9), (w - 24, 9)], fill=COL["gold_hi"], width=1)
