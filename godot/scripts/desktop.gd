@@ -3,7 +3,9 @@ extends Control
 # 左=室内界面(内嵌 home 场景,相机横向切片);右=历练界面(横版战斗,现占位待移植)。
 # 一键隐藏→窗口缩成桌面角落小恢复按钮;点恢复键还原。
 
-const STRIP_FRAC := 0.25   # 屏幕下方约 1/4 高
+const STRIP_FRAC := 0.26   # 屏幕下方约 1/4 高(贴底横条)
+const STRIP_MIN_H := 224   # 横条最矮(1366×768 等小屏保可读)
+const STRIP_MAX_H := 560   # 横条最高(4K 不至于过厚)
 const LEFT_FRAC := 0.42    # 左室内占宽比例
 const TOPBAR_H := 26
 
@@ -22,7 +24,16 @@ var panel_layer: Control
 var panel_body: Control
 var panel_title: Label
 var panel_open := false
-const EXPAND := Vector2i(1000, 640)  # 管理态窗口尺寸
+var _screen := Vector2i(1920, 1080)
+
+# 管理面板=锚定屏幕左下角的盒子(绝不居中/全屏/越界)。宽≈半屏、高≈0.62屏,按分辨率自适应。
+func _panel_box() -> Dictionary:
+	var ss := _screen if _screen.x > 0 else DisplayServer.screen_get_size()
+	var w = clampi(int(ss.x * 0.5), 560, 980)
+	var h = clampi(int(ss.y * 0.62), 360, 860)
+	w = min(w, ss.x)
+	h = min(h, ss.y)
+	return {"size": Vector2i(w, h), "pos": Vector2i(0, ss.y - h)}  # x=0,贴屏幕左下角
 
 func _ready() -> void:
 	ui_font = SystemFont.new()
@@ -39,7 +50,8 @@ func _setup_window() -> void:
 	var ss := DisplayServer.screen_get_size()
 	if ss.x <= 0:
 		return
-	var h := int(ss.y * STRIP_FRAC)
+	_screen = ss
+	var h := clampi(int(ss.y * STRIP_FRAC), STRIP_MIN_H, STRIP_MAX_H)
 	_full_size = Vector2i(ss.x, h)
 	_full_pos = Vector2i(0, ss.y - h)
 	DisplayServer.window_set_size(_full_size)
@@ -215,7 +227,7 @@ func _build_menu() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	mp.add_child(col)
-	for it in [["🎒 装备", "equip"], ["🌳 技能", "skill"], ["☯ 功法", "kungfu"], ["🏠 居家", "home"], ["⚔ 出战", "sortie"], ["🧘 打坐", "meditate"], ["🛌 睡觉", "sleep"]]:
+	for it in [["🎒 装备", "equip"], ["🌳 技能", "skill"], ["☯ 功法", "kungfu"], ["🏠 居家", "home"], ["⚔ 出战", "sortie"], ["👹 挑战首领", "boss"], ["🧘 打坐", "meditate"], ["🛌 睡觉", "sleep"]]:
 		var b := Button.new()
 		b.text = it[0]
 		b.add_theme_font_override("font", ui_font)
@@ -235,6 +247,10 @@ func _open_menu(key: String) -> void:
 		"kungfu": _open_panel("功法", _fill_kungfu)
 		"home": _open_panel("居家技能", _fill_home)
 		"sortie": _open_panel("出战历练", _fill_sortie)
+		"boss":
+			# 一键挑战本区首领(打赢解锁下一图,解决"困在第一张图")
+			_start_sortie()
+			if combat_view and combat_view.has_method("force_boss"): combat_view.force_boss()
 		"meditate":
 			_stop_sortie()  # 打坐与出战互斥:先收兵回家(带回当前包裹)
 			if home_view: home_view._go_action("meditating")
@@ -310,9 +326,9 @@ func _open_panel(title: String, fill: Callable) -> void:
 	panel_layer.visible = true
 	main_ui.visible = false
 	if DisplayServer.get_name() != "headless" and _full_size.x > 0:
-		var ss := DisplayServer.screen_get_size()
-		DisplayServer.window_set_size(EXPAND)
-		DisplayServer.window_set_position(Vector2i((ss.x - EXPAND.x) / 2, (ss.y - EXPAND.y) / 2))
+		var box = _panel_box()  # 锚定屏幕左下角(不居中/不全屏)
+		DisplayServer.window_set_size(box.size)
+		DisplayServer.window_set_position(box.pos)
 
 func _close_panel() -> void:
 	panel_open = false
@@ -461,11 +477,23 @@ func _fill_skill(c: Control) -> void:
 	_style_btn(rs, false)
 	rs.pressed.connect(func(): Player.reset_skills(); _refresh_skill())
 	top.add_child(rs)
-	# 节点区(按 row/col 绝对定位)
+	# 节点区(按 row/col 绝对定位)放进滚动容器→小窗口里不越界,可横/纵滚动查看整棵树
+	var sc := ScrollContainer.new()
+	sc.position = Vector2(0, 44)
+	sc.anchor_right = 1.0
+	sc.anchor_bottom = 1.0
+	sc.offset_bottom = -4
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	sc.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	c.add_child(sc)
 	var area := Control.new()
-	area.position = Vector2(0, 44)
-	area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c.add_child(area)
+	var maxc := 0
+	var maxr := 0
+	for n in tree.nodes:
+		maxc = max(maxc, int(n.col))
+		maxr = max(maxr, int(n.row))
+	area.custom_minimum_size = Vector2((maxc + 1) * SK_CW, (maxr + 1) * SK_CH + 8)
+	sc.add_child(area)
 	for n in tree.nodes:
 		area.add_child(_skill_cell(n))
 
