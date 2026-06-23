@@ -49,5 +49,10 @@ gui/bar_bg.png      bar_fill_hp.png  bar_fill_mana.png  bar_fill_exp.png  bar_fi
 - normal / hover / pressed / disabled / **selected**（tab 当前页、已选槽、当前修炼功法）
 - Boss 挑战 = 单独强调态（normal + hover）
 
+## QA 硬约束（马奈）
+1. **1366×768 是硬下限**（盒子≈683×476）：此尺寸下按钮28–34/槽56/tooltip300 会很紧 → 列表/技能树/功法区**滚动必须顺手**；tooltip 触边换边后**不得盖住当前 hover 项或关键按钮**（工程做换边/限界）。
+2. **九宫格边框别太厚**：古风厚边在小面板里吃内容面积。第一包资产请在规格里标明**「推荐最小内容内边距」**；QA 会看边框是否压缩可用信息区。
+3. 字号/槽位**不缩**，小盒子靠滚动解决（不为塞内容把字缩到不可读）。
+
 ---
-**工程承诺**：吴冠中按此出第一包后，我把 Theme（StyleBoxTexture/TextureProgressBar）一次性接好，并提供 1366×768 小盒子实跑结果给马奈验读性/越界。tooltip 换边/限界逻辑随 hover 对比一起实装。
+**工程承诺**：吴冠中按此出第一包后，我把 Theme（StyleBoxTexture/TextureProgressBar）一次性接好，tooltip 换边/限界逻辑随 hover 对比一起实装；多分辨率验收用 Windows 实机/带显示器编辑器截图（不在 headless 硬凑废图）。
