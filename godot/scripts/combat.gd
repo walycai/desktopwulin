@@ -201,6 +201,10 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0, 0, 0, 0.16))
 	# 顶部 HUD 半透明背板(让历练状态行更醒目)
 	draw_rect(Rect2(0, 0, vp.x, 24), Color(0.03, 0.02, 0.02, 0.55))
+	# 经验进度条(顶部细条,到下一级)
+	var exp_need = CombatCore.next_exp(int(Player.s.level))
+	var exp_ratio = clamp(float(Player.s.exp) / float(max(1, exp_need)), 0.0, 1.0)
+	_draw_hp_bar(vp.x * 0.5, 24.0, vp.x - 6.0, exp_ratio, "bar_fill_exp", Color(0.9, 0.75, 0.3), 4.0)
 
 	if sim == null:
 		return
@@ -218,7 +222,7 @@ func _draw() -> void:
 		var anim = "attack" if e.at > 0 else "idle"
 		var tex = _enemy_tex(e.id, anim)
 		_draw_sprite(tex, ex, ground, dh, true)
-		_draw_hp_bar(ex, ground - dh - 6, 40, float(e.hp) / float(e.hpMax), Color(0.75, 0.36, 0.36))
+		_draw_hp_bar(ex, ground - dh - 6, 40, float(e.hp) / float(e.hpMax), "bar_fill_hp", Color(0.75, 0.36, 0.36))
 		_draw_enemy_debuffs(e, ex, ground - dh - 18)
 		if e.isBoss:
 			_draw_label(e.E.get("name", "首领"), ex, ground - dh - 30, Color(0.95, 0.75, 0.3))
@@ -229,10 +233,10 @@ func _draw() -> void:
 	var p_anim = "down" if st.P.hp <= 0 else ("attack" if p_atk > 0 else "idle")
 	var ptex = _tex("res://assets/characters/protagonist_combat/%s.png" % p_anim)
 	_draw_sprite(ptex, player_sx, ground, ch, false)
-	# 主角血条 + 内力条
-	_draw_hp_bar(player_sx, ground - ch - 8, 56, float(max(0, st.P.hp)) / float(st.P.hpMax), Color(0.37, 0.75, 0.37))
+	# 主角血条 + 内力条(皮肤化)
+	_draw_hp_bar(player_sx, ground - ch - 9, 56, float(max(0, st.P.hp)) / float(st.P.hpMax), "bar_fill_hp", Color(0.37, 0.75, 0.37), 6)
 	if st.manaMax > 0:
-		_draw_hp_bar(player_sx, ground - ch - 1, 56, float(st.mana) / float(st.manaMax), Color(0.35, 0.62, 0.88))
+		_draw_hp_bar(player_sx, ground - ch - 1, 56, float(st.mana) / float(st.manaMax), "bar_fill_mana", Color(0.35, 0.62, 0.88), 5)
 	# 挥击弧光
 	if p_atk > 0:
 		var a = p_atk / 0.18
@@ -271,10 +275,27 @@ func _draw_sprite(tex, cx: float, ground: float, dh: float, flip: bool) -> void:
 	else:
 		draw_texture_rect_region(tex, Rect2(cx - dw / 2, ground - dh, dw, dh), src)
 
-func _draw_hp_bar(cx: float, y: float, w: float, ratio: float, col: Color) -> void:
+func _bar_tex(name: String):
+	var p := "res://assets/ui/gui/%s.png" % name
+	if not tex_cache.has(p):
+		tex_cache[p] = (load(p) if ResourceLoader.exists(p) else null)
+	return tex_cache[p]
+
+# 血/内力/经验条:bar_bg 底 + bar_fill_* 填充(吴冠中皮肤),缺图回退色块
+func _draw_hp_bar(cx: float, y: float, w: float, ratio: float, fill_name: String, fb_col: Color, h := 5.0) -> void:
 	ratio = clamp(ratio, 0.0, 1.0)
-	draw_rect(Rect2(cx - w / 2, y, w, 4), Color(0, 0, 0, 0.7))
-	draw_rect(Rect2(cx - w / 2, y, w * ratio, 4), col)
+	var x = cx - w / 2
+	var bg = _bar_tex("bar_bg")
+	if bg != null:
+		draw_texture_rect(bg, Rect2(x, y, w, h), false)
+	else:
+		draw_rect(Rect2(x, y, w, h), Color(0, 0, 0, 0.7))
+	if ratio > 0.0:
+		var fill = _bar_tex(fill_name)
+		if fill != null:
+			draw_texture_rect(fill, Rect2(x, y, w * ratio, h), false)
+		else:
+			draw_rect(Rect2(x, y, w * ratio, h), fb_col)
 
 func _draw_enemy_debuffs(e, cx: float, y: float) -> void:
 	var icons := ""

@@ -197,6 +197,32 @@ func _sbtex(name: String, ml: int, mr: int, mt: int, mb: int, fb := Color(0.12, 
 	_sb_cache[name] = sb
 	return sb
 
+# 条形控件:bar_bg 底 + bar_fill_* 填充(吴冠中第一包,96×8)。缺图回退 ProgressBar 纯色。
+func _gtex(name: String):
+	var path := GUI_DIR + name + ".png"
+	return load(path) if ResourceLoader.exists(path) else null
+
+func _progress_bar(fill_name: String, val: float, maxv: float, h := 8, w := 0) -> Control:
+	var under = _gtex("bar_bg")
+	var prog = _gtex(fill_name)
+	if under != null and prog != null:
+		var pb := TextureProgressBar.new()
+		pb.nine_patch_stretch = true
+		pb.stretch_margin_left = 3
+		pb.stretch_margin_right = 3
+		pb.texture_under = under
+		pb.texture_progress = prog
+		pb.min_value = 0.0
+		pb.max_value = max(1.0, maxv)
+		pb.value = clampf(val, 0.0, maxv)
+		pb.custom_minimum_size = Vector2(w, h)
+		return pb
+	var p := ProgressBar.new()  # 回退
+	p.min_value = 0; p.max_value = max(1.0, maxv); p.value = clampf(val, 0.0, maxv)
+	p.show_percentage = false
+	p.custom_minimum_size = Vector2(w, h)
+	return p
+
 func _label_outline(l: Label, sz := 3) -> void:
 	# 深色描边:文字压在有纹理的槽位/面板底图上仍可读
 	l.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 0.92))
@@ -731,6 +757,18 @@ func _fill_kungfu(c: Control) -> void:
 	var tname = "—"
 	if tid != null and CombatCore.gongfa_by_id(tid) != null: tname = CombatCore.gongfa_by_id(tid).name
 	root.add_child(_hdr("金币 %d 💰   ·   打坐修炼中: %s" % [int(Player.s.gold), tname]))
+	# 打坐熟练度进度条(当前修炼功法,对齐网页版 ngBar)
+	if tid != null and CombatCore.gongfa_by_id(tid) != null:
+		var st = Player.gf_state(tid)
+		var req = CombatCore.gf_prof_req(int(st.lv))
+		var prow := HBoxContainer.new()
+		prow.add_theme_constant_override("separation", 8)
+		prow.add_child(_tip_label("熟练 Lv%d" % int(st.lv), Color(0.85, 0.82, 0.62), 12))
+		var bar = _progress_bar("bar_fill_prof", float(st.prof), float(req), 8, 240)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		prow.add_child(bar)
+		prow.add_child(_tip_label("%d/%d" % [int(st.prof), int(req)], Color(0.7, 0.85, 0.7), 11))
+		root.add_child(prow)
 
 	# 功法装备槽(4)
 	var slots := HBoxContainer.new()
