@@ -195,6 +195,11 @@ func _sbtex(name: String, ml: int, mr: int, mt: int, mb: int, fb := Color(0.12, 
 	_sb_cache[name] = sb
 	return sb
 
+func _label_outline(l: Label, sz := 3) -> void:
+	# 深色描边:文字压在有纹理的槽位/面板底图上仍可读
+	l.add_theme_color_override("font_outline_color", Color(0.04, 0.03, 0.02, 0.92))
+	l.add_theme_constant_override("outline_size", sz)
+
 func _style_btn(b: Button, prominent: bool) -> void:
 	# 古风按钮皮肤:normal/hover/pressed/disabled 九宫格(prominent→选中态 btn_selected)
 	b.add_theme_stylebox_override("normal", _sbtex("btn_selected" if prominent else "btn_normal", 12, 12, 10, 10))
@@ -321,9 +326,10 @@ func _build_panel() -> void:
 	close.text = "✕ 关闭"
 	close.add_theme_font_override("font", ui_font)
 	close.anchor_left = 1.0
+	close.text = "✕"  # 紧凑小按钮(右上角),不再横跨整条标题(马奈)
 	close.anchor_right = 1.0
-	close.offset_left = -86
-	close.offset_right = -8
+	close.offset_left = -36
+	close.offset_right = -7
 	close.offset_top = 4
 	close.offset_bottom = 32
 	_style_btn(close, true)
@@ -333,10 +339,11 @@ func _build_panel() -> void:
 	panel_body = Control.new()
 	panel_body.anchor_right = 1.0
 	panel_body.anchor_bottom = 1.0
+	# 内容内缩到九宫格边框(16px)内,避免列表/按钮压到金边框/被边界裁(马奈)
 	panel_body.offset_top = 44
-	panel_body.offset_left = 10
-	panel_body.offset_right = -10
-	panel_body.offset_bottom = -10
+	panel_body.offset_left = 18
+	panel_body.offset_right = -18
+	panel_body.offset_bottom = -16
 	panel_layer.add_child(panel_body)
 
 func _open_panel(title: String, fill: Callable) -> void:
@@ -541,13 +548,16 @@ func _skill_cell(n: Dictionary) -> Control:
 	nm.text = n.name + ("  ★" if n.get("active", false) else "")
 	nm.add_theme_font_override("font", ui_font)
 	nm.add_theme_font_size_override("font_size", 13)
-	nm.add_theme_color_override("font_color", Color(0.97, 0.88, 0.6) if (rank > 0 or lock == "") else Color(0.55, 0.5, 0.42))
+	# 锁态节点底图有重 X→文字加深色描边保证压在 X 上仍可读(马奈)
+	nm.add_theme_color_override("font_color", Color(1.0, 0.92, 0.66) if (rank > 0 or lock == "") else Color(0.78, 0.72, 0.6))
+	_label_outline(nm)
 	v.add_child(nm)
 	var rk := Label.new()
 	rk.text = "%d / %d" % [rank, int(n.max)]
 	rk.add_theme_font_override("font", ui_font)
 	rk.add_theme_font_size_override("font_size", 12)
-	rk.add_theme_color_override("font_color", Color(0.85, 0.82, 0.6))
+	rk.add_theme_color_override("font_color", Color(0.92, 0.88, 0.66))
+	_label_outline(rk)
 	v.add_child(rk)
 	var ds := Label.new()
 	ds.text = lock if (lock != "" and rank == 0) else n.desc
@@ -555,7 +565,8 @@ func _skill_cell(n: Dictionary) -> Control:
 	ds.add_theme_font_size_override("font_size", 10)
 	ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ds.custom_minimum_size = Vector2(SK_CW - 20, 0)
-	ds.add_theme_color_override("font_color", Color(0.95, 0.55, 0.45) if (lock != "" and rank == 0) else Color(0.66, 0.62, 0.5))
+	ds.add_theme_color_override("font_color", Color(1.0, 0.62, 0.5) if (lock != "" and rank == 0) else Color(0.82, 0.78, 0.64))
+	_label_outline(ds)
 	v.add_child(ds)
 	var btns := HBoxContainer.new()
 	v.add_child(btns)
@@ -657,7 +668,9 @@ func _kf_list_owned() -> Control:
 		var nm := Label.new()
 		nm.add_theme_font_override("font", ui_font)
 		nm.add_theme_font_size_override("font_size", 13)
-		nm.custom_minimum_size = Vector2(280, 0)
+		nm.custom_minimum_size = Vector2(110, 0)  # 小盒子里可收缩,名字截断而不把按钮挤出列(马奈:功法页右侧贴边)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.clip_text = true
 		nm.text = "[%s]%s Lv%d (熟练 %d/%d)" % [g.tierName, g.name, stt.lv, stt.prof, CombatCore.gf_prof_req(stt.lv)]
 		nm.add_theme_color_override("font_color", Color(g.color))
 		row.add_child(nm)
@@ -695,7 +708,9 @@ func _kf_list_shop() -> Control:
 		var nm := Label.new()
 		nm.add_theme_font_override("font", ui_font)
 		nm.add_theme_font_size_override("font_size", 13)
-		nm.custom_minimum_size = Vector2(280, 0)
+		nm.custom_minimum_size = Vector2(110, 0)  # 小盒子里可收缩,名字截断而不把按钮挤出列(马奈:功法页右侧贴边)
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.clip_text = true
 		nm.text = "[%s]%s · %s系 · %d💰" % [g.tierName, g.name, _sys_cn(g.sys), int(g.price)]
 		nm.add_theme_color_override("font_color", Color(g.color))
 		row.add_child(nm)
