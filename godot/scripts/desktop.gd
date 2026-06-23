@@ -568,6 +568,46 @@ func _hide_tip() -> void:
 	if _tooltip:
 		_tooltip.visible = false
 
+func _gf_active_hint(g) -> String:
+	match g.akind:
+		"weapon":
+			return "主动: %s招式(需装备%s武器发动)" % [g.name, CombatCore.WTYPE_NAME.get(g.get("wtype", ""), "")]
+		"nei":
+			return "内功特效(装内功槽生效)"
+		"stat":
+			return "主动: 装备后加成属性"
+	return ""
+
+func _show_gf_tip(id: String, shop := false, at := Vector2(-1, -1)) -> void:
+	if _tip_box == null:
+		return
+	for ch in _tip_box.get_children():
+		ch.queue_free()
+	var g = CombatCore.gongfa_by_id(id)
+	if g == null:
+		return
+	var st = Player.gf_state(id)
+	_tip_box.add_child(_tip_label("[%s]%s" % [g.tierName, g.name], Color(g.color), 14))
+	_tip_box.add_child(_tip_label("%s系" % _sys_cn(g.sys), Color(0.82, 0.8, 0.62), 11))
+	var mult = 1 if shop else max(1, int(st.lv))
+	var parts := []
+	for k in g.passive:
+		var v = float(g.passive[k]) * mult
+		var vs = ("%.1f" % v) if abs(v) < 1.0 else str(roundi(v))
+		parts.append("%s +%s" % [_STAT_CN.get(k, k), vs])
+	if parts.size() > 0:
+		_tip_box.add_child(_tip_label("被动: " + "，".join(parts), Color(0.96, 0.91, 0.74), 12))
+	var ah = _gf_active_hint(g)
+	if ah != "":
+		_tip_box.add_child(_tip_label(ah, Color(0.72, 0.86, 0.96), 12))
+	if shop:
+		_tip_box.add_child(_tip_label("价格 %d 金" % int(g.price), Color(0.95, 0.85, 0.45), 12))
+	else:
+		_tip_box.add_child(_tip_label("熟练 Lv%d (%d/%d)" % [int(st.lv), int(st.prof), CombatCore.gf_prof_req(int(st.lv))], Color(0.6, 0.85, 0.7), 12))
+	_tooltip.visible = true
+	_tooltip.reset_size()
+	_position_tip(at if at.x >= 0 else get_global_mouse_position())
+
 # ---- 技能树面板(P3:力量战士 + 内功附魔流 两树 tab,投点/退点/对比)----
 const SK_CW := 150.0
 const SK_CH := 96.0
@@ -775,6 +815,8 @@ func _kf_list_owned() -> Control:
 		be.add_theme_font_override("font", ui_font)
 		bt.pressed.connect(func(): Player.set_train(gid); _kf_refresh())
 		row.add_child(bt)
+		nm.mouse_entered.connect(func(): _show_gf_tip(gid, false))  # 悬停看功法被动/主动/熟练
+		nm.mouse_exited.connect(_hide_tip)
 		list.add_child(row)
 	return box
 
@@ -809,6 +851,8 @@ func _kf_list_shop() -> Control:
 		var gid = g.id
 		bb.pressed.connect(func(): Player.gf_buy(gid); _kf_refresh())
 		row.add_child(bb)
+		nm.mouse_entered.connect(func(): _show_gf_tip(gid, true))  # 悬停看商店功法被动/主动/价格
+		nm.mouse_exited.connect(_hide_tip)
 		list.add_child(row)
 	return box
 
@@ -825,6 +869,7 @@ func _kf_equip(id: String) -> void:
 	if first != null: Player.gf_equip(first, id)
 
 func _kf_refresh() -> void:
+	_hide_tip()
 	for ch in panel_body.get_children():
 		ch.queue_free()
 	_fill_kungfu(panel_body)
