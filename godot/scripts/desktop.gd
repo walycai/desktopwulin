@@ -24,7 +24,7 @@ var panel_layer: Control
 var panel_body: Control
 var panel_title: Label
 var panel_open := false
-var _tooltip: Panel
+var _tooltip: PanelContainer
 var _tip_box: VBoxContainer
 var _screen := Vector2i(1920, 1080)
 
@@ -343,8 +343,8 @@ func _build_panel() -> void:
 	panel_body.offset_right = -18
 	panel_body.offset_bottom = -16
 	panel_layer.add_child(panel_body)
-	# 悬停属性/对比浮层(在最上层,不吃鼠标)
-	_tooltip = Panel.new()
+	# 悬停属性/对比浮层(PanelContainer 自适应内容尺寸+铺 tooltip_box 底板;在最上层,不吃鼠标)
+	_tooltip = PanelContainer.new()
 	_tooltip.add_theme_stylebox_override("panel", _sbtex("tooltip_box", 16, 16, 16, 16, Color(0.08, 0.06, 0.05, 0.98)))
 	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip.visible = false
@@ -355,11 +355,10 @@ func _build_panel() -> void:
 	pad.add_theme_constant_override("margin_right", 10)
 	pad.add_theme_constant_override("margin_top", 8)
 	pad.add_theme_constant_override("margin_bottom", 8)
-	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip.add_child(pad)
 	_tip_box = VBoxContainer.new()
-	_tip_box.add_theme_constant_override("separation", 2)
+	_tip_box.add_theme_constant_override("separation", 5)  # 段落更成块(马奈)
 	_tip_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pad.add_child(_tip_box)
 
