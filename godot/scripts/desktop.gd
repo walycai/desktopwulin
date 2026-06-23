@@ -167,28 +167,53 @@ func _build() -> void:
 	_build_menu()
 	_build_panel()
 
+# ---- GUI 皮肤(吴冠中第一包,notes/godot-gui-first-pack.md):九宫格 StyleBoxTexture,缺图回退纯色 ----
+const GUI_DIR := "res://assets/ui/gui/"
+var _sb_cache := {}
+func _sbtex(name: String, ml: int, mr: int, mt: int, mb: int, fb := Color(0.12, 0.09, 0.06, 0.9), bw := 1):
+	# 返回共享 StyleBox(只读复用):有图=九宫格纹理,无图=纯色回退(保证不崩)
+	if _sb_cache.has(name):
+		return _sb_cache[name]
+	var path := GUI_DIR + name + ".png"
+	var sb
+	if ResourceLoader.exists(path):
+		var s := StyleBoxTexture.new()
+		s.texture = load(path)
+		s.texture_margin_left = ml
+		s.texture_margin_right = mr
+		s.texture_margin_top = mt
+		s.texture_margin_bottom = mb
+		sb = s
+	else:
+		var f := StyleBoxFlat.new()
+		f.bg_color = fb
+		f.border_color = Color(0.55, 0.44, 0.26)
+		f.set_border_width_all(bw)
+		f.set_corner_radius_all(5)
+		f.set_content_margin_all(6)
+		sb = f
+	_sb_cache[name] = sb
+	return sb
+
 func _style_btn(b: Button, prominent: bool) -> void:
-	# 古风按钮:深木底 + 金边;prominent(恢复键)金边更亮更厚
-	var edge := Color(0.82, 0.66, 0.34) if prominent else Color(0.55, 0.44, 0.26)
-	var bw := 2 if prominent else 1
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.14, 0.10, 0.07, 0.96) if prominent else Color(0.10, 0.08, 0.06, 0.82)
-	normal.border_color = edge
-	normal.set_border_width_all(bw)
-	normal.set_corner_radius_all(5)
-	normal.set_content_margin_all(6 if prominent else 4)
-	if prominent:
-		normal.shadow_color = Color(0, 0, 0, 0.5)
-		normal.shadow_size = 4
-	var hover := normal.duplicate()
-	hover.bg_color = Color(0.20, 0.15, 0.10, 0.98)
-	hover.border_color = Color(0.95, 0.80, 0.45)
-	b.add_theme_stylebox_override("normal", normal)
-	b.add_theme_stylebox_override("hover", hover)
-	b.add_theme_stylebox_override("pressed", hover)
-	b.add_theme_stylebox_override("focus", normal)
+	# 古风按钮皮肤:normal/hover/pressed/disabled 九宫格(prominent→选中态 btn_selected)
+	b.add_theme_stylebox_override("normal", _sbtex("btn_selected" if prominent else "btn_normal", 12, 12, 10, 10))
+	b.add_theme_stylebox_override("hover", _sbtex("btn_hover", 12, 12, 10, 10))
+	b.add_theme_stylebox_override("pressed", _sbtex("btn_pressed", 12, 12, 10, 10))
+	b.add_theme_stylebox_override("disabled", _sbtex("btn_disabled", 12, 12, 10, 10))
+	b.add_theme_stylebox_override("focus", _sbtex("btn_selected" if prominent else "btn_normal", 12, 12, 10, 10))
 	b.add_theme_color_override("font_color", Color(0.96, 0.88, 0.66))
 	b.add_theme_color_override("font_hover_color", Color(1.0, 0.94, 0.74))
+	b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
+
+func _style_boss_btn(b: Button) -> void:
+	# Boss 挑战强调态:红木+金边,左右内边距 18(避免金端饰压字)
+	b.add_theme_stylebox_override("normal", _sbtex("btn_boss", 18, 18, 10, 10, Color(0.22, 0.06, 0.05, 0.96), 2))
+	b.add_theme_stylebox_override("hover", _sbtex("btn_boss_hover", 18, 18, 10, 10, Color(0.30, 0.09, 0.07, 0.98), 2))
+	b.add_theme_stylebox_override("pressed", _sbtex("btn_boss_hover", 18, 18, 10, 10, Color(0.30, 0.09, 0.07, 0.98), 2))
+	b.add_theme_stylebox_override("focus", _sbtex("btn_boss", 18, 18, 10, 10, Color(0.22, 0.06, 0.05, 0.96), 2))
+	b.add_theme_color_override("font_color", Color(1.0, 0.9, 0.62))
+	b.add_theme_color_override("font_hover_color", Color(1.0, 0.96, 0.78))
 
 func _toggle_hide() -> void:
 	win_hidden = not win_hidden
@@ -216,13 +241,7 @@ func _process(_dt: float) -> void:
 func _build_menu() -> void:
 	var mp := PanelContainer.new()
 	mp.position = Vector2(6, TOPBAR_H + 6)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.05, 0.04, 0.66)
-	sb.set_corner_radius_all(6)
-	sb.set_content_margin_all(5)
-	sb.border_color = Color(0.5, 0.4, 0.24, 0.6)
-	sb.set_border_width_all(1)
-	mp.add_theme_stylebox_override("panel", sb)
+	mp.add_theme_stylebox_override("panel", _sbtex("panel_normal", 16, 16, 16, 16, Color(0.06, 0.05, 0.04, 0.72)))
 	main_ui.add_child(mp)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
@@ -233,8 +252,11 @@ func _build_menu() -> void:
 		b.add_theme_font_override("font", ui_font)
 		b.add_theme_font_size_override("font_size", 12)
 		b.custom_minimum_size = Vector2(74, 24)
-		_style_btn(b, false)
 		var key = it[1]
+		if key == "boss":
+			_style_boss_btn(b)  # Boss 一级入口=强调态,一眼可见
+		else:
+			_style_btn(b, false)
 		b.pressed.connect(func(): _open_menu(key))
 		col.add_child(b)
 
@@ -274,19 +296,19 @@ func _build_panel() -> void:
 	panel_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel_layer.visible = false
 	add_child(panel_layer)
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.06, 0.05, 0.99)
+	var bgo := ColorRect.new()  # 底:挡住后面 home/combat
+	bgo.color = Color(0.05, 0.04, 0.03, 1.0)
+	bgo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel_layer.add_child(bgo)
+	var bg := Panel.new()  # 古风面板皮肤(panel_normal 九宫格)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.add_theme_stylebox_override("panel", _sbtex("panel_normal", 16, 16, 16, 16, Color(0.08, 0.06, 0.05, 1.0)))
 	panel_layer.add_child(bg)
-	# 标题栏
+	# 标题栏(panel_emphasis 强调皮肤)
 	var bar := PanelContainer.new()
 	bar.anchor_right = 1.0
 	bar.offset_bottom = 36
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color(0.12, 0.09, 0.06, 1.0)
-	bsb.border_color = Color(0.6, 0.46, 0.26)
-	bsb.set_border_width_all(1)
-	bar.add_theme_stylebox_override("panel", bsb)
+	bar.add_theme_stylebox_override("panel", _sbtex("panel_emphasis", 16, 16, 16, 16, Color(0.12, 0.09, 0.06, 1.0)))
 	panel_layer.add_child(bar)
 	panel_title = Label.new()
 	panel_title.add_theme_font_override("font", ui_font)
@@ -504,15 +526,13 @@ func _skill_cell(n: Dictionary) -> Control:
 	var cell := PanelContainer.new()
 	cell.position = Vector2(int(n.col) * SK_CW, int(n.row) * SK_CH)
 	cell.custom_minimum_size = Vector2(SK_CW - 10, SK_CH - 10)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.10, 0.07, 0.95)
-	sb.set_corner_radius_all(5)
-	sb.set_content_margin_all(5)
-	sb.set_border_width_all(2)
-	# 状态配色:已学金/可学暗金/锁灰
-	if rank > 0: sb.border_color = Color(0.95, 0.78, 0.32)
-	elif lock == "": sb.border_color = Color(0.6, 0.5, 0.3)
-	else: sb.border_color = Color(0.32, 0.28, 0.22)
+	# 槽位皮肤按状态:已学=active / 可学=avail / 锁=locked(缺图回退纯色边)
+	var slot_name := "slot_active" if rank > 0 else ("slot_avail" if lock == "" else "slot_locked")
+	var fb := Color(0.12, 0.10, 0.07, 0.95)
+	var sb = _sbtex(slot_name, 8, 8, 8, 8, fb, 2)
+	if sb is StyleBoxFlat:  # 回退态:保留原状态描边色
+		sb = sb.duplicate()
+		sb.border_color = Color(0.95, 0.78, 0.32) if rank > 0 else (Color(0.6, 0.5, 0.3) if lock == "" else Color(0.32, 0.28, 0.22))
 	cell.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 1)
@@ -592,13 +612,9 @@ func _fill_kungfu(c: Control) -> void:
 func _kf_slot(sl: Dictionary) -> Control:
 	var p := PanelContainer.new()
 	p.custom_minimum_size = Vector2(170, 56)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.10, 0.07, 0.95)
-	sb.border_color = Color(0.55, 0.44, 0.26)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(5)
-	sb.set_content_margin_all(5)
-	p.add_theme_stylebox_override("panel", sb)
+	var eid0 = Player.s.gongfaEquip.get(sl.key, null)
+	# 空槽=slot_empty,已装=slot_active(缺图回退纯色)
+	p.add_theme_stylebox_override("panel", _sbtex("slot_active" if eid0 != null else "slot_empty", 8, 8, 8, 8, Color(0.12, 0.10, 0.07, 0.95)))
 	var v := VBoxContainer.new()
 	p.add_child(v)
 	var eid = Player.s.gongfaEquip.get(sl.key, null)
