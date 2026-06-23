@@ -309,32 +309,28 @@ func _build_panel() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.add_theme_stylebox_override("panel", _sbtex("panel_normal", 16, 16, 16, 16, Color(0.08, 0.06, 0.05, 1.0)))
 	panel_layer.add_child(bg)
-	# 标题栏(panel_emphasis 强调皮肤)
-	var bar := PanelContainer.new()
-	bar.anchor_right = 1.0
-	bar.offset_bottom = 36
-	bar.add_theme_stylebox_override("panel", _sbtex("panel_emphasis", 16, 16, 16, 16, Color(0.12, 0.09, 0.06, 1.0)))
-	panel_layer.add_child(bar)
+	# 标题=左上角文字(描边),不再用横跨整条的强调色条覆盖正文(马奈)
 	panel_title = Label.new()
 	panel_title.add_theme_font_override("font", ui_font)
 	panel_title.add_theme_font_size_override("font_size", 18)
-	panel_title.add_theme_color_override("font_color", Color(0.96, 0.86, 0.6))
-	panel_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel_title.position = Vector2(14, 0)
-	bar.add_child(panel_title)
+	panel_title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6))
+	_label_outline(panel_title, 3)
+	panel_title.position = Vector2(20, 8)
+	panel_layer.add_child(panel_title)
+	# 关闭=右上角小方块按钮
 	var close := Button.new()
-	close.text = "✕ 关闭"
+	close.text = "✕"
 	close.add_theme_font_override("font", ui_font)
 	close.anchor_left = 1.0
-	close.text = "✕"  # 紧凑小按钮(右上角),不再横跨整条标题(马奈)
 	close.anchor_right = 1.0
-	close.offset_left = -36
-	close.offset_right = -7
-	close.offset_top = 4
-	close.offset_bottom = 32
+	close.anchor_top = 0.0
+	close.offset_left = -40
+	close.offset_right = -10
+	close.offset_top = 6
+	close.offset_bottom = 34
 	_style_btn(close, true)
 	close.pressed.connect(_close_panel)
-	bar.add_child(close)
+	panel_layer.add_child(close)
 	# 内容区
 	panel_body = Control.new()
 	panel_body.anchor_right = 1.0
@@ -387,10 +383,11 @@ func _fill_equip(c: Control) -> void:
 		row.add_theme_font_size_override("font_size", 14)
 		if it == null:
 			row.text = "[%s] —— 空 ——" % _slot_cn(sl)
-			row.add_theme_color_override("font_color", Color(0.5, 0.48, 0.42))
+			row.add_theme_color_override("font_color", Color(0.62, 0.6, 0.54))
 		else:
 			row.text = "[%s] %s  %s" % [_slot_cn(sl), Player.item_name(it), _stat_brief(Player.item_stats(it))]
 			row.add_theme_color_override("font_color", Player.rarity_color(it))
+		_label_outline(row)  # 暗底上正文加描边提对比(马奈)
 		left.add_child(row)
 
 	# 右:仓库(可滚动列表)
@@ -427,11 +424,14 @@ func _equip_row(item: Dictionary, cur_cp: int) -> Control:
 	var nm := Label.new()
 	nm.add_theme_font_override("font", ui_font)
 	nm.add_theme_font_size_override("font_size", 13)
-	nm.custom_minimum_size = Vector2(360, 0)
+	nm.custom_minimum_size = Vector2(120, 0)  # 窄盒可收缩,按钮不被挤出列
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
 	var delta = Player.cp_after_equip(item) - cur_cp
 	var arrow = ("  ▲+%d" % delta) if delta > 0 else (("  ▼%d" % delta) if delta < 0 else "  =")
 	nm.text = "【%s】%s Lv%d  %s%s" % [CombatCore.RARITY[item.get("rarity", "common")].name, Player.item_name(item), int(item.get("lv", 1)), _stat_brief(Player.item_stats(item)), arrow]
 	nm.add_theme_color_override("font_color", Player.rarity_color(item))
+	_label_outline(nm)
 	row.add_child(nm)
 	var uid = int(item.get("uid", -1))
 	var be := Button.new()
