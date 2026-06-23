@@ -201,10 +201,11 @@ func _draw() -> void:
 	draw_rect(Rect2(0, 0, vp.x, vp.y), Color(0, 0, 0, 0.16))
 	# 顶部 HUD 半透明背板(让历练状态行更醒目)
 	draw_rect(Rect2(0, 0, vp.x, 24), Color(0.03, 0.02, 0.02, 0.55))
-	# 经验进度条(顶部细条,到下一级)
+	# 经验进度条(顶部,到下一级)。加深色底框 + 提高到 6px,避免金色细条被顶栏文字/背景吞掉(吴冠中)
 	var exp_need = CombatCore.next_exp(int(Player.s.level))
 	var exp_ratio = clamp(float(Player.s.exp) / float(max(1, exp_need)), 0.0, 1.0)
-	_draw_hp_bar(vp.x * 0.5, 24.0, vp.x - 6.0, exp_ratio, "bar_fill_exp", Color(0.9, 0.75, 0.3), 4.0)
+	draw_rect(Rect2(0, 23.0, vp.x, 9.0), Color(0.02, 0.015, 0.01, 0.78))
+	_draw_hp_bar(vp.x * 0.5, 24.0, vp.x - 6.0, exp_ratio, "bar_fill_exp", Color(0.9, 0.75, 0.3), 6.0)
 
 	if sim == null:
 		return
