@@ -24,6 +24,8 @@ var panel_layer: Control
 var panel_body: Control
 var panel_title: Label
 var panel_open := false
+var _tooltip: Panel
+var _tip_box: VBoxContainer
 var _screen := Vector2i(1920, 1080)
 
 # 管理面板=锚定屏幕左下角的盒子(绝不居中/全屏/越界)。宽≈半屏、高≈0.62屏,按分辨率自适应。
@@ -341,10 +343,30 @@ func _build_panel() -> void:
 	panel_body.offset_right = -18
 	panel_body.offset_bottom = -16
 	panel_layer.add_child(panel_body)
+	# 悬停属性/对比浮层(在最上层,不吃鼠标)
+	_tooltip = Panel.new()
+	_tooltip.add_theme_stylebox_override("panel", _sbtex("tooltip_box", 16, 16, 16, 16, Color(0.08, 0.06, 0.05, 0.98)))
+	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip.visible = false
+	_tooltip.custom_minimum_size = Vector2(150, 0)
+	panel_layer.add_child(_tooltip)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.add_theme_constant_override("margin_right", 10)
+	pad.add_theme_constant_override("margin_top", 8)
+	pad.add_theme_constant_override("margin_bottom", 8)
+	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip.add_child(pad)
+	_tip_box = VBoxContainer.new()
+	_tip_box.add_theme_constant_override("separation", 2)
+	_tip_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_child(_tip_box)
 
 func _open_panel(title: String, fill: Callable) -> void:
 	panel_open = true
 	panel_title.text = title
+	_hide_tip()
 	for c in panel_body.get_children():
 		c.queue_free()
 	fill.call(panel_body)
@@ -387,6 +409,9 @@ func _fill_equip(c: Control) -> void:
 		else:
 			row.text = "[%s] %s  %s" % [_slot_cn(sl), Player.item_name(it), _stat_brief(Player.item_stats(it))]
 			row.add_theme_color_override("font_color", Player.rarity_color(it))
+			var eit = it
+			row.mouse_entered.connect(func(): _show_item_tip(eit))  # 悬停看已装备属性
+			row.mouse_exited.connect(_hide_tip)
 		_label_outline(row)  # 暗底上正文加描边提对比(马奈)
 		left.add_child(row)
 
@@ -432,6 +457,8 @@ func _equip_row(item: Dictionary, cur_cp: int) -> Control:
 	nm.text = "【%s】%s Lv%d  %s%s" % [CombatCore.RARITY[item.get("rarity", "common")].name, Player.item_name(item), int(item.get("lv", 1)), _stat_brief(Player.item_stats(item)), arrow]
 	nm.add_theme_color_override("font_color", Player.rarity_color(item))
 	_label_outline(nm)
+	nm.mouse_entered.connect(func(): _show_item_tip(item))  # 悬停弹属性/对比
+	nm.mouse_exited.connect(_hide_tip)
 	row.add_child(nm)
 	var uid = int(item.get("uid", -1))
 	var be := Button.new()
@@ -450,6 +477,7 @@ func _equip_row(item: Dictionary, cur_cp: int) -> Control:
 	return row
 
 func _refresh_equip() -> void:
+	_hide_tip()
 	for c in panel_body.get_children():
 		c.queue_free()
 	_fill_equip(panel_body)
@@ -480,6 +508,66 @@ func _stat_brief(st: Dictionary) -> String:
 
 func _slot_cn(sl: String) -> String:
 	return {"weapon": "武器", "head": "头", "body": "身", "legs": "腿", "neck": "项", "ring": "戒", "belt": "带"}.get(sl, sl)
+
+# ---- 悬停属性/对比 tooltip(装备:对比当前同槽装备;换边/限界由 _position_tip)----
+const _STAT_CN := {"ATK": "攻击", "HP": "气血", "DEF": "防御", "Crit": "暴击", "CritDmg": "暴伤", "Hit": "命中", "Dodge": "闪避", "ATKspd": "攻速", "Mana": "内力"}
+func _tip_label(text: String, col: Color, sz := 12) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", ui_font)
+	l.add_theme_font_size_override("font_size", sz)
+	l.add_theme_color_override("font_color", col)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+func _show_item_tip(item: Dictionary, at := Vector2(-1, -1)) -> void:
+	if _tip_box == null:
+		return
+	for ch in _tip_box.get_children():
+		ch.queue_free()
+	var es = Player.slot_of(item)
+	var equipped = Player.s.equipped.get(es, null)
+	_tip_box.add_child(_tip_label("【%s】%s Lv%d" % [CombatCore.RARITY[item.get("rarity", "common")].name, Player.item_name(item), int(item.get("lv", 1))], Player.rarity_color(item), 14))
+	var hs = Player.item_stats(item)
+	var os = Player.item_stats(equipped) if equipped != null else {}
+	for k in ["ATK", "HP", "DEF", "Crit", "CritDmg", "Hit", "Dodge", "ATKspd", "Mana"]:
+		if not (hs.has(k) or os.has(k)):
+			continue
+		var hv = int(hs.get(k, 0))
+		var d = hv - int(os.get(k, 0))
+		var line := HBoxContainer.new()
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_theme_constant_override("separation", 6)
+		line.add_child(_tip_label("%s %d" % [_STAT_CN.get(k, k), hv], Color(0.96, 0.91, 0.74), 12))
+		if equipped != null and d != 0:
+			line.add_child(_tip_label(("+%d" % d) if d > 0 else ("%d" % d), Color(0.45, 0.9, 0.5) if d > 0 else Color(0.96, 0.46, 0.4), 12))
+		_tip_box.add_child(line)
+	var dcp = Player.cp_after_equip(item) - Player.combat_power()
+	if equipped != null:
+		_tip_box.add_child(_tip_label("战力 %s%d" % ["+" if dcp >= 0 else "", dcp], Color(0.45, 0.9, 0.5) if dcp > 0 else (Color(0.96, 0.46, 0.4) if dcp < 0 else Color(0.82, 0.8, 0.62)), 13))
+		_tip_box.add_child(_tip_label("(对比当前 %s)" % Player.item_name(equipped), Color(0.72, 0.68, 0.54), 10))
+	else:
+		_tip_box.add_child(_tip_label("装备增战力 +%d" % dcp, Color(0.45, 0.9, 0.5), 13))
+	_tooltip.visible = true
+	_tooltip.reset_size()
+	_position_tip(at if at.x >= 0 else get_global_mouse_position())
+
+func _position_tip(p: Vector2) -> void:
+	if _tooltip == null or not _tooltip.visible:
+		return
+	var box = panel_layer.size
+	var sz = _tooltip.size
+	var x = p.x + 16.0
+	var y = p.y + 12.0
+	if x + sz.x > box.x - 8.0:
+		x = p.x - sz.x - 16.0   # 右越界→翻到光标左侧
+	if y + sz.y > box.y - 8.0:
+		y = box.y - sz.y - 8.0   # 下越界→上移贴住底边内
+	_tooltip.position = Vector2(clampf(x, 8.0, max(8.0, box.x - sz.x - 8.0)), clampf(y, 8.0, max(8.0, box.y - sz.y - 8.0)))
+
+func _hide_tip() -> void:
+	if _tooltip:
+		_tooltip.visible = false
 
 # ---- 技能树面板(P3:力量战士 + 内功附魔流 两树 tab,投点/退点/对比)----
 const SK_CW := 150.0
