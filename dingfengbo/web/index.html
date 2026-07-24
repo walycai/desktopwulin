@@ -168,7 +168,7 @@ function handleVat(v){
 }
 function add(it,n){ inv[it]=(inv[it]||0)+n; }
 function buySeed(){ const p=BUY["麦种"]; if(gold>=p){ gold-=p; add("麦种",1); setHint(`买了 1 个麦种（-${p}金）。`); } else setHint(`金币不够（买麦种需 ${p}金）——先到杂货铺卖点产出。`); renderInv(); }
-function sellAll(){ let e=0,s=[]; for(const it in SELL){ const q=inv[it]||0; if(q>0){ e+=q*SELL[it]; s.push(`${it}×${q}`); inv[it]=0; } } if(e>0){ gold+=e; setHint(`卖出 ${s.join(", ")}，+${e}金。成品比生货值钱得多。`); } else setHint("没有可卖的作物/成品。"); renderInv(); }
+function sellAll(){ let e=0,s=[]; for(const it in SELL){ const q=inv[it]||0; if(q>0){ e+=q*SELL[it]; s.push(`${it}×${q}`); inv[it]=0; } } if(e>0){ gold+=e; fireOnce("first_sale",`卖出 +${e}金`); setHint(`卖出 ${s.join(", ")}，+${e}金。成品比生货值钱得多。`); } else setHint("没有可卖的作物/成品。"); renderInv(); }
 function renderInv(){
   document.getElementById("gold").textContent=gold;
   const parts=[]; for(const k of ["麦种","小麦","鸡蛋","麦酒"]){ if((inv[k]||0)>0||k==="麦种") parts.push(`${k} ×${inv[k]||0}`); }
