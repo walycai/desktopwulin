@@ -43,3 +43,26 @@
 ## 平替与扩展
 - 占位美术＝色块+文字按 世界格64/主角128 布局（农耕左/畜栏右上/酿酒右下，同马奈草图）。马奈 Image Two 整套素材出来按同格位/状态一比一替，逻辑不动。
 - v0.2 可加：作物/畜/配方多样、品质分级、原料买卖价、解锁门槛（填 `新解锁项`）、（若 WalyCai 选 B）体力/行动点薄层。
+
+---
+
+## v0.2 更新（走格实时玩法：主角走位 + 实时生长，弃「推进一步」）
+交互从"点按钮推进"改成"主角走田里用工具侍弄、作物按真实秒生长"，引导语义随之变，事件字典同步：
+
+**改动（next_action 语义变）：**
+- `first_plant` 下一步：~~推进作物生长~~ → **用水壶为地块浇水**（浇了才开始长）。
+- `first_brew_load` 下一步：~~推进酿制~~ → **酒液成熟后回来取酒**（无推进按钮，实时90秒出窖）。
+
+**新增两个首次教学 key：**
+- `first_water`：浇水后作物才开始生长（明确"浇水=启动生长"）。
+- `first_fertilize`：施肥可选，只负责加速（不浇水施肥无效）。
+
+**v0.2 实际触发的 key 集（状态机当前来源）：**
+`first_till · first_plant · first_water · first_fertilize · first_harvest · first_egg · first_brew_done`
+（各以 toast 首次教学；古龙在 event_copy.json 同 key 补 title/first_text。）
+
+**v0.2 暂缓的 v0.1 key（保留、机制回归时再启用）：**
+- `crop_ripe` / `animal_ready` / `brew_ready`：就绪现在靠地块/站点上的**倒计时+✔视觉**表达，不再发 toast。
+- `first_sale` / `game_start`：v0.2 暂无"卖出"动作与开场事件（卖出待加 market 站点；开场引导待定）。
+
+> 变量契约不变：`{stage}/{output}/{unlock}` 仍按 common_lines、非空才显示；古龙只在同一份 event_copy.json 迭代，不另开映射。

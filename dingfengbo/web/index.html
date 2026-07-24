@@ -139,7 +139,7 @@ function useTool(){
   if(act==="till"){ if(t.state==="empty"){ t.state="tilled"; fireOnce("first_till","开垦了一块地"); } else setHint("这块地已经耕过了。"); }
   else if(act==="plant"){ if(t.state==="tilled"){ if((inv["麦种"]||0)>0){ inv["麦种"]--; t.state="planted"; t.crop="小麦"; t.wt=false; t.ft=false; t.grown=false; t.t0=0; fireOnce("first_plant","播下小麦"); setHint("播了小麦，记得浇水。"); } else setHint("没有麦种了。"); } else setHint("先用锄头耕地，才能播种。"); }
   else if(act==="water"){ if(t.state==="planted"&&!t.wt){ t.wt=true; t.t0=performance.now(); fireOnce("first_water","浇了水，开始生长"); setHint("浇了水，小麦开始生长（约60秒）。"); } else if(t.state==="planted") setHint("已经浇过水了。"); else setHint("这里没有作物可浇。"); }
-  else if(act==="fert"){ if(t.state==="planted"&&!t.ft){ t.ft=true; if(t.wt){ /* 施肥缩短剩余：把已过时间放大，成熟更快 */ const el=performance.now()-t.t0; t.t0=performance.now()-Math.min(GROW_MS,el/FERT_FACTOR); } setHint("施了肥，生长更快（可选）。"); } else if(t.state==="planted") setHint("已经施过肥了。"); else setHint("这里没有作物可施肥。"); }
+  else if(act==="fert"){ if(t.state==="planted"&&!t.ft){ t.ft=true; if(t.wt){ /* 施肥缩短剩余：把已过时间放大，成熟更快 */ const el=performance.now()-t.t0; t.t0=performance.now()-Math.min(GROW_MS,el/FERT_FACTOR); } fireOnce("first_fertilize","施肥了，生长加速（可选）"); setHint("施了肥，生长更快（可选）。"); } else if(t.state==="planted") setHint("已经施过肥了。"); else setHint("这里没有作物可施肥。"); }
   else if(act==="harvest"){ if(t.state==="planted"&&t.grown){ add(t.crop,1); fireOnce("first_harvest","收获小麦 ×1"); setHint("收获了小麦。可拿去酒缸酿酒增值，或攒着卖。"); t.state="tilled"; t.crop=""; t.wt=false; t.ft=false; t.grown=false; } else if(t.state==="planted") setHint("还没长熟，等等或浇水/施肥。"); else setHint("这里没有可收的作物。"); }
   else setHint("走到田/鸡舍/酒缸前，选对工具再按空格。");
   renderInv();
