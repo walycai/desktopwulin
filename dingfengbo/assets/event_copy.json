@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "0.1",
+    "version": "0.2",
     "locale": "zh_CN",
     "variable_contract": {
       "stage": "当前阶段；为空时不显示阶段行",
@@ -28,9 +28,21 @@
     },
     "first_plant": {
       "title": "种子入土",
-      "first_text": "第一批种子已经播下。继续培育，等作物长成。",
-      "repeat_text": "种子已经入土，作物正在生长。",
-      "next_action": "推进作物生长"
+      "first_text": "第一批种子已经播下。还需浇水，作物才会开始生长。",
+      "repeat_text": "种子已经入土，浇过水后才会生长。",
+      "next_action": "用水壶为地块浇水"
+    },
+    "first_water": {
+      "title": "清泉润土",
+      "first_text": "地块已经浇透。水分充足，作物便会开始生长。",
+      "repeat_text": "这块地已经浇水，作物正在生长。",
+      "next_action": "照料其他地块，等待作物成熟"
+    },
+    "first_fertilize": {
+      "title": "沃土催青",
+      "first_text": "肥料已经施下。施肥并非必需，但能让作物更快成熟。",
+      "repeat_text": "这块地已经施肥，作物会更快成熟。",
+      "next_action": "继续照料田地，或去经营畜栏与酒缸"
     },
     "crop_ripe": {
       "title": "禾穗已成",
@@ -58,9 +70,9 @@
     },
     "first_brew_load": {
       "title": "封缸待成",
-      "first_text": "原料已经入缸。继续酿制，待酒液成熟便可出窖。",
+      "first_text": "原料已经入缸。酒液会自行酝酿，成熟后便可出窖。",
       "repeat_text": "酒缸已经投料，正在酿制。",
-      "next_action": "推进酿制"
+      "next_action": "酒液成熟后回来取酒"
     },
     "brew_ready": {
       "title": "酒已可取",
