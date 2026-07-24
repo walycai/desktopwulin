@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "version": "0.1",
+    "locale": "zh_CN",
+    "variable_contract": {
+      "stage": "当前阶段；为空时不显示阶段行",
+      "output": "已格式化的产物与数量；例如“小麦 × 3”",
+      "unlock": "已格式化的新解锁项；为空时不显示解锁行"
+    },
+    "common_lines": {
+      "stage": "当前：{stage}",
+      "output": "获得：{output}",
+      "unlock": "解锁：{unlock}"
+    }
+  },
+  "events": {
+    "game_start": {
+      "title": "从一方田庄开始",
+      "first_text": "田地、畜栏与酒缸都已备好。先从开垦第一块地开始。",
+      "repeat_text": "田庄里的三处生产区域都可以继续经营。",
+      "next_action": "开垦一块空地"
+    },
+    "first_till": {
+      "title": "新土初开",
+      "first_text": "第一块地已经开垦。松开的土壤可以播下种子。",
+      "repeat_text": "这块地已经开垦，可以播种。",
+      "next_action": "选择种子并播下"
+    },
+    "first_plant": {
+      "title": "种子入土",
+      "first_text": "第一批种子已经播下。继续培育，等作物长成。",
+      "repeat_text": "种子已经入土，作物正在生长。",
+      "next_action": "推进作物生长"
+    },
+    "crop_ripe": {
+      "title": "禾穗已成",
+      "first_text": "第一批作物已经成熟，田里有了收成。",
+      "repeat_text": "作物已经成熟，可以收获。",
+      "next_action": "收获成熟作物"
+    },
+    "first_harvest": {
+      "title": "初获",
+      "first_text": "第一份收成已经入手。农产既能出售，也能作为养殖或酿造的原料。",
+      "repeat_text": "成熟作物已经收下。",
+      "next_action": "查看产物，或投入下一条生产链"
+    },
+    "animal_ready": {
+      "title": "畜栏有了动静",
+      "first_text": "畜栏里已经有了产出，去收取这一轮成果。",
+      "repeat_text": "畜栏产物已经备好，可以收取。",
+      "next_action": "收取畜栏产物"
+    },
+    "first_egg": {
+      "title": "初次收蛋",
+      "first_text": "第一份畜产已经收下。稳定照料畜栏，便能继续获得产物。",
+      "repeat_text": "畜栏产物已经收入背包。",
+      "next_action": "继续照料畜栏，或出售产物"
+    },
+    "first_brew_load": {
+      "title": "封缸待成",
+      "first_text": "原料已经入缸。继续酿制，待酒液成熟便可出窖。",
+      "repeat_text": "酒缸已经投料，正在酿制。",
+      "next_action": "推进酿制"
+    },
+    "brew_ready": {
+      "title": "酒已可取",
+      "first_text": "缸中酒液已经成熟，第一坛酒可以出窖了。",
+      "repeat_text": "这一缸酒已经酿成，可以取出。",
+      "next_action": "取出成酒"
+    },
+    "first_brew_done": {
+      "title": "新酿出窖",
+      "first_text": "第一坛酒已经出窖。酿造能让农产变成价值更高的成品。",
+      "repeat_text": "成酒已经收入背包。",
+      "next_action": "出售成酒，或再次投料"
+    },
+    "first_sale": {
+      "title": "第一笔进项",
+      "first_text": "第一批货物已经售出。让三条生产链彼此供给，田庄便会逐渐兴旺。",
+      "repeat_text": "货物已经售出，金币已经入账。",
+      "next_action": "继续生产，积累下一批货物"
+    }
+  }
+}
