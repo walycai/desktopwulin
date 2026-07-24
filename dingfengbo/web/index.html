@@ -242,7 +242,7 @@ function drawSoil(t,x,y,now){
     let frac = t.grown?1:(t.wt?Math.min(1,(now-t.t0)/eff):0);
     const cx=x+TILE/2, by=y+TILE-8;
     const _ck="crop_"+(CROP_EN2[t.crop]||"wheat")+"_"+cropStageIdx(t);
-    if(IMG[_ck]){ ctx.drawImage(IMG[_ck],x,y,TILE,TILE); } // 有作物 sprite 直接用（透明叠在土上）
+    if(IMG[_ck]){ const im=IMG[_ck]; const dw=TILE, dh=TILE*im.height/im.width; ctx.drawImage(im, x, y+TILE-dh, dw, dh); } // 作物按比例、底部对齐、向上生长（透明叠土上）
     else if(!t.wt){ ctx.fillStyle="#caa06a"; ctx.beginPath(); ctx.arc(cx,by-4,4,0,7); ctx.fill(); } // 种子点(占位)
     else{
       const h=6+frac*30; ctx.strokeStyle=t.grown?"#f2c14e":"#4e9a3f"; ctx.lineWidth=3;
@@ -285,6 +285,15 @@ function loop(now){ update(now); draw(now); requestAnimationFrame(loop); }
 document.getElementById("usebtn").onclick=useTool;
 document.getElementById("buyseed").onclick=buySeed;
 document.getElementById("sellall").onclick=sellAll;
+// 素材预览模式(?demo)：把地块摆成 空/耕 + 小麦/稻各4阶段，方便看美术
+if(location.search.indexOf("demo")>=0){
+  const n0=performance.now();
+  const rows=[["小麦",2],["稻谷",3]];
+  for(const [crop,r] of rows){ for(let st=0;st<4;st++){ const t=tiles[r][2+st]; t.state="planted"; t.crop=crop; t.wt=(st>0); t.grown=(st===3);
+    t.t0 = st===1 ? n0-0.2*GROW_MS : st===2 ? n0-0.7*GROW_MS : n0; } }
+  tiles[4][2].state="tilled"; tiles[4][3].state="tilled";  // 展示耕土
+  player.x=TILE*7; player.y=TILE*5.5;
+}
 renderTools(); renderInv();
 fetch("../assets/event_copy.json").then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.events) EVENT_COPY=Object.assign(EVENT_COPY,j.events); }).catch(()=>{});
 requestAnimationFrame(loop);
