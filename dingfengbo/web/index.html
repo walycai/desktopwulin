@@ -25,10 +25,12 @@
   .panel h3 small{ font-weight:400; color:#7c7059; font-size:12px; }
   #farm{ flex:1 1 520px; }
   .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
-  .tile{ height:88px; border:1px solid #9a8a63; border-radius:8px; display:flex; flex-direction:column;
+  .tile{ position:relative; height:88px; border:1px solid #9a8a63; border-radius:8px; display:flex; flex-direction:column;
     align-items:center; justify-content:center; font-size:13px; line-height:1.35; text-align:center;
-    background-size:cover; background-position:center; color:#241d12; }
-  .tile .lab{ background:rgba(255,255,255,.55); border-radius:4px; padding:0 4px; }
+    background-size:cover; background-position:center; color:#241d12; overflow:hidden; }
+  .tile .lab{ position:relative; z-index:2; background:rgba(255,255,255,.55); border-radius:4px; padding:0 4px; }
+  .tile .crop{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:1;
+    image-rendering:auto; pointer-events:none; } /* 分层(B)：透明作物叠在土壤 tile 上；image-rendering:auto＝软边高精像素用平滑缩放 */
   .rcol{ flex:1 1 300px; display:flex; flex-direction:column; gap:12px; }
   .slots{ display:flex; gap:6px; flex-wrap:wrap; }
   .slot{ width:96px; height:88px; }
@@ -37,6 +39,9 @@
   #log{ flex:2 1 520px; }
   #invlist{ font-size:14px; line-height:1.7; }
   #invlist b{ color:#7a5a2b; }
+  #shop{ margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  #shop .shoplab{ font-size:13px; color:#5a4f3a; }
+  .btn.small{ font-size:13px; padding:5px 10px; }
   #loglist{ height:190px; overflow:auto; font-size:13px; line-height:1.5; }
   .ev{ padding:6px 0; border-bottom:1px dashed #d9cca9; }
   .ev .t{ font-weight:700; }
@@ -79,6 +84,11 @@
     <div class="panel" id="inv">
       <h3>背包 / 经济</h3>
       <div id="invlist"></div>
+      <div id="shop">
+        <span class="shoplab">种子铺：</span>
+        <button class="btn small" id="buymai">买麦种 (3金)</button>
+        <button class="btn small" id="buydao">买稻种 (1金)</button>
+      </div>
     </div>
     <div class="panel" id="log">
       <h3>里程碑事件 <small>＝叙事事件流：发生什么 / 得到什么 / 下一步</small></h3>
@@ -93,6 +103,7 @@
 const SELL = {"小麦":8,"稻谷":6,"鸡蛋":10,"麦酒":16,"米酒":14}; // B档: 麦酒20/米酒15
 const CROP_DEF = {"麦种":{crop:"小麦",stages:3}, "稻种":{crop:"稻谷",stages:3}};
 const BREW = {"小麦":"麦酒","稻谷":"米酒"};
+const BUY = {"麦种":3, "稻种":1};  // 种子买价＝莱布尼茨 balance-v0.1；卖作物→买种→再种，闭合"再投资"环
 const BREW_STEPS = 3, ANIMAL_STEPS = 3, N_PLOTS = 12, N_ANIMALS = 2, N_VESSELS = 3;
 
 // ===== 古龙 event_copy.json 的内置副本（file:// 直接可玩）；托管时会 fetch ../assets/event_copy.json 覆盖 =====
@@ -115,6 +126,12 @@ let COMMON = {stage:"当前：{stage}",output:"获得：{output}",unlock:"解锁
 let step=0, gold=50;
 let inv={"麦种":3,"稻种":3};
 let plots=[], animals=[], vessels=[], fired={}, logLines=[];
+
+// ===== 美术分层(方案B)：soil tile 作底 + 透明作物叠加。素材到位前色块+文字兜底，到位自动切图。=====
+const ASSET="../assets/world/";
+const CROP_EN={"小麦":"wheat","稻谷":"rice"};
+let USE_ART=false;
+(function(){ const probe=new Image(); probe.onload=()=>{ USE_ART=true; render(); }; probe.src=ASSET+"soil_tilled.png"; })();
 
 for(let i=0;i<N_PLOTS;i++) plots.push({state:"empty",seed:"",crop:"",stage:0,maxs:0});
 for(let i=0;i<N_ANIMALS;i++) animals.push({ready:0});
@@ -182,6 +199,12 @@ function onAdvance(){
   setHint(`推进到第 ${step} 步。所有作物/畜产/发酵各前进一格。`);
   render();
 }
+function onBuy(seed){
+  const price=BUY[seed];
+  if(gold>=price){ gold-=price; add(seed,1); setHint(`买了 1 个${seed}（-${price}金）。`); }
+  else setHint(`金币不够买${seed}（需 ${price}金）——先卖点作物/成品。`);
+  render();
+}
 function onSell(){
   let earned=0, sold=[];
   for(const it in SELL){ const q=inv[it]||0; if(q>0){ earned+=q*SELL[it]; sold.push(`${it}×${q}`); inv[it]=0; } }
@@ -198,13 +221,18 @@ function render(){
   const fg=document.getElementById("farmgrid"); fg.innerHTML="";
   plots.forEach((p,i)=>{
     const d=document.createElement("button"); d.className="tile";
-    let col="#c0ad8c", txt="空地";
-    if(p.state==="tilled"){ col="#8c6644"; txt="已耕<br>(可播种)"; }
+    let col="#c0ad8c", txt="空地", soil="soil_empty", cropLayer="";
+    if(p.state==="tilled"){ col="#8c6644"; soil="soil_tilled"; txt="已耕<br>(可播种)"; }
     else if(p.state==="planted"){
+      soil="soil_tilled";
+      const en=CROP_EN[p.crop]||p.crop;
+      cropLayer=`<img class="crop" src="${ASSET}crop_${en}_${p.stage}.png" alt="" onerror="this.remove()">`;
       if(p.stage>=p.maxs){ col="#8dd965"; txt=`${p.crop}<br>✔ 可收获`; }
       else{ col="#9bc072"; const sym=["·种","芽","长"][Math.min(p.stage,2)]; txt=`${p.crop}<br>${sym} ${p.stage}/${p.maxs}`; }
     }
-    d.style.background=col; d.innerHTML=`<span class="lab">${txt}</span>`;
+    d.style.backgroundColor=col;                                  // 色块兜底（无美术时的底）
+    if(USE_ART) d.style.backgroundImage=`url(${ASSET}${soil}.png)`; // 底土层（B：soil tile）
+    d.innerHTML=`${USE_ART?cropLayer:""}<span class="lab">${txt}</span>`; // 作物透明层叠其上
     d.onclick=()=>onPlot(i); fg.appendChild(d);
   });
   // 畜栏
@@ -234,6 +262,8 @@ function render(){
 
 document.getElementById("advance").onclick=onAdvance;
 document.getElementById("sell").onclick=onSell;
+document.getElementById("buymai").onclick=()=>onBuy("麦种");
+document.getElementById("buydao").onclick=()=>onBuy("稻种");
 
 // 托管时用仓库里 古龙的最新 JSON 覆盖内置副本（file:// 打开则用内置副本）
 fetch("../assets/event_copy.json").then(r=>r.ok?r.json():null).then(j=>{
