@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>定风波 · 生产原型 v0.1（网页测试版）</title>
+<style>
+  :root{ --grass:#6b9450; --ink:#1f1a14; --panel:#f3ecdd; --panelb:#cdbf9e; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:var(--ink);
+    background:var(--grass); -webkit-font-smoothing:antialiased; }
+  #app{ max-width:1180px; margin:0 auto; padding:12px 14px 24px; }
+  .topbar{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:var(--panel);
+    border:1px solid var(--panelb); border-radius:10px; padding:10px 14px; }
+  .topbar .stat{ font-size:19px; font-weight:700; }
+  .topbar .stat span{ color:#7a5a2b; }
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ font-size:16px; padding:8px 14px; border:1px solid #b7a271; border-radius:8px; background:#e8dcc0; }
+  .btn.primary{ background:#8bbf5f; border-color:#5e934a; font-weight:700; }
+  .btn:hover{ filter:brightness(1.05); }
+  .hint{ font-size:13px; color:#4a4030; flex:1 1 260px; min-width:200px; }
+  .row{ display:flex; gap:12px; align-items:flex-start; margin-top:12px; flex-wrap:wrap; }
+  .panel{ background:var(--panel); border:1px solid var(--panelb); border-radius:10px; padding:10px 12px; }
+  .panel h3{ margin:0 0 8px; font-size:15px; font-weight:700; color:#3a3120; }
+  .panel h3 small{ font-weight:400; color:#7c7059; font-size:12px; }
+  #farm{ flex:1 1 520px; }
+  .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .tile{ height:88px; border:1px solid #9a8a63; border-radius:8px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; font-size:13px; line-height:1.35; text-align:center;
+    background-size:cover; background-position:center; color:#241d12; }
+  .tile .lab{ background:rgba(255,255,255,.55); border-radius:4px; padding:0 4px; }
+  .rcol{ flex:1 1 300px; display:flex; flex-direction:column; gap:12px; }
+  .slots{ display:flex; gap:6px; flex-wrap:wrap; }
+  .slot{ width:96px; height:88px; }
+  .bottom{ display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
+  #inv{ flex:1 1 300px; }
+  #log{ flex:2 1 520px; }
+  #invlist{ font-size:14px; line-height:1.7; }
+  #invlist b{ color:#7a5a2b; }
+  #loglist{ height:190px; overflow:auto; font-size:13px; line-height:1.5; }
+  .ev{ padding:6px 0; border-bottom:1px dashed #d9cca9; }
+  .ev .t{ font-weight:700; }
+  .ev .first{ color:#8a5a2b; font-size:12px; }
+  .ev .get{ color:#2f6a2f; }
+  .ev .stg{ color:#3a5a80; }
+  .ev .unl{ color:#7a5a2b; }
+  .ev .nx{ color:#6b6350; }
+  .note{ color:#eaf3df; font-size:12px; margin-top:14px; opacity:.85; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="stat">步数 <span id="step">0</span></div>
+    <div class="stat">金币 <span id="gold">0</span></div>
+    <button class="btn primary" id="advance">▶ 推进一步</button>
+    <button class="btn" id="sell">💰 卖出所有作物/成品</button>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="row">
+    <div class="panel" id="farm">
+      <h3>田 <small>点：空地→开垦→播种→[推进生长]→收获</small></h3>
+      <div class="grid" id="farmgrid"></div>
+    </div>
+    <div class="rcol">
+      <div class="panel">
+        <h3>畜栏 <small>点：收集产出</small></h3>
+        <div class="slots" id="pen"></div>
+      </div>
+      <div class="panel">
+        <h3>酿造 <small>点：空缸投料→[推进发酵]→取酒</small></h3>
+        <div class="slots" id="brew"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="panel" id="inv">
+      <h3>背包 / 经济</h3>
+      <div id="invlist"></div>
+    </div>
+    <div class="panel" id="log">
+      <h3>里程碑事件 <small>＝叙事事件流：发生什么 / 得到什么 / 下一步</small></h3>
+      <div id="loglist"></div>
+    </div>
+  </div>
+  <div class="note">定风波 · 生产原型 v0.1（网页测试版）｜ 农耕·养殖·酿酒 ｜ 无战斗/无时间/无休息 · A模式(纯等成熟) ｜ 占位美术，马奈素材到位后按 asset-slots.md 文件名平替。</div>
+</div>
+
+<script>
+// ===== 数值（＝莱布尼茨 balance-v0.1 选项A；酒价16/14 净收益率收敛）=====
+const SELL = {"小麦":8,"稻谷":6,"鸡蛋":10,"麦酒":16,"米酒":14}; // B档: 麦酒20/米酒15
+const CROP_DEF = {"麦种":{crop:"小麦",stages:3}, "稻种":{crop:"稻谷",stages:3}};
+const BREW = {"小麦":"麦酒","稻谷":"米酒"};
+const BREW_STEPS = 3, ANIMAL_STEPS = 3, N_PLOTS = 12, N_ANIMALS = 2, N_VESSELS = 3;
+
+// ===== 古龙 event_copy.json 的内置副本（file:// 直接可玩）；托管时会 fetch ../assets/event_copy.json 覆盖 =====
+let EVENT_COPY = {
+ "game_start":{title:"从一方田庄开始",first_text:"田地、畜栏与酒缸都已备好。先从开垦第一块地开始。",repeat_text:"田庄里的三处生产区域都可以继续经营。",next_action:"开垦一块空地"},
+ "first_till":{title:"新土初开",first_text:"第一块地已经开垦。松开的土壤可以播下种子。",repeat_text:"这块地已经开垦，可以播种。",next_action:"选择种子并播下"},
+ "first_plant":{title:"种子入土",first_text:"第一批种子已经播下。继续培育，等作物长成。",repeat_text:"种子已经入土，作物正在生长。",next_action:"推进作物生长"},
+ "crop_ripe":{title:"禾穗已成",first_text:"第一批作物已经成熟，田里有了收成。",repeat_text:"作物已经成熟，可以收获。",next_action:"收获成熟作物"},
+ "first_harvest":{title:"初获",first_text:"第一份收成已经入手。农产既能出售，也能作为养殖或酿造的原料。",repeat_text:"成熟作物已经收下。",next_action:"查看产物，或投入下一条生产链"},
+ "animal_ready":{title:"畜栏有了动静",first_text:"畜栏里已经有了产出，去收取这一轮成果。",repeat_text:"畜栏产物已经备好，可以收取。",next_action:"收取畜栏产物"},
+ "first_egg":{title:"初次收蛋",first_text:"第一份畜产已经收下。稳定照料畜栏，便能继续获得产物。",repeat_text:"畜栏产物已经收入背包。",next_action:"继续照料畜栏，或出售产物"},
+ "first_brew_load":{title:"封缸待成",first_text:"原料已经入缸。继续酿制，待酒液成熟便可出窖。",repeat_text:"酒缸已经投料，正在酿制。",next_action:"推进酿制"},
+ "brew_ready":{title:"酒已可取",first_text:"缸中酒液已经成熟，第一坛酒可以出窖了。",repeat_text:"这一缸酒已经酿成，可以取出。",next_action:"取出成酒"},
+ "first_brew_done":{title:"新酿出窖",first_text:"第一坛酒已经出窖。酿造能让农产变成价值更高的成品。",repeat_text:"成酒已经收入背包。",next_action:"出售成酒，或再次投料"},
+ "first_sale":{title:"第一笔进项",first_text:"第一批货物已经售出。让三条生产链彼此供给，田庄便会逐渐兴旺。",repeat_text:"货物已经售出，金币已经入账。",next_action:"继续生产，积累下一批货物"}
+};
+let COMMON = {stage:"当前：{stage}",output:"获得：{output}",unlock:"解锁：{unlock}"};
+
+// ===== 状态 =====
+let step=0, gold=50;
+let inv={"麦种":3,"稻种":3};
+let plots=[], animals=[], vessels=[], fired={}, logLines=[];
+
+for(let i=0;i<N_PLOTS;i++) plots.push({state:"empty",seed:"",crop:"",stage:0,maxs:0});
+for(let i=0;i<N_ANIMALS;i++) animals.push({ready:0});
+for(let i=0;i<N_VESSELS;i++) vessels.push({state:"empty",input:"",product:"",prog:0});
+
+// ===== 工具 =====
+function firstSeed(){ for(const s in CROP_DEF) if((inv[s]||0)>0) return s; return ""; }
+function firstBrewable(){ for(const c in BREW) if((inv[c]||0)>0) return c; return ""; }
+function add(item,n){ inv[item]=(inv[item]||0)+n; }
+
+function emit(key,isFirst,stage,output,unlock){
+  fired[key]=true;
+  const ev=EVENT_COPY[key]||{title:key};
+  const body=isFirst?(ev.first_text||""):(ev.repeat_text||"");
+  let parts=[`<div class="t">${ev.title||key}${isFirst?' <span class="first">（首次）</span>':''}</div>`,`<div>${body}</div>`];
+  if(stage)  parts.push(`<div class="stg">${COMMON.stage.replace("{stage}",stage)}</div>`);
+  if(output) parts.push(`<div class="get">${COMMON.output.replace("{output}",output)}</div>`);
+  if(unlock) parts.push(`<div class="unl">${COMMON.unlock.replace("{unlock}",unlock)}</div>`);
+  if(ev.next_action) parts.push(`<div class="nx">→ ${ev.next_action}</div>`);
+  logLines.push(`<div class="ev">${parts.join("")}</div>`);
+}
+
+function setHint(t){ document.getElementById("hint").textContent=t; }
+
+// ===== 交互 =====
+function onPlot(i){
+  const p=plots[i];
+  if(p.state==="empty"){ p.state="tilled"; emit("first_till",!fired.first_till,"已耕","",""); }
+  else if(p.state==="tilled"){
+    const s=firstSeed();
+    if(!s){ setHint("背包没有种子了——先卖点作物/成品，或收获现有作物。"); }
+    else{ inv[s]--; const d=CROP_DEF[s]; p.state="planted"; p.seed=s; p.crop=d.crop; p.stage=0; p.maxs=d.stages;
+      emit("first_plant",!fired.first_plant,`阶段 0/${p.maxs}`,"",""); }
+  } else if(p.state==="planted"){
+    if(p.stage>=p.maxs){ add(p.crop,1); emit("first_harvest",!fired.first_harvest,"",`${p.crop} × 1`,"");
+      p.state="tilled"; p.crop=""; p.stage=0; p.maxs=0; }
+    else setHint(`${p.crop} 还没熟（阶段 ${p.stage}/${p.maxs}）——点『推进一步』。`);
+  }
+  render();
+}
+function onAnimal(i){
+  const a=animals[i];
+  if(a.ready>=ANIMAL_STEPS){ a.ready=0; add("鸡蛋",1); emit("first_egg",!fired.first_egg,"","鸡蛋 × 1",""); }
+  else setHint(`还没到产蛋（${a.ready}/${ANIMAL_STEPS}）——点『推进一步』。`);
+  render();
+}
+function onVessel(i){
+  const v=vessels[i];
+  if(v.state==="empty"){
+    const c=firstBrewable();
+    if(!c){ setHint("没有可酿造的原料（需要 小麦 或 稻谷）——先去收获。"); }
+    else{ inv[c]--; v.state="fermenting"; v.input=c; v.product=BREW[c]; v.prog=0;
+      emit("first_brew_load",!fired.first_brew_load,`发酵 0/${BREW_STEPS}`,"",""); }
+  } else if(v.state==="fermenting"){ setHint(`${v.product} 发酵中（${v.prog}/${BREW_STEPS}）——点『推进一步』。`); }
+  else if(v.state==="done"){ const prod=v.product; add(prod,1);
+    emit("first_brew_done",!fired.first_brew_done,"",`${prod} × 1`,"");
+    v.state="empty"; v.input=""; v.product=""; v.prog=0; }
+  render();
+}
+function onAdvance(){
+  step++;
+  for(const p of plots) if(p.state==="planted"&&p.stage<p.maxs){ p.stage++; if(p.stage===p.maxs) emit("crop_ripe",!fired.crop_ripe,"成熟","",""); }
+  for(const a of animals) if(a.ready<ANIMAL_STEPS){ a.ready++; if(a.ready===ANIMAL_STEPS) emit("animal_ready",!fired.animal_ready,"就绪","",""); }
+  for(const v of vessels) if(v.state==="fermenting"){ v.prog++; if(v.prog>=BREW_STEPS){ v.state="done"; emit("brew_ready",!fired.brew_ready,"出窖","",""); } }
+  setHint(`推进到第 ${step} 步。所有作物/畜产/发酵各前进一格。`);
+  render();
+}
+function onSell(){
+  let earned=0, sold=[];
+  for(const it in SELL){ const q=inv[it]||0; if(q>0){ earned+=q*SELL[it]; sold.push(`${it}×${q}`); inv[it]=0; } }
+  if(earned>0){ gold+=earned; emit("first_sale",!fired.first_sale,"",`+${earned} 金币（${sold.join(", ")}）`,""); }
+  else setHint("没有可卖的作物/成品。");
+  render();
+}
+
+// ===== 渲染 =====
+function render(){
+  document.getElementById("step").textContent=step;
+  document.getElementById("gold").textContent=gold;
+  // 农田
+  const fg=document.getElementById("farmgrid"); fg.innerHTML="";
+  plots.forEach((p,i)=>{
+    const d=document.createElement("button"); d.className="tile";
+    let col="#c0ad8c", txt="空地";
+    if(p.state==="tilled"){ col="#8c6644"; txt="已耕<br>(可播种)"; }
+    else if(p.state==="planted"){
+      if(p.stage>=p.maxs){ col="#8dd965"; txt=`${p.crop}<br>✔ 可收获`; }
+      else{ col="#9bc072"; const sym=["·种","芽","长"][Math.min(p.stage,2)]; txt=`${p.crop}<br>${sym} ${p.stage}/${p.maxs}`; }
+    }
+    d.style.background=col; d.innerHTML=`<span class="lab">${txt}</span>`;
+    d.onclick=()=>onPlot(i); fg.appendChild(d);
+  });
+  // 畜栏
+  const pen=document.getElementById("pen"); pen.innerHTML="";
+  animals.forEach((a,i)=>{
+    const d=document.createElement("button"); d.className="tile slot";
+    if(a.ready>=ANIMAL_STEPS){ d.style.background="#f0e27f"; d.innerHTML=`<span class="lab">鸡<br>✔ 蛋可收</span>`; }
+    else{ d.style.background="#e6e6d8"; d.innerHTML=`<span class="lab">鸡<br>${a.ready}/${ANIMAL_STEPS}</span>`; }
+    d.onclick=()=>onAnimal(i); pen.appendChild(d);
+  });
+  // 酿造
+  const bw=document.getElementById("brew"); bw.innerHTML="";
+  vessels.forEach((v,i)=>{
+    const d=document.createElement("button"); d.className="tile slot";
+    if(v.state==="empty"){ d.style.background="#b3b3cc"; d.innerHTML=`<span class="lab">空缸<br>(可投料)</span>`; }
+    else if(v.state==="fermenting"){ d.style.background="#8069b3"; d.innerHTML=`<span class="lab">${v.product}<br>发酵 ${v.prog}/${BREW_STEPS}</span>`; }
+    else{ d.style.background="#d99ae6"; d.innerHTML=`<span class="lab">${v.product}<br>✔ 出窖</span>`; }
+    d.onclick=()=>onVessel(i); bw.appendChild(d);
+  });
+  // 背包
+  const order=["麦种","稻种","小麦","稻谷","鸡蛋","麦酒","米酒"]; let s=`<div><b>金币</b> ${gold}</div>`;
+  for(const it of order){ const q=inv[it]||0; if(q>0){ const pr=SELL[it]?`（售价 ${SELL[it]}）`:`（种子）`; s+=`<div>${it} ×${q} <small>${pr}</small></div>`; } }
+  document.getElementById("invlist").innerHTML=s;
+  // 日志
+  const ll=document.getElementById("loglist"); ll.innerHTML=logLines.slice(-12).join(""); ll.scrollTop=ll.scrollHeight;
+}
+
+document.getElementById("advance").onclick=onAdvance;
+document.getElementById("sell").onclick=onSell;
+
+// 托管时用仓库里 古龙的最新 JSON 覆盖内置副本（file:// 打开则用内置副本）
+fetch("../assets/event_copy.json").then(r=>r.ok?r.json():null).then(j=>{
+  if(j&&j.events){ EVENT_COPY=j.events; if(j.meta&&j.meta.common_lines) COMMON=j.meta.common_lines; render(); }
+}).catch(()=>{});
+
+emit("game_start",true,"","","");
+render();
+</script>
+</body>
+</html>
