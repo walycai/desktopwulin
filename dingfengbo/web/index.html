@@ -205,6 +205,17 @@ function update(now){
 function walkable(x,y){ const c=Math.floor(x/TILE), r=Math.floor(y/TILE);
   if(r<0||c<0||r>=ROWS||c>=COLS) return false; const k=tiles[r][c].kind; return k==="grass"||k==="soil"; }
 
+// ---- 美术素材（马奈按 asset-slots 出到 assets/world/，加载到即自动替换占位图形）----
+const ASSET_W="../assets/world/";
+const IMG={};
+["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_wheat_2","crop_wheat_3",
+ "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3"].forEach(n=>{
+  const im=new Image(); im.onload=()=>IMG[n]=im; im.src=ASSET_W+n+".png"; // 缺图 onerror 忽略，走占位
+});
+const CROP_EN2={"小麦":"wheat","稻谷":"rice"};
+function cropStageIdx(t){ if(t.grown) return 3; if(!t.wt) return 0;
+  const eff=GROW_MS*(t.ft?FERT_FACTOR:1); const f=Math.min(1,(performance.now()-t.t0)/eff); return f<0.5?1:2; }
+
 // ---- 渲染 ----
 function draw(now){
   // 底：草地棋盘
@@ -222,13 +233,17 @@ function draw(now){
   const f=facedCell(); if(f.r>=0&&f.c>=0&&f.r<ROWS&&f.c<COLS){ ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2; ctx.strokeRect(f.c*TILE+2,f.r*TILE+2,TILE-4,TILE-4); }
 }
 function drawSoil(t,x,y,now){
-  ctx.fillStyle = t.state==="empty" ? "#8a6d4b" : (t.wt?"#5c4327":"#7a5a38");
-  ctx.fillRect(x,y,TILE,TILE); ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.strokeRect(x+.5,y+.5,TILE-1,TILE-1);
+  const soilKey = t.state==="empty" ? "soil_empty" : "soil_tilled";
+  if(IMG[soilKey]) ctx.drawImage(IMG[soilKey],x,y,TILE,TILE);
+  else { ctx.fillStyle = t.state==="empty" ? "#8a6d4b" : (t.wt?"#5c4327":"#7a5a38");
+    ctx.fillRect(x,y,TILE,TILE); ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.strokeRect(x+.5,y+.5,TILE-1,TILE-1); }
   if(t.state==="planted"){
     const eff=GROW_MS*(t.ft?FERT_FACTOR:1);
     let frac = t.grown?1:(t.wt?Math.min(1,(now-t.t0)/eff):0);
     const cx=x+TILE/2, by=y+TILE-8;
-    if(!t.wt){ ctx.fillStyle="#caa06a"; ctx.beginPath(); ctx.arc(cx,by-4,4,0,7); ctx.fill(); } // 种子点
+    const _ck="crop_"+(CROP_EN2[t.crop]||"wheat")+"_"+cropStageIdx(t);
+    if(IMG[_ck]){ ctx.drawImage(IMG[_ck],x,y,TILE,TILE); } // 有作物 sprite 直接用（透明叠在土上）
+    else if(!t.wt){ ctx.fillStyle="#caa06a"; ctx.beginPath(); ctx.arc(cx,by-4,4,0,7); ctx.fill(); } // 种子点(占位)
     else{
       const h=6+frac*30; ctx.strokeStyle=t.grown?"#f2c14e":"#4e9a3f"; ctx.lineWidth=3;
       ctx.beginPath(); ctx.moveTo(cx,by); ctx.lineTo(cx,by-h); ctx.stroke();
