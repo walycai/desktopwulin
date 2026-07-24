@@ -52,7 +52,7 @@
     },
     "first_harvest": {
       "title": "初获",
-      "first_text": "第一份收成已经入手。农产既能出售，也能作为养殖或酿造的原料。",
+      "first_text": "第一份收成已经入手。农产可以继续投入养殖或酿造。",
       "repeat_text": "成熟作物已经收下。",
       "next_action": "查看产物，或投入下一条生产链"
     },
@@ -66,7 +66,7 @@
       "title": "初次收蛋",
       "first_text": "第一份畜产已经收下。稳定照料畜栏，便能继续获得产物。",
       "repeat_text": "畜栏产物已经收入背包。",
-      "next_action": "继续照料畜栏，或出售产物"
+      "next_action": "继续照料畜栏"
     },
     "first_brew_load": {
       "title": "封缸待成",
@@ -82,9 +82,9 @@
     },
     "first_brew_done": {
       "title": "新酿出窖",
-      "first_text": "第一坛酒已经出窖。酿造能让农产变成价值更高的成品。",
+      "first_text": "第一坛酒已经出窖。农产经过酿造，便成了新的成品。",
       "repeat_text": "成酒已经收入背包。",
-      "next_action": "出售成酒，或再次投料"
+      "next_action": "收好成酒，或再次投料"
     },
     "first_sale": {
       "title": "第一笔进项",

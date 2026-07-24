@@ -12,8 +12,16 @@
     background:#efe6d2; color:#26201a; border-radius:10px; padding:8px 14px; }
   #hud .stat{ font-size:16px; font-weight:700; } #hud .stat span{ color:#7a5a2b; }
   #hud .inv{ font-size:14px; color:#3a3226; }
+  #shop{ display:flex; gap:6px; align-items:center; }
+  #shop .shoplab{ font-size:13px; color:#5a4f3a; }
+  .sbtn{ font-family:inherit; font-size:13px; padding:5px 10px; border:1px solid #b7a271; border-radius:7px; background:#e8dcc0; color:#26201a; cursor:pointer; }
+  .sbtn:active{ background:#d3c19a; }
   #cv{ background:#6b9450; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3); touch-action:none; }
-  #tools{ width:900px; max-width:96vw; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #toolrow{ width:900px; max-width:96vw; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #usebtn{ font-family:inherit; font-size:16px; font-weight:700; padding:9px 18px; border:2px solid #b5832f;
+    border-radius:8px; background:#e0a94a; color:#26201a; cursor:pointer; margin-left:auto; }
+  #usebtn:active{ background:#caa06a; }
   .tool{ font-family:inherit; font-size:15px; padding:8px 14px; border:2px solid #b7a271; border-radius:8px;
     background:#e8dcc0; color:#26201a; cursor:pointer; }
   .tool.sel{ background:#8bbf5f; border-color:#3f7a2f; font-weight:700; }
@@ -31,10 +39,17 @@
   <div id="hud">
     <div class="stat">金币 <span id="gold">50</span></div>
     <div class="inv" id="inv"></div>
+    <span id="shop"><span class="shoplab">杂货铺</span>
+      <button class="sbtn" id="buyseed">买麦种(3金)</button>
+      <button class="sbtn" id="sellall">卖出全部产出</button>
+    </span>
     <div id="hint">用 WASD / 方向键走动，走到地/鸡舍/酒缸前按 空格 使用当前工具。</div>
   </div>
   <canvas id="cv" width="896" height="504"></canvas>
-  <div id="tools"></div>
+  <div id="toolrow">
+    <div id="tools"></div>
+    <button id="usebtn">✋ 使用工具（空格/E）</button>
+  </div>
   <div id="help">操作：<b>WASD/方向键</b> 移动 ｜ <b>空格 / E</b> 使用工具 ｜ <b>数字键 1-6</b> 或点上方按钮换工具 ｜ 走到 <b>鸡舍</b>/<b>酒缸</b> 前按空格互动 ｜ 小麦实时 60 秒长成，先耕地→播种→浇水（施肥可选加速）。</div>
 </div>
 <div id="toast"></div>
@@ -62,6 +77,7 @@ let EVENT_COPY={
 // ---- 数值(体验阶段占位) ----
 const GROW_MS=60000, FERT_FACTOR=0.65, EGG_MS=45000, BREW_MS=90000;
 const SELL={"小麦":8,"鸡蛋":10,"麦酒":16};
+const BUY={"麦种":3};  // 种子买价(体验阶段占位)
 
 // ---- 世界 ----
 // 地图：中间一片可耕田(soil)，左上鸡舍，右下酒缸区，其余草地(可走)。
@@ -78,7 +94,7 @@ const coop={r:1,c:12,ready:false,t0:performance.now()}; tiles[1][12].kind="coop"
 const vats=[{r:7,c:12},{r:7,c:13}].map(p=>{ tiles[p.r][p.c].kind="vat"; return {r:p.r,c:p.c,state:"empty",prod:"",t0:0}; });
 
 // ---- 背包 ----
-let gold=50, inv={"麦种":12,"小麦":0,"鸡蛋":0,"麦酒":0};
+let gold=50, inv={"麦种":24,"小麦":0,"鸡蛋":0,"麦酒":0};
 let fired={};
 
 // ---- 主角 ----
@@ -139,18 +155,20 @@ function useTool(){
   if(act==="till"){ if(t.state==="empty"){ t.state="tilled"; fireOnce("first_till","开垦了一块地"); } else setHint("这块地已经耕过了。"); }
   else if(act==="plant"){ if(t.state==="tilled"){ if((inv["麦种"]||0)>0){ inv["麦种"]--; t.state="planted"; t.crop="小麦"; t.wt=false; t.ft=false; t.grown=false; t.t0=0; fireOnce("first_plant","播下小麦"); setHint("播了小麦，记得浇水。"); } else setHint("没有麦种了。"); } else setHint("先用锄头耕地，才能播种。"); }
   else if(act==="water"){ if(t.state==="planted"&&!t.wt){ t.wt=true; t.t0=performance.now(); fireOnce("first_water","浇了水，开始生长"); setHint("浇了水，小麦开始生长（约60秒）。"); } else if(t.state==="planted") setHint("已经浇过水了。"); else setHint("这里没有作物可浇。"); }
-  else if(act==="fert"){ if(t.state==="planted"&&!t.ft){ t.ft=true; if(t.wt){ /* 施肥缩短剩余：把已过时间放大，成熟更快 */ const el=performance.now()-t.t0; t.t0=performance.now()-Math.min(GROW_MS,el/FERT_FACTOR); } fireOnce("first_fertilize","施肥了，生长加速（可选）"); setHint("施了肥，生长更快（可选）。"); } else if(t.state==="planted") setHint("已经施过肥了。"); else setHint("这里没有作物可施肥。"); }
-  else if(act==="harvest"){ if(t.state==="planted"&&t.grown){ add(t.crop,1); fireOnce("first_harvest","收获小麦 ×1"); setHint("收获了小麦。可拿去酒缸酿酒增值，或攒着卖。"); t.state="tilled"; t.crop=""; t.wt=false; t.ft=false; t.grown=false; } else if(t.state==="planted") setHint("还没长熟，等等或浇水/施肥。"); else setHint("这里没有可收的作物。"); }
+  else if(act==="fert"){ if(t.state==="planted"&&!t.ft){ t.ft=true; fireOnce("first_fertilize","施肥了，生长加速（可选）"); setHint(t.wt?"施了肥，生长更快。":"施了肥，浇水后生长会更快。"); } else if(t.state==="planted") setHint("已经施过肥了。"); else setHint("这里没有作物可施肥。"); }
+  else if(act==="harvest"){ if(t.state==="planted"&&t.grown){ add(t.crop,1); fireOnce("first_harvest","收获小麦 ×1"); setHint("收获了小麦。可拿去酒缸酿酒增值，或到杂货铺卖出。"); t.state="tilled"; t.crop=""; t.wt=false; t.ft=false; t.grown=false; } else if(t.state==="planted") setHint("还没长熟，等等或浇水/施肥。"); else setHint("这里没有可收的作物。"); }
   else setHint("走到田/鸡舍/酒缸前，选对工具再按空格。");
   renderInv();
 }
 function handleVat(v){
   if(v.state==="empty"){ if((inv["小麦"]||0)>0){ inv["小麦"]--; v.state="fermenting"; v.prod="麦酒"; v.t0=performance.now(); setHint("投入小麦，开始酿麦酒（约90秒）。"); } else setHint("没有小麦可投料，先去收获。"); }
   else if(v.state==="fermenting"){ setHint("酒还在发酵，等出窖。"); }
-  else if(v.state==="done"){ add(v.prod,1); fireOnce("first_brew_done","麦酒 ×1 出窖"); setHint("取了麦酒，卖价比生粮高不少。"); v.state="empty"; v.prod=""; }
+  else if(v.state==="done"){ add(v.prod,1); fireOnce("first_brew_done","麦酒 ×1 出窖"); setHint("取了麦酒，到杂货铺卖出，价比生粮高不少。"); v.state="empty"; v.prod=""; }
   renderInv();
 }
 function add(it,n){ inv[it]=(inv[it]||0)+n; }
+function buySeed(){ const p=BUY["麦种"]; if(gold>=p){ gold-=p; add("麦种",1); setHint(`买了 1 个麦种（-${p}金）。`); } else setHint(`金币不够（买麦种需 ${p}金）——先到杂货铺卖点产出。`); renderInv(); }
+function sellAll(){ let e=0,s=[]; for(const it in SELL){ const q=inv[it]||0; if(q>0){ e+=q*SELL[it]; s.push(`${it}×${q}`); inv[it]=0; } } if(e>0){ gold+=e; setHint(`卖出 ${s.join(", ")}，+${e}金。成品比生货值钱得多。`); } else setHint("没有可卖的作物/成品。"); renderInv(); }
 function renderInv(){
   document.getElementById("gold").textContent=gold;
   const parts=[]; for(const k of ["麦种","小麦","鸡蛋","麦酒"]){ if((inv[k]||0)>0||k==="麦种") parts.push(`${k} ×${inv[k]||0}`); }
@@ -178,7 +196,7 @@ function update(now){
   }
   // 作物生长
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const t=tiles[r][c];
-    if(t.kind==="soil"&&t.state==="planted"&&t.wt&&!t.grown){ if(now-t.t0>=GROW_MS) t.grown=true; } }
+    if(t.kind==="soil"&&t.state==="planted"&&t.wt&&!t.grown){ if(now-t.t0>=GROW_MS*(t.ft?FERT_FACTOR:1)) t.grown=true; } }
   // 鸡蛋
   if(!coop.ready && now-coop.t0>=EGG_MS) coop.ready=true;
   // 酒
@@ -207,7 +225,8 @@ function drawSoil(t,x,y,now){
   ctx.fillStyle = t.state==="empty" ? "#8a6d4b" : (t.wt?"#5c4327":"#7a5a38");
   ctx.fillRect(x,y,TILE,TILE); ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.strokeRect(x+.5,y+.5,TILE-1,TILE-1);
   if(t.state==="planted"){
-    let frac = t.grown?1:(t.wt?Math.min(1,(now-t.t0)/GROW_MS):0);
+    const eff=GROW_MS*(t.ft?FERT_FACTOR:1);
+    let frac = t.grown?1:(t.wt?Math.min(1,(now-t.t0)/eff):0);
     const cx=x+TILE/2, by=y+TILE-8;
     if(!t.wt){ ctx.fillStyle="#caa06a"; ctx.beginPath(); ctx.arc(cx,by-4,4,0,7); ctx.fill(); } // 种子点
     else{
@@ -218,7 +237,7 @@ function drawSoil(t,x,y,now){
     }
     // 进度/就绪
     if(t.grown){ ctx.fillStyle="#2f6a2f"; ctx.font="bold 11px sans-serif"; ctx.textAlign="center"; ctx.fillText("✔可收",cx,y+12); }
-    else if(t.wt){ const s=Math.max(0,Math.ceil((GROW_MS-(now-t.t0))/1000)); ctx.fillStyle="#eee"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.fillText(s+"s",cx,y+11);
+    else if(t.wt){ const s=Math.max(0,Math.ceil((eff-(now-t.t0))/1000)); ctx.fillStyle="#eee"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.fillText(s+"s",cx,y+11);
       ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(x+4,y+TILE-5,TILE-8,3); ctx.fillStyle="#8bd45f"; ctx.fillRect(x+4,y+TILE-5,(TILE-8)*frac,3); }
     else { ctx.fillStyle="#cfe6ff"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.fillText("需浇水",cx,y+11); }
   }
@@ -248,6 +267,9 @@ function drawPlayer(){ const x=player.x,y=player.y;
 
 // ---- 主循环 ----
 function loop(now){ update(now); draw(now); requestAnimationFrame(loop); }
+document.getElementById("usebtn").onclick=useTool;
+document.getElementById("buyseed").onclick=buySeed;
+document.getElementById("sellall").onclick=sellAll;
 renderTools(); renderInv();
 fetch("../assets/event_copy.json").then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.events) EVENT_COPY=Object.assign(EVENT_COPY,j.events); }).catch(()=>{});
 requestAnimationFrame(loop);
