@@ -110,6 +110,20 @@ const CONFIG = {
   recipes: { "小麦": {out:"麦酒", ferMin:180}, "稻谷": {out:"米酒", ferMin:240} }, // 酿造游戏分钟
   shop: { buy: ["麦种","稻种"] }  // 铺子可买清单(价取items[id].buy); 可卖=任何 sell>0 的库存
 };
+// ★数据驱动批量作物（莱布尼茨占位价）：加一行 = 多一种可买种/可种/可收/可卖的作物。田图缺则通用渲染(幼苗→成熟显图标)。growMin 占位公式,莱深平衡时再调。
+const CROP_DATA=[
+ // [icon id, 中文, 卖价, 种子买价]
+ ["yumi","玉米",7,3],["dadou","大豆",9,4],["huasheng","花生",11,4],["mianhua","棉花",15,6],
+ ["baicai","白菜",8,3],["luobo","萝卜",8,3],["tudou","土豆",9,4],["fanqie","番茄",12,5],
+ ["huanggua","黄瓜",10,4],["nangua","南瓜",13,5],["bocai","菠菜",6,2],["ganlan","甘蓝",8,3],
+ ["caomei","草莓",16,6],["xigua","西瓜",18,7],["putao","葡萄",22,9],
+];
+CROP_DATA.forEach(([id,cn,sell,seedBuy])=>{
+  CONFIG.items[cn]={cat:"crop",sell,icon:"icon_"+id};
+  CONFIG.items[cn+"种"]={cat:"seed",buy:seedBuy,icon:"icon_"+id};
+  CONFIG.crops[cn+"种"]={crop:cn,growMin:90+sell*6,en:id};
+  CONFIG.shop.buy.push(cn+"种");
+});
 // 导表校验：坏行拦下不崩（演示：引用完整性/数值范围）
 function validateConfig(){
   const errs=[];
@@ -215,6 +229,7 @@ preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_
  "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3","coop_1","chicken_idle","chicken_ready",
  "vessel_empty","vessel_fermenting","vessel_done","building_shop"]);
 preload(ASSET_C,["hero_walk","hero_idle"]);
+preload("../assets/icons/", CROP_DATA.map(c=>"icon_"+c[0])); // 通用作物渲染成熟显图标,需把作物图标也载进canvas
 const CROP_EN={"小麦":"wheat","稻谷":"rice"};
 
 // ===== INPUT（读输入→改快照）=====
@@ -277,8 +292,9 @@ function refreshHUD(){
   document.getElementById("clock").textContent=clockStr();
   document.getElementById("gold").textContent=state.gold;
   document.getElementById("hp").textContent=state.hp;
-  const order=["麦种","小麦","稻谷","鸡蛋","麦酒","米酒"]; let s="";
-  for(const it of order){ const q=state.inv[it]||0; if(q>0||it==="麦种") s+=icImg(ITEM_ICON[it])+`${it}×${q}　`; }
+  let s="", shown=0;
+  for(const it in state.inv){ const q=state.inv[it]||0; if(q>0 && shown<9){ const ic=(CONFIG.items[it]&&CONFIG.items[it].icon)||ITEM_ICON[it]; s+=icImg(ic)+`${it}×${q}　`; shown++; } }
+  if(!s) s=icImg("icon_maizhong")+"麦种×0";
   document.getElementById("inv").innerHTML=s;
   document.getElementById("dbgInfo").textContent=`| 快照:第${state.day}天 ${clockStr()} 金${state.gold}`;
 }
@@ -303,9 +319,14 @@ function drawSoil(r,c,x,y){
   if(IMG[soilKey]) ctx.drawImage(IMG[soilKey],x,y,TILE,TILE);
   else { ctx.fillStyle=(p&&p.state!=="empty")?"#7a5a38":"#8a6d4b"; ctx.fillRect(x,y,TILE,TILE); }
   if(p&&p.state==="planted"){
-    const si=cropStage(p), ck="crop_"+(CROP_EN[p.crop]||"wheat")+"_"+si;
-    if(IMG[ck]){ const im=IMG[ck]; const dh=TILE*im.height/im.width; ctx.drawImage(im,x,y+TILE-dh,TILE,dh); }
-    else { ctx.fillStyle=p.grown?"#f2c14e":"#4e9a3f"; ctx.fillRect(x+TILE*0.4,y+TILE*0.3,TILE*0.2,TILE*0.6); }
+    const si=cropStage(p), en=CONFIG.crops[p.seed]?CONFIG.crops[p.seed].en:"wheat", ck="crop_"+en+"_"+si;
+    if(IMG[ck]){ const im=IMG[ck]; const dh=TILE*im.height/im.width; ctx.drawImage(im,x,y+TILE-dh,TILE,dh); } // 精致4阶段田图
+    else { // 通用渲染：幼苗随阶段长高，成熟显作物图标
+      const icon=CONFIG.items[p.crop]&&CONFIG.items[p.crop].icon;
+      if(p.grown && IMG[icon]){ ctx.drawImage(IMG[icon], x+TILE*0.15, y+TILE*0.1, TILE*0.7, TILE*0.7); }
+      else { const h=6+si*13; ctx.fillStyle="#4e9a3f"; ctx.fillRect(x+TILE*0.44,y+TILE-6-h,TILE*0.12,h);
+        if(si>=2){ ctx.fillStyle="#5bb04a"; ctx.fillRect(x+TILE*0.28,y+TILE-6-h,TILE*0.44,4); } }
+    }
     ctx.font="10px sans-serif"; ctx.textAlign="center";
     if(p.grown){ ctx.fillStyle="#2f6a2f"; ctx.fillText("✔可收",x+TILE/2,y+12); }
     else if(!p.watered){ ctx.fillStyle="#cfe6ff"; ctx.fillText("需浇水",x+TILE/2,y+12); }
