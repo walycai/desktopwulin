@@ -30,6 +30,19 @@
   #hint{ flex:1 1 240px; min-width:180px; font-size:13px; color:#5a4f3a; }
   #toast{ position:fixed; left:50%; top:16px; transform:translateX(-50%); background:rgba(30,24,16,.92); color:#fff; padding:10px 18px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .3s; max-width:80vw; text-align:center; pointer-events:none; z-index:9; }
   #toast.show{ opacity:1; } #toast b{ color:#ffd98a; }
+  #shopmodal{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:20; }
+  #shopmodal.open{ display:flex; }
+  .shopbox{ width:540px; max-width:92vw; max-height:82vh; overflow:auto; background:#efe6d2; color:#26201a; border:2px solid #b5832f; border-radius:12px; padding:14px 18px; }
+  .shophead{ display:flex; align-items:center; gap:12px; font-size:18px; font-weight:700; }
+  .shophead .g{ font-size:15px; color:#7a5a2b; } .shophead #shopclose{ margin-left:auto; font-size:16px; border:1px solid #b7a271; background:#e0d3b4; border-radius:6px; padding:2px 9px; cursor:pointer; }
+  .shoptabs{ display:flex; gap:8px; margin:12px 0 8px; }
+  .stab{ font-family:inherit; font-size:15px; padding:6px 18px; border:2px solid #b7a271; border-radius:8px; background:#e2d6ba; color:#26201a; cursor:pointer; }
+  .stab.sel{ background:#8bbf5f; border-color:#3f7a2f; font-weight:700; }
+  #shoplist .row{ display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px dashed #cdbf9e; font-size:15px; }
+  #shoplist .row img{ width:32px; height:32px; image-rendering:pixelated; }
+  #shoplist .row .nm{ flex:1; } #shoplist .row .pr{ color:#7a5a2b; font-size:13px; }
+  #shoplist .row button{ font-family:inherit; font-size:13px; padding:4px 10px; border:1px solid #b7a271; border-radius:6px; background:#e8dcc0; cursor:pointer; }
+  .shophint{ margin-top:8px; font-size:12px; color:#5a4f3a; }
 </style>
 </head>
 <body>
@@ -61,6 +74,14 @@
   <div id="help">操作：<b>WASD/方向键</b> 移动 ｜ <b>空格/E</b> 用工具 ｜ 数字键1-6换工具 ｜ 走到鸡舍/酒缸前用工具互动 ｜ 先耕地→播种→<b>每天浇水</b>→到成熟天数收割。<b>headless架构</b>：删掉画面逻辑照跑；调试面板可秒快进验数值。</div>
 </div>
 <div id="toast"></div>
+<div id="shopmodal">
+  <div class="shopbox">
+    <div class="shophead">🏪 杂货铺 <span class="g" id="shopgold"></span> <button id="shopclose">✕ 离开</button></div>
+    <div class="shoptabs"><button class="stab sel" id="tabbuy">买入</button><button class="stab" id="tabsell">卖出</button></div>
+    <div id="shoplist"></div>
+    <div class="shophint">买：种子/工具 ｜ 卖：作物/畜产/成品。（走到铺子门前按空格开关）</div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -87,7 +108,7 @@ const CONFIG = {
   crops:   { "麦种": {crop:"小麦", growMin:120, en:"wheat"}, "稻种": {crop:"稻谷", growMin:200, en:"rice"} },
   animals: { "鸡": {produces:"鸡蛋", produceMin:240} },      // 每4游戏时产一次
   recipes: { "小麦": {out:"麦酒", ferMin:180}, "稻谷": {out:"米酒", ferMin:240} }, // 酿造游戏分钟
-  shopBuy: ["麦种"]
+  shop: { buy: ["麦种","稻种"] }  // 铺子可买清单(价取items[id].buy); 可卖=任何 sell>0 的库存
 };
 // 导表校验：坏行拦下不崩（演示：引用完整性/数值范围）
 function validateConfig(){
@@ -112,6 +133,9 @@ for(let r=0;r<ROWS;r++){ MAP.push([]); for(let c=0;c<COLS;c++){
   let k="grass"; if(inSoil(r,c)) k="soil"; MAP[r].push({kind:k}); } }
 const COOP={r:1,c:12}; MAP[1][12].kind="coop"; MAP[1][13].kind="coop";
 const VATS=[{r:7,c:12},{r:7,c:13}]; VATS.forEach(v=>MAP[v.r][v.c].kind="vat");
+// 镇上简略场景：左上角一栋杂货铺(买卖场所)。走到门前用工具/空格开买卖面板。
+const SHOP={r:7,c:1}; MAP[7][1].kind="shop"; MAP[7][2].kind="shop"; MAP[7][3].kind="shop"; // 铺子(3格宽底座,左下镇区)
+for(let c=0;c<COLS;c++) if(MAP[8][c].kind==="grass") MAP[8][c].kind="townpath"; // 镇上一条石板路(玩家从下方走近铺子)
 
 // ===== SIM（headless：快照 + 纯规则 + 日结算；不碰 DOM/canvas）=====
 const SAVE_VER=3;
@@ -140,7 +164,9 @@ const SIM = {
   loadVessel(s,i){ const v=s.vessels[i]; if(v.state!=="empty") return "非空缸"; const crop=SIM.firstBrewable(s);
     if(!crop) return "没原料"; s.inv[crop]--; const rp=CONFIG.recipes[crop]; v.state="fermenting"; v.input=crop; v.prod=rp.out; v.fer=0; return "brew"; },
   collectVessel(s,i){ const v=s.vessels[i]; if(v.state!=="done") return v.state==="empty"?"空缸":"发酵中"; SIM.add(s,v.prod,1); const prod=v.prod; v.state="empty"; v.input=""; v.prod=""; v.fer=0; return {ev:"brewdone",prod}; },
-  buySeed(s){ const p=CONFIG.items["麦种"].buy; if(s.gold<p) return "金币不够"; s.gold-=p; SIM.add(s,"麦种",1); return "buy"; },
+  buySeed(s){ return SIM.buy(s,"麦种"); },
+  buy(s,id){ const p=CONFIG.items[id]&&CONFIG.items[id].buy; if(!p) return "不可买"; if(s.gold<p) return "金币不够"; s.gold-=p; SIM.add(s,id,1); return "buy"; },
+  sell(s,id,n){ const p=CONFIG.items[id]&&CONFIG.items[id].sell; if(!p) return "不可卖"; const q=Math.min(n||1, s.inv[id]||0); if(q<=0) return "没有可卖"; s.inv[id]-=q; s.gold+=p*q; return {ev:"sold",id,n:q,e:p*q}; },
   sellAll(s){ let e=0; for(const it in CONFIG.items){ const price=CONFIG.items[it].sell||0; const q=s.inv[it]||0; if(price>0&&q>0){ e+=price*q; s.inv[it]=0; } } if(e>0){ s.gold+=e; return {ev:"sale",e}; } return "无可卖"; },
 
   // —— ★时钟推进：连续按游戏时间累积生长/发酵/产出，过05:00触发日结算(批处理)。纯函数、可任意步长快进 ——
@@ -187,7 +213,7 @@ const IMG={};
 function preload(dir,names){ names.forEach(n=>{ const im=new Image(); im.onload=()=>IMG[n]=im; im.src=dir+n+".png"; }); }
 preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_wheat_2","crop_wheat_3",
  "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3","coop_1","chicken_idle","chicken_ready",
- "vessel_empty","vessel_fermenting","vessel_done"]);
+ "vessel_empty","vessel_fermenting","vessel_done","building_shop"]);
 preload(ASSET_C,["hero_walk","hero_idle"]);
 const CROP_EN={"小麦":"wheat","稻谷":"rice"};
 
@@ -201,6 +227,7 @@ const ITEM_ICON={"麦种":"icon_maizhong","稻种":"icon_daozhong","小麦":"ico
 let selTool=0;
 addEventListener("keydown",e=>{ const k=e.key.toLowerCase(); keys[k]=true;
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k)) e.preventDefault();
+  if(k==="escape"&&shopOpen){ closeShop(); return; }
   if(k===" "||k==="e") useTool();
   const n=parseInt(e.key); if(n>=1&&n<=TOOLS.length){ selTool=n-1; renderTools(); } });
 addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
@@ -214,8 +241,10 @@ function fireOnce(key,html){ if(!state.fired[key]){ state.fired[key]=true; toast
 
 const HINTS={til:"开垦了地，可播种。",plant:"播了种，记得每天浇水。",water:"浇了水，明早结算长一天。",fert:"施了肥，明早多长一天。",egg:"收了鸡蛋。",brew:"投料酿造，按天发酵。",buy:"买了1个麦种。"};
 function useTool(){
+  if(shopOpen){ closeShop(); return; }
   const {r,c}=facedCell(); if(r<0||c<0||r>=ROWS||c>=COLS) return;
   const kind=MAP[r][c].kind;
+  if(kind==="shop"){ openShop(); return; }
   if(kind==="coop"){ const res=SIM.collectAnimal(state,0); if(res==="egg"){ fireOnce("first_egg","<b>初次收蛋</b> 畜栏第一份产出到手。"); setHint(HINTS.egg);} else setHint(res); refreshHUD(); return; }
   if(kind==="vat"){ const vi=VATS.findIndex(v=>v.r===r&&v.c===c); const res=SIM.loadVesselOrCollect(vi); return; }
   if(kind!=="soil"){ setHint("这里不能耕作。"); return; }
@@ -259,8 +288,9 @@ function draw(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const kind=MAP[r][c].kind, x=c*TILE, y=r*TILE;
     if(kind==="grass"){ ctx.fillStyle=((r+c)&1)?"#6b9450":"#659049"; ctx.fillRect(x,y,TILE,TILE); }
     else if(kind==="soil"){ drawSoil(r,c,x,y); }
+    else if(kind==="townpath"){ ctx.fillStyle=((r+c)&1)?"#b8a888":"#b0a080"; ctx.fillRect(x,y,TILE,TILE); }
     else { ctx.fillStyle="#6b9450"; ctx.fillRect(x,y,TILE,TILE); } }
-  drawCoop(); drawVats(); drawPlayer();
+  drawCoop(); drawVats(); drawShop(); drawPlayer();
   const f=facedCell(); if(f.r>=0&&f.c>=0&&f.r<ROWS&&f.c<COLS){ ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2; ctx.strokeRect(f.c*TILE+2,f.r*TILE+2,TILE-4,TILE-4); }
   // 夜晚压暗
   const tot=(CONFIG.settings.startHour*60+state.clock)%1440; let dark=0;
@@ -301,10 +331,41 @@ function drawPlayer(){ const x=state.player.x,y=state.player.y;
   else if(IMG["hero_idle"]) ctx.drawImage(IMG["hero_idle"],x-32,y-80,64,96);
   else { ctx.fillStyle="#4a7a4a"; ctx.fillRect(x-9,y-6,18,22); ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(x,y-14,9,0,7); ctx.fill(); } }
 
+// ===== 铺子买卖面板（走进铺子开；买卖走 SIM 规则）=====
+let shopOpen=false, shopTab="buy";
+function openShop(){ shopOpen=true; document.getElementById("shopmodal").classList.add("open"); renderShop(); }
+function closeShop(){ shopOpen=false; document.getElementById("shopmodal").classList.remove("open"); }
+function renderShop(){
+  document.getElementById("shopgold").textContent="金币 "+state.gold;
+  const list=document.getElementById("shoplist"); list.innerHTML="";
+  if(shopTab==="buy"){
+    CONFIG.shop.buy.forEach(id=>{ const it=CONFIG.items[id]; if(!it||!it.buy) return;
+      const row=document.createElement("div"); row.className="row";
+      row.innerHTML=`${icImg(it.icon)}<span class="nm">${id}</span><span class="pr">买价 ${it.buy}</span>`;
+      const b=document.createElement("button"); b.textContent="买 1";
+      b.onclick=()=>{ const r=SIM.buy(state,id); if(r==="buy"){ renderShop(); refreshHUD(); } else setHint(r); };
+      row.appendChild(b); list.appendChild(row); });
+  } else {
+    let any=false;
+    for(const id in CONFIG.items){ const it=CONFIG.items[id]; const q=state.inv[id]||0;
+      if((it.sell||0)>0 && q>0){ any=true; const row=document.createElement("div"); row.className="row";
+        row.innerHTML=`${icImg(it.icon)}<span class="nm">${id} ×${q}</span><span class="pr">卖价 ${it.sell}</span>`;
+        const b1=document.createElement("button"); b1.textContent="卖1"; b1.onclick=()=>{ SIM.sell(state,id,1); renderShop(); refreshHUD(); };
+        const b2=document.createElement("button"); b2.textContent="全卖"; b2.onclick=()=>{ const r=SIM.sell(state,id,q); if(r&&r.ev==="sold") fireOnce("first_sale","<b>第一笔进项</b> 让三条生产链彼此供给。"); renderShop(); refreshHUD(); };
+        row.appendChild(b1); row.appendChild(b2); list.appendChild(row); } }
+    if(!any) list.innerHTML=`<div class="row">还没有可卖的东西——去收获、收蛋、酿酒吧。</div>`;
+  }
+}
+function drawShop(){ const x=SHOP.c*TILE, y=SHOP.r*TILE;
+  if(IMG["building_shop"]) ctx.drawImage(IMG["building_shop"], x, y+TILE-187, 192, 187); // 3格宽×~3高,底部对齐,门朝下
+  else { ctx.fillStyle="#a9713e"; ctx.fillRect(x+4,y+4,TILE*3-8,TILE-8); ctx.fillStyle="#caa04a"; ctx.fillRect(x,y-12,TILE*3,18); }
+  ctx.fillStyle="#f4e8c8"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center"; ctx.fillText("杂货铺",x+TILE*1.5,y+TILE-4); }
+
 // ===== 主循环：读输入 → 推进时间 → 画 =====
 let last=performance.now();
 function loop(now){
   const dt=(now-last)/1000; last=now;
+  if(shopOpen){ draw(); refreshHUD(); requestAnimationFrame(loop); return; } // 开铺子时暂停时间/移动
   // 移动
   let mx=0,my=0;
   if(keys["w"]||keys["arrowup"])my-=1; if(keys["s"]||keys["arrowdown"])my+=1;
@@ -340,12 +401,16 @@ function bindDebug(){
   document.getElementById("usebtn").onclick=useTool;
   document.getElementById("buyseed").onclick=()=>{ const r=SIM.buySeed(state); setHint(r==="buy"?"买了1个麦种(-3金)。":r); refreshHUD(); };
   document.getElementById("sellall").onclick=()=>{ const r=SIM.sellAll(state); if(r&&r.ev==="sale"){ fireOnce("first_sale","<b>第一笔进项</b> 让三条生产链彼此供给。"); setHint(`卖出 +${r.e}金。`);} else setHint(r); refreshHUD(); };
+  document.getElementById("shopclose").onclick=closeShop;
+  document.getElementById("tabbuy").onclick=()=>{ shopTab="buy"; document.getElementById("tabbuy").classList.add("sel"); document.getElementById("tabsell").classList.remove("sel"); renderShop(); };
+  document.getElementById("tabsell").onclick=()=>{ shopTab="sell"; document.getElementById("tabsell").classList.add("sel"); document.getElementById("tabbuy").classList.remove("sel"); renderShop(); };
 }
 
 // ===== 启动 =====
 validateConfig();
 state = SAVE.load() || SIM.newSnapshot();
 renderTools(); bindDebug(); refreshHUD();
+if(location.search.indexOf("shop")>=0){ SIM.add(state,"小麦",3); SIM.add(state,"鸡蛋",2); openShop(); } // 验证/演示：直接开铺子
 requestAnimationFrame(loop);
 
 // headless 自检：无画面也能快进模拟（控制台可见）
