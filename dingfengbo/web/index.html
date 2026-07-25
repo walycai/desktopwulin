@@ -100,7 +100,8 @@ let gold=50, inv={"麦种":24,"小麦":0,"鸡蛋":0,"麦酒":0};
 let fired={};
 
 // ---- 主角 ----
-const player={ x:TILE*8, y:TILE*7.5, spd:150, fx:0, fy:-1 };
+const player={ x:TILE*8, y:TILE*7.5, spd:150, fx:0, fy:1 };
+let animT=0, moving=false;  // hero 行走动画：帧计时 + 是否移动
 const keys={};
 addEventListener("keydown",e=>{
   keys[e.key.toLowerCase()]=true;
@@ -196,6 +197,7 @@ function update(now){
     if(walkable(player.x,ny)) player.y=ny;
     player.x=Math.max(10,Math.min(cv.width-10,player.x)); player.y=Math.max(10,Math.min(cv.height-10,player.y));
   }
+  moving = !!(mx||my); if(moving) animT+=dt; else animT=0;  // 行走动画计时
   // 作物生长
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const t=tiles[r][c];
     if(t.kind==="soil"&&t.state==="planted"&&t.wt&&!t.grown){ if(now-t.t0>=GROW_MS*(t.ft?FERT_FACTOR:1)) t.grown=true; } }
@@ -208,12 +210,14 @@ function walkable(x,y){ const c=Math.floor(x/TILE), r=Math.floor(y/TILE);
   if(r<0||c<0||r>=ROWS||c>=COLS) return false; const k=tiles[r][c].kind; return k==="grass"||k==="soil"; }
 
 // ---- 美术素材（马奈按 asset-slots 出到 assets/world/，加载到即自动替换占位图形）----
-const ASSET_W="../assets/world/";
+const ASSET_W="../assets/world/", ASSET_C="../assets/char/";
 const IMG={};
-["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_wheat_2","crop_wheat_3",
- "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3"].forEach(n=>{
-  const im=new Image(); im.onload=()=>IMG[n]=im; im.src=ASSET_W+n+".png"; // 缺图 onerror 忽略，走占位
-});
+function preload(dir,names){ names.forEach(n=>{ const im=new Image(); im.onload=()=>IMG[n]=im; im.src=dir+n+".png"; }); } // 缺图onerror忽略走占位
+preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_wheat_2","crop_wheat_3",
+ "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3",
+ // 下一批(马奈按同基准出，到位自动替换占位)：
+ "coop_1","chicken_idle","chicken_ready","vessel_empty","vessel_fermenting","vessel_done"]);
+preload(ASSET_C,["hero_walk","hero_idle"]);  // hero_walk=4行(下上左右)×4列(0待机/1-3行走) 每格64×96
 const CROP_EN2={"小麦":"wheat","稻谷":"rice"};
 function cropStageIdx(t){ if(t.grown) return 3; if(!t.wt) return 0;
   const eff=GROW_MS*(t.ft?FERT_FACTOR:1); const f=Math.min(1,(performance.now()-t.t0)/eff); return f<0.5?1:2; }
@@ -260,26 +264,34 @@ function drawSoil(t,x,y,now){
   }
 }
 function drawCoop(){ const x=coop.c*TILE, y=coop.r*TILE;
-  ctx.fillStyle="#8a5a34"; ctx.fillRect(x+4,y+4,TILE*2-8,TILE-8); ctx.fillStyle="#e9e2d0"; // 鸡
-  ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6,9,0,7); ctx.fill(); ctx.fillStyle="#d33"; ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6-9,3,0,7); ctx.fill();
+  if(IMG["coop_1"]) ctx.drawImage(IMG["coop_1"], x, y-32, 128, 96); // 2格宽×1.5高, 上溢半格
+  else { ctx.fillStyle="#8a5a34"; ctx.fillRect(x+4,y+4,TILE*2-8,TILE-8); }
+  const ck = coop.ready?"chicken_ready":"chicken_idle";
+  if(IMG[ck]) ctx.drawImage(IMG[ck], x+TILE*1.1, y+TILE*0.35, 48, 48);
+  else { ctx.fillStyle="#e9e2d0"; ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6,9,0,7); ctx.fill(); ctx.fillStyle="#d33"; ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6-9,3,0,7); ctx.fill(); }
   ctx.fillStyle="#26201a"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center"; ctx.fillText("鸡舍",x+TILE,y+TILE-6);
-  if(coop.ready){ ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(x+TILE*0.7,y+TILE*0.7,6,8,0,0,7); ctx.fill(); ctx.fillStyle="#2f6a2f"; ctx.fillText("✔蛋",x+TILE*0.7,y+14); }
+  if(coop.ready){ if(!IMG[ck]){ ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(x+TILE*0.7,y+TILE*0.7,6,8,0,0,7); ctx.fill(); } ctx.fillStyle="#2f6a2f"; ctx.fillText("✔蛋",x+TILE*0.7,y+14); }
 }
 function drawVats(now){ for(const v of vats){ const x=v.c*TILE, y=v.r*TILE;
-  ctx.fillStyle = v.state==="empty"?"#8a8aa8":(v.state==="fermenting"?"#6f59a3":"#c58ad6");
-  ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE/2,TILE*0.32,TILE*0.4,0,0,7); ctx.fill();
-  ctx.fillStyle="#efe6d2"; ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE*0.28,TILE*0.28,TILE*0.1,0,0,7); ctx.fill();
+  const vk = v.state==="empty"?"vessel_empty":(v.state==="fermenting"?"vessel_fermenting":"vessel_done");
+  if(IMG[vk]) ctx.drawImage(IMG[vk], x, y-16, 64, 80); // 站1格, 上溢16
+  else { ctx.fillStyle = v.state==="empty"?"#8a8aa8":(v.state==="fermenting"?"#6f59a3":"#c58ad6");
+    ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE/2,TILE*0.32,TILE*0.4,0,0,7); ctx.fill();
+    ctx.fillStyle="#efe6d2"; ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE*0.28,TILE*0.28,TILE*0.1,0,0,7); ctx.fill(); }
   ctx.fillStyle="#26201a"; ctx.font="11px sans-serif"; ctx.textAlign="center";
   let lab = v.state==="empty"?"空缸":(v.state==="fermenting"?Math.max(0,Math.ceil((BREW_MS-(now-v.t0))/1000))+"s":"✔出窖");
   ctx.fillText(lab,x+TILE/2,y+TILE-4);
 }}
+function heroRow(){ if(player.fy>0) return 0; if(player.fy<0) return 1; if(player.fx<0) return 2; return 3; } // 下/上/左/右
 function drawPlayer(){ const x=player.x,y=player.y;
-  ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(x,y+16,12,5,0,0,7); ctx.fill();
-  ctx.fillStyle="#4a7a4a"; ctx.fillRect(x-9,y-6,18,22);        // 身
-  ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(x,y-14,9,0,7); ctx.fill(); // 头
-  ctx.fillStyle="#2a2a2a"; ctx.beginPath(); ctx.arc(x,y-16,9,Math.PI,2*Math.PI); ctx.fill(); // 发
-  // 朝向点
-  ctx.fillStyle="#26201a"; ctx.beginPath(); ctx.arc(x+player.fx*6,y-14+player.fy*4,2,0,7); ctx.fill();
+  ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(x,y+16,13,6,0,0,7); ctx.fill(); // 影
+  if(IMG["hero_walk"]){ const row=heroRow(); const col=moving?[1,2,3,2][Math.floor(animT*8)%4]:0; // 行=方向, 列=帧(走时1→2→3→2, 停用0待机)
+    ctx.drawImage(IMG["hero_walk"], col*64, row*96, 64, 96, x-32, y-80, 64, 96); }
+  else if(IMG["hero_idle"]){ ctx.drawImage(IMG["hero_idle"], x-32, y-80, 64, 96); }
+  else { ctx.fillStyle="#4a7a4a"; ctx.fillRect(x-9,y-6,18,22);        // 占位: 身
+    ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(x,y-14,9,0,7); ctx.fill(); // 头
+    ctx.fillStyle="#2a2a2a"; ctx.beginPath(); ctx.arc(x,y-16,9,Math.PI,2*Math.PI); ctx.fill(); // 发
+    ctx.fillStyle="#26201a"; ctx.beginPath(); ctx.arc(x+player.fx*6,y-14+player.fy*4,2,0,7); ctx.fill(); } // 朝向
 }
 
 // ---- 主循环 ----
