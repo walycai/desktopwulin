@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>定风波 · 玩法体验原型 v0.2（实时·可走可玩）</title>
+<style>
+  html,body{ margin:0; height:100%; background:#3d5a34; color:#eee;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; -webkit-font-smoothing:antialiased; overflow:hidden; }
+  #wrap{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px; }
+  #hud{ width:1024px; max-width:96vw; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    background:#efe6d2; color:#26201a; border-radius:10px; padding:8px 14px; }
+  #hud .stat{ font-size:16px; font-weight:700; } #hud .stat span{ color:#7a5a2b; }
+  #hud .inv{ font-size:14px; color:#3a3226; }
+  #shop{ display:flex; gap:6px; align-items:center; }
+  #shop .shoplab{ font-size:13px; color:#5a4f3a; }
+  .sbtn{ font-family:inherit; font-size:13px; padding:5px 10px; border:1px solid #b7a271; border-radius:7px; background:#e8dcc0; color:#26201a; cursor:pointer; }
+  .sbtn:active{ background:#d3c19a; }
+  .ic{ width:20px; height:20px; image-rendering:pixelated; vertical-align:-4px; margin-right:3px; } /* 硬像素图标 */
+  #cv{ background:#6b9450; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3); touch-action:none;
+    max-width:100%; height:auto; image-rendering: pixelated; image-rendering: crisp-edges; } /* 硬像素：nearest 缩放；响应式适配移动端 */
+  #toolrow{ width:1024px; max-width:96vw; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #usebtn{ font-family:inherit; font-size:16px; font-weight:700; padding:9px 18px; border:2px solid #b5832f;
+    border-radius:8px; background:#e0a94a; color:#26201a; cursor:pointer; margin-left:auto; }
+  #usebtn:active{ background:#caa06a; }
+  .tool{ font-family:inherit; font-size:15px; padding:8px 14px; border:2px solid #b7a271; border-radius:8px;
+    background:#e8dcc0; color:#26201a; cursor:pointer; }
+  .tool.sel{ background:#8bbf5f; border-color:#3f7a2f; font-weight:700; }
+  #hint{ flex:1 1 260px; min-width:200px; font-size:13px; color:#5a4f3a; }
+  #help{ width:1024px; max-width:96vw; font-size:12px; color:#d8e6cc; opacity:.9; }
+  #toast{ position:fixed; left:50%; top:16px; transform:translateX(-50%); background:rgba(30,24,16,.92);
+    color:#fff; padding:10px 18px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .3s;
+    max-width:80vw; text-align:center; pointer-events:none; z-index:9; }
+  #toast.show{ opacity:1; }
+  #toast b{ color:#ffd98a; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div class="stat"><img class="ic" src="../assets/icons/icon_gold.png" alt="" onerror="this.remove()">金币 <span id="gold">50</span></div>
+    <div class="inv" id="inv"></div>
+    <span id="shop"><span class="shoplab">杂货铺</span>
+      <button class="sbtn" id="buyseed">买麦种(3金)</button>
+      <button class="sbtn" id="sellall">卖出全部产出</button>
+    </span>
+    <div id="hint">用 WASD / 方向键走动，走到地/鸡舍/酒缸前按 空格 使用当前工具。</div>
+  </div>
+  <canvas id="cv" width="896" height="504"></canvas>
+  <div id="toolrow">
+    <div id="tools"></div>
+    <button id="usebtn">✋ 使用工具（空格/E）</button>
+  </div>
+  <div id="help">操作：<b>WASD/方向键</b> 移动 ｜ <b>空格 / E</b> 使用工具 ｜ <b>数字键 1-6</b> 或点上方按钮换工具 ｜ 走到 <b>鸡舍</b>/<b>酒缸</b> 前按空格互动 ｜ 小麦实时 60 秒长成，先耕地→播种→浇水（施肥可选加速）。</div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ================= 定风波 玩法体验原型 v0.2 =================
+// 实时时间轴(小麦60秒) + 主角走位 + 工具侍弄(耕地/播种/浇水/施肥/收割)。
+// 无战斗/无日历时间系统/无睡眠。占位＝canvas 简易图形，等马奈 Image Two 素材按 asset-slots 平替。
+// 数值(生长秒数/售价等)体验阶段先放，手感定后由莱布尼茨校准。
+
+const TILE=64, COLS=16, ROWS=9;  // TILE=64 对齐马奈 B 像素基准(tile64/crop64×128)，1×＝1:1 最脆
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+cv.width=COLS*TILE; cv.height=ROWS*TILE;
+ctx.imageSmoothingEnabled=false; // 硬像素：sprite 缩放走 nearest，保持像素脆度（须在设 width 之后，resize 会重置）
+
+// ---- 事件文本(古龙 event_copy.json；托管会 fetch 覆盖) ----
+let EVENT_COPY={
+ "first_till":{title:"新土初开",first_text:"第一块地已经开垦。松开的土壤可以播下种子。"},
+ "first_plant":{title:"种子入土",first_text:"第一批种子已经播下。浇过水，作物便会生长。"},
+ "first_water":{title:"引水润苗",first_text:"秧苗得了水，开始生长。"},
+ "first_harvest":{title:"初获",first_text:"第一份收成入手。既能出售，也能作养殖或酿造的原料。"},
+ "first_egg":{title:"初次收蛋",first_text:"畜栏第一份产出到手。"},
+ "first_brew_done":{title:"新酿出窖",first_text:"第一坛酒出窖。酿造让农产变成价值更高的成品。"}
+};
+
+// ---- 数值(体验阶段占位) ----
+const GROW_MS=60000, FERT_FACTOR=0.65, EGG_MS=45000, BREW_MS=90000;
+const SELL={"小麦":8,"鸡蛋":10,"麦酒":16};
+const BUY={"麦种":3};  // 种子买价(体验阶段占位)
+
+// ---- 世界 ----
+// 地图：中间一片可耕田(soil)，左上鸡舍，右下酒缸区，其余草地(可走)。
+let tiles=[]; // tiles[r][c] = {kind:'grass'|'soil'|'coop'|'vat', ...}
+function inSoil(r,c){ return r>=2 && r<=6 && c>=2 && c<=8; }
+for(let r=0;r<ROWS;r++){ tiles.push([]); for(let c=0;c<COLS;c++){
+  let t={kind:"grass"};
+  if(inSoil(r,c)) t={kind:"soil",state:"empty",crop:"",wt:false,ft:false,t0:0,grown:false};
+  tiles[r].push(t);
+}}
+// 鸡舍(2格) 右上
+const coop={r:1,c:12,ready:false,t0:performance.now()}; tiles[1][12].kind="coop"; tiles[1][13].kind="coop";
+// 酒缸 ×2 右下
+const vats=[{r:7,c:12},{r:7,c:13}].map(p=>{ tiles[p.r][p.c].kind="vat"; return {r:p.r,c:p.c,state:"empty",prod:"",t0:0}; });
+
+// ---- 背包 ----
+let gold=50, inv={"麦种":24,"小麦":0,"鸡蛋":0,"麦酒":0};
+let fired={};
+
+// ---- 主角 ----
+const player={ x:TILE*8, y:TILE*7.5, spd:150, fx:0, fy:1 };
+let animT=0, moving=false;  // hero 行走动画：帧计时 + 是否移动
+const keys={};
+addEventListener("keydown",e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(e.key.toLowerCase())) e.preventDefault();
+  if(e.key===" "||e.key.toLowerCase()==="e") useTool();
+  const n=parseInt(e.key); if(n>=1&&n<=TOOLS.length) selTool=n-1, renderTools();
+});
+addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
+// 点击走向 + 到达可互动
+let moveTarget=null;
+cv.addEventListener("pointerdown",e=>{
+  const rect=cv.getBoundingClientRect();
+  moveTarget={ x:(e.clientX-rect.left)*(cv.width/rect.width), y:(e.clientY-rect.top)*(cv.height/rect.height) };
+});
+
+// ---- 工具 ----
+const TOOLS=[
+  {name:"锄头",act:"till",icon:"icon_hoe"},{name:"种子",act:"plant",icon:"icon_maizhong"},{name:"水壶",act:"water",icon:"icon_wateringcan"},
+  {name:"肥料",act:"fert",icon:"icon_fertilizer"},{name:"镰刀",act:"harvest",icon:"icon_sickle"},{name:"手",act:"hand",icon:""}
+];
+const ITEM_ICON={"麦种":"icon_maizhong","稻种":"icon_daozhong","小麦":"icon_wheat","稻谷":"icon_rice","鸡蛋":"icon_egg","麦酒":"icon_maijiu","米酒":"icon_mijiu"};
+function icImg(name){ return name?`<img class="ic" src="../assets/icons/${name}.png" alt="" onerror="this.remove()">`:""; }
+let selTool=0;
+function renderTools(){
+  const box=document.getElementById("tools"); box.innerHTML="";
+  TOOLS.forEach((t,i)=>{ const b=document.createElement("button");
+    b.className="tool"+(i===selTool?" sel":""); b.innerHTML=icImg(t.icon)+(i+1)+" "+t.name;
+    b.onclick=()=>{ selTool=i; renderTools(); }; box.appendChild(b); });
+}
+
+// ---- 朝向格 ----
+function facedCell(){
+  const pc=Math.floor(player.x/TILE), pr=Math.floor(player.y/TILE);
+  let c=pc+Math.round(player.fx), r=pr+Math.round(player.fy);
+  return {r,c,pr,pc};
+}
+function setHint(t){ document.getElementById("hint").textContent=t; }
+function toast(key,fallback){
+  const el=document.getElementById("toast");
+  const ev=EVENT_COPY[key];
+  el.innerHTML = ev ? `<b>${ev.title}</b> — ${ev.first_text||""}` : fallback;
+  el.classList.add("show"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),2600);
+}
+function fireOnce(key,fallback){ if(!fired[key]){ fired[key]=true; toast(key,fallback); } }
+
+// ---- 使用工具 ----
+function useTool(){
+  const {r,c}=facedCell();
+  if(r<0||c<0||r>=ROWS||c>=COLS){ return; }
+  const t=tiles[r][c];
+  // 站点互动（不看工具）
+  if(t.kind==="coop"){ if(coop.ready){ coop.ready=false; coop.t0=performance.now(); add("鸡蛋",1); fireOnce("first_egg","收到鸡蛋 ×1"); setHint("收了鸡蛋。"); } else setHint("母鸡还没下蛋，等一会儿。"); return; }
+  if(t.kind==="vat"){ const v=vats.find(v=>v.r===r&&v.c===c); handleVat(v); return; }
+  if(t.kind!=="soil"){ setHint("这里不能耕作，走到田里试试。"); return; }
+  const act=TOOLS[selTool].act;
+  if(act==="till"){ if(t.state==="empty"){ t.state="tilled"; fireOnce("first_till","开垦了一块地"); } else setHint("这块地已经耕过了。"); }
+  else if(act==="plant"){ if(t.state==="tilled"){ if((inv["麦种"]||0)>0){ inv["麦种"]--; t.state="planted"; t.crop="小麦"; t.wt=false; t.ft=false; t.grown=false; t.t0=0; fireOnce("first_plant","播下小麦"); setHint("播了小麦，记得浇水。"); } else setHint("没有麦种了。"); } else setHint("先用锄头耕地，才能播种。"); }
+  else if(act==="water"){ if(t.state==="planted"&&!t.wt){ t.wt=true; t.t0=performance.now(); fireOnce("first_water","浇了水，开始生长"); setHint("浇了水，小麦开始生长（约60秒）。"); } else if(t.state==="planted") setHint("已经浇过水了。"); else setHint("这里没有作物可浇。"); }
+  else if(act==="fert"){ if(t.state==="planted"&&!t.ft){ t.ft=true; fireOnce("first_fertilize","施肥了，生长加速（可选）"); setHint(t.wt?"施了肥，生长更快。":"施了肥，浇水后生长会更快。"); } else if(t.state==="planted") setHint("已经施过肥了。"); else setHint("这里没有作物可施肥。"); }
+  else if(act==="harvest"){ if(t.state==="planted"&&t.grown){ add(t.crop,1); fireOnce("first_harvest","收获小麦 ×1"); setHint("收获了小麦。可拿去酒缸酿酒增值，或到杂货铺卖出。"); t.state="tilled"; t.crop=""; t.wt=false; t.ft=false; t.grown=false; } else if(t.state==="planted") setHint("还没长熟，等等或浇水/施肥。"); else setHint("这里没有可收的作物。"); }
+  else setHint("走到田/鸡舍/酒缸前，选对工具再按空格。");
+  renderInv();
+}
+function handleVat(v){
+  if(v.state==="empty"){ if((inv["小麦"]||0)>0){ inv["小麦"]--; v.state="fermenting"; v.prod="麦酒"; v.t0=performance.now(); setHint("投入小麦，开始酿麦酒（约90秒）。"); } else setHint("没有小麦可投料，先去收获。"); }
+  else if(v.state==="fermenting"){ setHint("酒还在发酵，等出窖。"); }
+  else if(v.state==="done"){ add(v.prod,1); fireOnce("first_brew_done","麦酒 ×1 出窖"); setHint("取了麦酒，到杂货铺卖出，价比生粮高不少。"); v.state="empty"; v.prod=""; }
+  renderInv();
+}
+function add(it,n){ inv[it]=(inv[it]||0)+n; }
+function buySeed(){ const p=BUY["麦种"]; if(gold>=p){ gold-=p; add("麦种",1); setHint(`买了 1 个麦种（-${p}金）。`); } else setHint(`金币不够（买麦种需 ${p}金）——先到杂货铺卖点产出。`); renderInv(); }
+function sellAll(){ let e=0,s=[]; for(const it in SELL){ const q=inv[it]||0; if(q>0){ e+=q*SELL[it]; s.push(`${it}×${q}`); inv[it]=0; } } if(e>0){ gold+=e; fireOnce("first_sale",`卖出 +${e}金`); setHint(`卖出 ${s.join(", ")}，+${e}金。成品比生货值钱得多。`); } else setHint("没有可卖的作物/成品。"); renderInv(); }
+function renderInv(){
+  document.getElementById("gold").textContent=gold;
+  const parts=[]; for(const k of ["麦种","小麦","鸡蛋","麦酒"]){ if((inv[k]||0)>0||k==="麦种") parts.push(icImg(ITEM_ICON[k])+`${k} ×${inv[k]||0}`); }
+  document.getElementById("inv").innerHTML=parts.join("　");
+}
+
+// ---- 更新(实时) ----
+let last=performance.now();
+function update(now){
+  const dt=(now-last)/1000; last=now;
+  // 移动
+  let mx=0,my=0;
+  if(keys["w"]||keys["arrowup"]) my-=1;
+  if(keys["s"]||keys["arrowdown"]) my+=1;
+  if(keys["a"]||keys["arrowleft"]) mx-=1;
+  if(keys["d"]||keys["arrowright"]) mx+=1;
+  if((mx||my)) moveTarget=null;
+  if(!mx&&!my&&moveTarget){ const dx=moveTarget.x-player.x, dy=moveTarget.y-player.y; const d=Math.hypot(dx,dy);
+    if(d>4){ mx=dx/d; my=dy/d; } else moveTarget=null; }
+  if(mx||my){ const d=Math.hypot(mx,my)||1; mx/=d; my/=d; player.fx=Math.abs(mx)>Math.abs(my)?Math.sign(mx):0; player.fy=Math.abs(my)>=Math.abs(mx)?Math.sign(my):0;
+    let nx=player.x+mx*player.spd*dt, ny=player.y+my*player.spd*dt;
+    if(walkable(nx,player.y)) player.x=nx;
+    if(walkable(player.x,ny)) player.y=ny;
+    player.x=Math.max(10,Math.min(cv.width-10,player.x)); player.y=Math.max(10,Math.min(cv.height-10,player.y));
+  }
+  moving = !!(mx||my); if(moving) animT+=dt; else animT=0;  // 行走动画计时
+  // 作物生长
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const t=tiles[r][c];
+    if(t.kind==="soil"&&t.state==="planted"&&t.wt&&!t.grown){ if(now-t.t0>=GROW_MS*(t.ft?FERT_FACTOR:1)) t.grown=true; } }
+  // 鸡蛋
+  if(!coop.ready && now-coop.t0>=EGG_MS) coop.ready=true;
+  // 酒
+  for(const v of vats){ if(v.state==="fermenting"&&now-v.t0>=BREW_MS) v.state="done"; }
+}
+function walkable(x,y){ const c=Math.floor(x/TILE), r=Math.floor(y/TILE);
+  if(r<0||c<0||r>=ROWS||c>=COLS) return false; const k=tiles[r][c].kind; return k==="grass"||k==="soil"; }
+
+// ---- 美术素材（马奈按 asset-slots 出到 assets/world/，加载到即自动替换占位图形）----
+const ASSET_W="../assets/world/", ASSET_C="../assets/char/";
+const IMG={};
+function preload(dir,names){ names.forEach(n=>{ const im=new Image(); im.onload=()=>IMG[n]=im; im.src=dir+n+".png"; }); } // 缺图onerror忽略走占位
+preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_wheat_2","crop_wheat_3",
+ "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3",
+ // 下一批(马奈按同基准出，到位自动替换占位)：
+ "coop_1","chicken_idle","chicken_ready","vessel_empty","vessel_fermenting","vessel_done"]);
+preload(ASSET_C,["hero_walk","hero_idle"]);  // hero_walk=4行(下上左右)×4列(0待机/1-3行走) 每格64×96
+const CROP_EN2={"小麦":"wheat","稻谷":"rice"};
+function cropStageIdx(t){ if(t.grown) return 3; if(!t.wt) return 0;
+  const eff=GROW_MS*(t.ft?FERT_FACTOR:1); const f=Math.min(1,(performance.now()-t.t0)/eff); return f<0.5?1:2; }
+
+// ---- 渲染 ----
+function draw(now){
+  // 底：草地棋盘
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const t=tiles[r][c], x=c*TILE, y=r*TILE;
+    if(t.kind==="grass"){ ctx.fillStyle=((r+c)&1)?"#6b9450":"#659049"; ctx.fillRect(x,y,TILE,TILE); }
+    else if(t.kind==="soil"){ drawSoil(t,x,y,now); }
+    else if(t.kind==="coop"){ ctx.fillStyle="#caa96a"; ctx.fillRect(x,y,TILE,TILE); }
+    else if(t.kind==="vat"){ ctx.fillStyle="#6b9450"; ctx.fillRect(x,y,TILE,TILE); }
+  }
+  // 鸡舍装饰
+  drawCoop(); drawVats(now);
+  // 主角
+  drawPlayer();
+  // 朝向高亮
+  const f=facedCell(); if(f.r>=0&&f.c>=0&&f.r<ROWS&&f.c<COLS){ ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2; ctx.strokeRect(f.c*TILE+2,f.r*TILE+2,TILE-4,TILE-4); }
+}
+function drawSoil(t,x,y,now){
+  const soilKey = t.state==="empty" ? "soil_empty" : "soil_tilled";
+  if(IMG[soilKey]) ctx.drawImage(IMG[soilKey],x,y,TILE,TILE);
+  else { ctx.fillStyle = t.state==="empty" ? "#8a6d4b" : (t.wt?"#5c4327":"#7a5a38");
+    ctx.fillRect(x,y,TILE,TILE); ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.strokeRect(x+.5,y+.5,TILE-1,TILE-1); }
+  if(t.state==="planted"){
+    const eff=GROW_MS*(t.ft?FERT_FACTOR:1);
+    let frac = t.grown?1:(t.wt?Math.min(1,(now-t.t0)/eff):0);
+    const cx=x+TILE/2, by=y+TILE-8;
+    const _ck="crop_"+(CROP_EN2[t.crop]||"wheat")+"_"+cropStageIdx(t);
+    if(IMG[_ck]){ const im=IMG[_ck]; const dw=TILE, dh=TILE*im.height/im.width; ctx.drawImage(im, x, y+TILE-dh, dw, dh); } // 作物按比例、底部对齐、向上生长（透明叠土上）
+    else if(!t.wt){ ctx.fillStyle="#caa06a"; ctx.beginPath(); ctx.arc(cx,by-4,4,0,7); ctx.fill(); } // 种子点(占位)
+    else{
+      const h=6+frac*30; ctx.strokeStyle=t.grown?"#f2c14e":"#4e9a3f"; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(cx,by); ctx.lineTo(cx,by-h); ctx.stroke();
+      if(frac>.4){ ctx.strokeStyle="#5bb04a"; ctx.beginPath(); ctx.moveTo(cx,by-h*.6); ctx.lineTo(cx-8,by-h*.6-6); ctx.moveTo(cx,by-h*.6); ctx.lineTo(cx+8,by-h*.6-6); ctx.stroke(); }
+      if(t.grown){ ctx.fillStyle="#f4d06a"; ctx.beginPath(); ctx.arc(cx,by-h-4,6,0,7); ctx.fill(); }
+    }
+    // 进度/就绪
+    if(t.grown){ ctx.fillStyle="#2f6a2f"; ctx.font="bold 11px sans-serif"; ctx.textAlign="center"; ctx.fillText("✔可收",cx,y+12); }
+    else if(t.wt){ const s=Math.max(0,Math.ceil((eff-(now-t.t0))/1000)); ctx.fillStyle="#eee"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.fillText(s+"s",cx,y+11);
+      ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(x+4,y+TILE-5,TILE-8,3); ctx.fillStyle="#8bd45f"; ctx.fillRect(x+4,y+TILE-5,(TILE-8)*frac,3); }
+    else { ctx.fillStyle="#cfe6ff"; ctx.font="10px sans-serif"; ctx.textAlign="center"; ctx.fillText("需浇水",cx,y+11); }
+  }
+}
+function drawCoop(){ const x=coop.c*TILE, y=coop.r*TILE;
+  if(IMG["coop_1"]) ctx.drawImage(IMG["coop_1"], x, y-32, 128, 96); // 2格宽×1.5高, 上溢半格
+  else { ctx.fillStyle="#8a5a34"; ctx.fillRect(x+4,y+4,TILE*2-8,TILE-8); }
+  const ck = coop.ready?"chicken_ready":"chicken_idle";
+  if(IMG[ck]) ctx.drawImage(IMG[ck], x+TILE*1.1, y+TILE*0.35, 48, 48);
+  else { ctx.fillStyle="#e9e2d0"; ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6,9,0,7); ctx.fill(); ctx.fillStyle="#d33"; ctx.beginPath(); ctx.arc(x+TILE*1.3,y+TILE*0.6-9,3,0,7); ctx.fill(); }
+  ctx.fillStyle="#26201a"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center"; ctx.fillText("鸡舍",x+TILE,y+TILE-6);
+  if(coop.ready){ if(!IMG[ck]){ ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(x+TILE*0.7,y+TILE*0.7,6,8,0,0,7); ctx.fill(); } ctx.fillStyle="#2f6a2f"; ctx.fillText("✔蛋",x+TILE*0.7,y+14); }
+}
+function drawVats(now){ for(const v of vats){ const x=v.c*TILE, y=v.r*TILE;
+  const vk = v.state==="empty"?"vessel_empty":(v.state==="fermenting"?"vessel_fermenting":"vessel_done");
+  if(IMG[vk]) ctx.drawImage(IMG[vk], x, y-16, 64, 80); // 站1格, 上溢16
+  else { ctx.fillStyle = v.state==="empty"?"#8a8aa8":(v.state==="fermenting"?"#6f59a3":"#c58ad6");
+    ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE/2,TILE*0.32,TILE*0.4,0,0,7); ctx.fill();
+    ctx.fillStyle="#efe6d2"; ctx.beginPath(); ctx.ellipse(x+TILE/2,y+TILE*0.28,TILE*0.28,TILE*0.1,0,0,7); ctx.fill(); }
+  ctx.fillStyle="#26201a"; ctx.font="11px sans-serif"; ctx.textAlign="center";
+  let lab = v.state==="empty"?"空缸":(v.state==="fermenting"?Math.max(0,Math.ceil((BREW_MS-(now-v.t0))/1000))+"s":"✔出窖");
+  ctx.fillText(lab,x+TILE/2,y+TILE-4);
+}}
+function heroRow(){ if(player.fy>0) return 0; if(player.fy<0) return 1; if(player.fx<0) return 2; return 3; } // 下/上/左/右
+function drawPlayer(){ const x=player.x,y=player.y;
+  ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(x,y+16,13,6,0,0,7); ctx.fill(); // 影
+  if(IMG["hero_walk"]){ const row=heroRow(); const col=moving?[1,2,3,2][Math.floor(animT*8)%4]:0; // 行=方向, 列=帧(走时1→2→3→2, 停用0待机)
+    ctx.drawImage(IMG["hero_walk"], col*64, row*96, 64, 96, x-32, y-80, 64, 96); }
+  else if(IMG["hero_idle"]){ ctx.drawImage(IMG["hero_idle"], x-32, y-80, 64, 96); }
+  else { ctx.fillStyle="#4a7a4a"; ctx.fillRect(x-9,y-6,18,22);        // 占位: 身
+    ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(x,y-14,9,0,7); ctx.fill(); // 头
+    ctx.fillStyle="#2a2a2a"; ctx.beginPath(); ctx.arc(x,y-16,9,Math.PI,2*Math.PI); ctx.fill(); // 发
+    ctx.fillStyle="#26201a"; ctx.beginPath(); ctx.arc(x+player.fx*6,y-14+player.fy*4,2,0,7); ctx.fill(); } // 朝向
+}
+
+// ---- 主循环 ----
+function loop(now){ update(now); draw(now); requestAnimationFrame(loop); }
+document.getElementById("usebtn").onclick=useTool;
+document.getElementById("buyseed").onclick=buySeed;
+document.getElementById("sellall").onclick=sellAll;
+// 素材预览模式(?demo)：把地块摆成 空/耕 + 小麦/稻各4阶段，方便看美术
+if(location.search.indexOf("demo")>=0){
+  const n0=performance.now();
+  const rows=[["小麦",2],["稻谷",3]];
+  for(const [crop,r] of rows){ for(let st=0;st<4;st++){ const t=tiles[r][2+st]; t.state="planted"; t.crop=crop; t.wt=(st>0); t.grown=(st===3);
+    t.t0 = st===1 ? n0-0.2*GROW_MS : st===2 ? n0-0.7*GROW_MS : n0; } }
+  tiles[4][2].state="tilled"; tiles[4][3].state="tilled";  // 展示耕土
+  player.x=TILE*7; player.y=TILE*5.5;
+}
+renderTools(); renderInv();
+fetch("../assets/event_copy.json").then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.events) EVENT_COPY=Object.assign(EVENT_COPY,j.events); }).catch(()=>{});
+requestAnimationFrame(loop);
+
+// 供 node 逻辑测试导出（浏览器忽略）
+if(typeof module!=="undefined") module.exports={tiles,inv,useTool,player,TOOLS};
+</script>
+</body>
+</html>
