@@ -16,7 +16,8 @@
   #shop .shoplab{ font-size:13px; color:#5a4f3a; }
   .sbtn{ font-family:inherit; font-size:13px; padding:5px 10px; border:1px solid #b7a271; border-radius:7px; background:#e8dcc0; color:#26201a; cursor:pointer; }
   .sbtn:active{ background:#d3c19a; }
-  #cv{ background:#6b9450; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3); touch-action:none; }
+  #cv{ background:#6b9450; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3); touch-action:none;
+    image-rendering: pixelated; image-rendering: crisp-edges; } /* 硬像素风：nearest 缩放，别被抹糊 */
   #toolrow{ width:900px; max-width:96vw; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   #tools{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   #usebtn{ font-family:inherit; font-size:16px; font-weight:700; padding:9px 18px; border:2px solid #b5832f;
@@ -63,6 +64,7 @@
 const TILE=56, COLS=16, ROWS=9;
 const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
 cv.width=COLS*TILE; cv.height=ROWS*TILE;
+ctx.imageSmoothingEnabled=false; // 硬像素：sprite 缩放走 nearest，保持像素脆度（须在设 width 之后，resize 会重置）
 
 // ---- 事件文本(古龙 event_copy.json；托管会 fetch 覆盖) ----
 let EVENT_COPY={
