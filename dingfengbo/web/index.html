@@ -433,6 +433,12 @@ validateConfig();
 state = SAVE.load() || SIM.newSnapshot();
 renderTools(); bindDebug(); refreshHUD();
 if(location.search.indexOf("shop")>=0){ SIM.add(state,"小麦",3); SIM.add(state,"鸡蛋",2); openShop(); } // 验证/演示：直接开铺子
+if(location.search.indexOf("crops")>=0){ // 演示：首轮6作物成熟/中期各态
+  const cs=["玉米","大豆","白菜","番茄","南瓜","草莓"];
+  cs.forEach((cn,i)=>{ const p=SIM.plot(state,2,2+i); p.state="planted"; p.crop=cn; p.seed=cn+"种"; p.watered=true; p.grown=true; p.grownMin=CONFIG.crops[cn+"种"].growMin; });
+  cs.slice(0,4).forEach((cn,i)=>{ const p=SIM.plot(state,3,2+i); p.state="planted"; p.crop=cn; p.seed=cn+"种"; p.watered=true; p.grownMin=CONFIG.crops[cn+"种"].growMin*0.5; });
+  state.player.x=TILE*8; state.player.y=TILE*5.5;
+}
 requestAnimationFrame(loop);
 
 // headless 自检：无画面也能快进模拟（控制台可见）
