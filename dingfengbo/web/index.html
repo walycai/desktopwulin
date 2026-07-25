@@ -16,6 +16,7 @@
   #shop .shoplab{ font-size:13px; color:#5a4f3a; }
   .sbtn{ font-family:inherit; font-size:13px; padding:5px 10px; border:1px solid #b7a271; border-radius:7px; background:#e8dcc0; color:#26201a; cursor:pointer; }
   .sbtn:active{ background:#d3c19a; }
+  .ic{ width:20px; height:20px; image-rendering:pixelated; vertical-align:-4px; margin-right:3px; } /* 硬像素图标 */
   #cv{ background:#6b9450; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.3); touch-action:none;
     max-width:100%; height:auto; image-rendering: pixelated; image-rendering: crisp-edges; } /* 硬像素：nearest 缩放；响应式适配移动端 */
   #toolrow{ width:1024px; max-width:96vw; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
@@ -38,7 +39,7 @@
 <body>
 <div id="wrap">
   <div id="hud">
-    <div class="stat">金币 <span id="gold">50</span></div>
+    <div class="stat"><img class="ic" src="../assets/icons/icon_gold.png" alt="" onerror="this.remove()">金币 <span id="gold">50</span></div>
     <div class="inv" id="inv"></div>
     <span id="shop"><span class="shoplab">杂货铺</span>
       <button class="sbtn" id="buyseed">买麦种(3金)</button>
@@ -119,14 +120,16 @@ cv.addEventListener("pointerdown",e=>{
 
 // ---- 工具 ----
 const TOOLS=[
-  {name:"锄头",act:"till"},{name:"种子",act:"plant"},{name:"水壶",act:"water"},
-  {name:"肥料",act:"fert"},{name:"镰刀",act:"harvest"},{name:"手",act:"hand"}
+  {name:"锄头",act:"till",icon:"icon_hoe"},{name:"种子",act:"plant",icon:"icon_maizhong"},{name:"水壶",act:"water",icon:"icon_wateringcan"},
+  {name:"肥料",act:"fert",icon:"icon_fertilizer"},{name:"镰刀",act:"harvest",icon:"icon_sickle"},{name:"手",act:"hand",icon:""}
 ];
+const ITEM_ICON={"麦种":"icon_maizhong","稻种":"icon_daozhong","小麦":"icon_wheat","稻谷":"icon_rice","鸡蛋":"icon_egg","麦酒":"icon_maijiu","米酒":"icon_mijiu"};
+function icImg(name){ return name?`<img class="ic" src="../assets/icons/${name}.png" alt="" onerror="this.remove()">`:""; }
 let selTool=0;
 function renderTools(){
   const box=document.getElementById("tools"); box.innerHTML="";
   TOOLS.forEach((t,i)=>{ const b=document.createElement("button");
-    b.className="tool"+(i===selTool?" sel":""); b.textContent=(i+1)+" "+t.name;
+    b.className="tool"+(i===selTool?" sel":""); b.innerHTML=icImg(t.icon)+(i+1)+" "+t.name;
     b.onclick=()=>{ selTool=i; renderTools(); }; box.appendChild(b); });
 }
 
@@ -174,8 +177,8 @@ function buySeed(){ const p=BUY["麦种"]; if(gold>=p){ gold-=p; add("麦种",1)
 function sellAll(){ let e=0,s=[]; for(const it in SELL){ const q=inv[it]||0; if(q>0){ e+=q*SELL[it]; s.push(`${it}×${q}`); inv[it]=0; } } if(e>0){ gold+=e; fireOnce("first_sale",`卖出 +${e}金`); setHint(`卖出 ${s.join(", ")}，+${e}金。成品比生货值钱得多。`); } else setHint("没有可卖的作物/成品。"); renderInv(); }
 function renderInv(){
   document.getElementById("gold").textContent=gold;
-  const parts=[]; for(const k of ["麦种","小麦","鸡蛋","麦酒"]){ if((inv[k]||0)>0||k==="麦种") parts.push(`${k} ×${inv[k]||0}`); }
-  document.getElementById("inv").textContent=parts.join("　");
+  const parts=[]; for(const k of ["麦种","小麦","鸡蛋","麦酒"]){ if((inv[k]||0)>0||k==="麦种") parts.push(icImg(ITEM_ICON[k])+`${k} ×${inv[k]||0}`); }
+  document.getElementById("inv").innerHTML=parts.join("　");
 }
 
 // ---- 更新(实时) ----
