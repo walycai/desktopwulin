@@ -230,6 +230,7 @@ preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_
  "vessel_empty","vessel_fermenting","vessel_done","building_shop"]);
 preload(ASSET_C,["hero_walk","hero_idle"]);
 preload("../assets/icons/", CROP_DATA.map(c=>"icon_"+c[0])); // 通用作物渲染成熟显图标,需把作物图标也载进canvas
+preload(ASSET_W, CROP_DATA.flatMap(c=>["0","1","2","3"].map(i=>"crop_"+c[0]+"_"+i))); // 预接各作物精致4阶段田图: 马奈commit即自动替掉通用占位
 const CROP_EN={"小麦":"wheat","稻谷":"rice"};
 
 // ===== INPUT（读输入→改快照）=====
