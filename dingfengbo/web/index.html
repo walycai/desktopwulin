@@ -25,6 +25,7 @@
   #usebtn{ font-family:inherit; font-size:16px; font-weight:700; padding:9px 18px; border:2px solid #b5832f; border-radius:8px; background:#e0a94a; color:#26201a; cursor:pointer; margin-left:auto; }
   #debug{ width:1024px; max-width:96vw; display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:12px; color:#cfe0c2; }
   #debug button{ font-family:inherit; font-size:12px; padding:4px 9px; border:1px solid #6f8a5e; border-radius:6px; background:#31492a; color:#dcecd0; cursor:pointer; }
+  #debug button.sel{ background:#5e8a3f; border-color:#8bbf5f; color:#fff; font-weight:700; }
   #debug .lbl{ color:#9fb890; }
   #help{ width:1024px; max-width:96vw; font-size:12px; color:#d8e6cc; opacity:.9; }
   #hint{ flex:1 1 240px; min-width:180px; font-size:13px; color:#5a4f3a; }
@@ -70,6 +71,13 @@
     <button id="dbgSave">存档</button>
     <button id="dbgReset">新游戏</button>
     <span class="lbl" id="dbgInfo"></span>
+  </div>
+  <div id="debug" style="margin-top:-2px">
+    <span class="lbl">🎬 镜头(定人物占屏):</span>
+    <button id="fov0">远</button><button id="fov1">标准</button><button id="fov2">近</button>
+    <span class="lbl" id="fovinfo"></span>
+    <span class="lbl">🖥 分辨率(只清晰不改比例):</span>
+    <select id="resSel" style="font-family:inherit;font-size:12px;background:#31492a;color:#dcecd0;border:1px solid #6f8a5e;border-radius:6px;padding:3px 6px"><option>720p</option><option>1080p</option><option>1440p</option></select>
   </div>
   <div id="help">操作：<b>WASD/方向键</b> 移动 ｜ <b>空格/E</b> 用工具 ｜ 数字键1-6换工具 ｜ 走到鸡舍/酒缸前用工具互动 ｜ 先耕地→播种→<b>每天浇水</b>→到成熟天数收割。<b>headless架构</b>：删掉画面逻辑照跑；调试面板可秒快进验数值。</div>
 </div>
@@ -235,7 +243,18 @@ const CROP_EN={"小麦":"wheat","稻谷":"rice"};
 
 // ===== INPUT（读输入→改快照）=====
 const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
-cv.width=COLS*TILE; cv.height=ROWS*TILE; ctx.imageSmoothingEnabled=false;
+// ★镜头(定人物占屏,由FOV=一屏横向格数决定,与分辨率无关) + 分辨率(只管清晰度,不改比例)
+const FOV_LEVELS=[{name:"远",tiles:25},{name:"标准",tiles:19},{name:"近",tiles:13}]; // 身宽≈2.5%/3.4%/4.8%
+const RES_LEVELS=[{name:"720p",w:1280,h:720},{name:"1080p",w:1920,h:1080},{name:"1440p",w:2560,h:1440}];
+let fovIdx=1, resIdx=0;
+function applyRes(){ const r=RES_LEVELS[resIdx]; cv.width=r.w; cv.height=r.h; ctx.imageSmoothingEnabled=false; }
+function camera(){ const fov=FOV_LEVELS[fovIdx].tiles, z=cv.width/(fov*TILE);
+  const viewW=cv.width/z, viewH=cv.height/z, worldW=COLS*TILE, worldH=ROWS*TILE;
+  let camX=state.player.x-viewW/2, camY=state.player.y-viewH/2;
+  camX = worldW>viewW ? Math.max(0,Math.min(worldW-viewW,camX)) : (worldW-viewW)/2;
+  camY = worldH>viewH ? Math.max(0,Math.min(worldH-viewH,camY)) : (worldH-viewH)/2;
+  return {z,camX,camY}; }
+applyRes();
 const keys={}; let moveTarget=null, animT=0, moving=false;
 const TOOLS=[{name:"锄头",act:"till",icon:"icon_hoe"},{name:"种子",act:"plant",icon:"icon_maizhong"},{name:"水壶",act:"water",icon:"icon_wateringcan"},
   {name:"肥料",act:"fert",icon:"icon_fertilizer"},{name:"镰刀",act:"harvest",icon:"icon_sickle"},{name:"手",act:"hand",icon:""}];
@@ -247,7 +266,9 @@ addEventListener("keydown",e=>{ const k=e.key.toLowerCase(); keys[k]=true;
   if(k===" "||k==="e") useTool();
   const n=parseInt(e.key); if(n>=1&&n<=TOOLS.length){ selTool=n-1; renderTools(); } });
 addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
-cv.addEventListener("pointerdown",e=>{ const r=cv.getBoundingClientRect(); moveTarget={x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height)}; });
+cv.addEventListener("pointerdown",e=>{ const r=cv.getBoundingClientRect();
+  const cx=(e.clientX-r.left)*(cv.width/r.width), cy=(e.clientY-r.top)*(cv.height/r.height);
+  const cam=camera(); moveTarget={x:cam.camX+cx/cam.z, y:cam.camY+cy/cam.z}; }); // 画布→世界坐标(带相机)
 
 function facedCell(){ const pc=Math.floor(state.player.x/TILE), pr=Math.floor(state.player.y/TILE);
   return {r:pr+Math.round(state.player.fy), c:pc+Math.round(state.player.fx)}; }
@@ -302,6 +323,8 @@ function refreshHUD(){
 function cropStage(p){ if(p.grown) return 3; if(p.grownMin<=0) return p.watered?1:0;
   const need=CONFIG.crops[p.seed]?CONFIG.crops[p.seed].growMin:120; return (p.grownMin/need)>=0.6?2:1; }
 function draw(){
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#5f8746"; ctx.fillRect(0,0,cv.width,cv.height); // void底色
+  const cam=camera(); ctx.setTransform(cam.z,0,0,cam.z,-cam.camX*cam.z,-cam.camY*cam.z); // 相机变换(世界空间)
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const kind=MAP[r][c].kind, x=c*TILE, y=r*TILE;
     if(kind==="grass"){ ctx.fillStyle=((r+c)&1)?"#6b9450":"#659049"; ctx.fillRect(x,y,TILE,TILE); }
     else if(kind==="soil"){ drawSoil(r,c,x,y); }
@@ -309,6 +332,7 @@ function draw(){
     else { ctx.fillStyle="#6b9450"; ctx.fillRect(x,y,TILE,TILE); } }
   drawCoop(); drawVats(); drawShop(); drawPlayer();
   const f=facedCell(); if(f.r>=0&&f.c>=0&&f.r<ROWS&&f.c<COLS){ ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2; ctx.strokeRect(f.c*TILE+2,f.r*TILE+2,TILE-4,TILE-4); }
+  ctx.setTransform(1,0,0,1,0,0); // 回屏幕空间(夜幕)
   // 夜晚压暗
   const tot=(CONFIG.settings.startHour*60+state.clock)%1440; let dark=0;
   if(tot<300||tot>=1140) dark=0.35; else if(tot>=1020) dark=(tot-1020)/120*0.35;
@@ -426,11 +450,18 @@ function bindDebug(){
   document.getElementById("shopclose").onclick=closeShop;
   document.getElementById("tabbuy").onclick=()=>{ shopTab="buy"; document.getElementById("tabbuy").classList.add("sel"); document.getElementById("tabsell").classList.remove("sel"); renderShop(); };
   document.getElementById("tabsell").onclick=()=>{ shopTab="sell"; document.getElementById("tabsell").classList.add("sel"); document.getElementById("tabbuy").classList.remove("sel"); renderShop(); };
+  // 显示设置：镜头远近(定人物占屏) + 分辨率(只清晰)
+  function updFov(){ [0,1,2].forEach(i=>document.getElementById("fov"+i).classList.toggle("sel",i===fovIdx));
+    const fov=FOV_LEVELS[fovIdx].tiles; document.getElementById("fovinfo").textContent=`一屏${fov}格 · 主角身宽≈${(40/(fov*TILE)*100).toFixed(1)}%屏宽`; }
+  [0,1,2].forEach(i=>document.getElementById("fov"+i).onclick=()=>{ fovIdx=i; updFov(); });
+  document.getElementById("resSel").onchange=e=>{ resIdx=e.target.selectedIndex; applyRes(); };
+  updFov();
 }
 
 // ===== 启动 =====
 validateConfig();
 state = SAVE.load() || SIM.newSnapshot();
+{ const fp=location.search.match(/fov=(\d)/); if(fp) fovIdx=Math.max(0,Math.min(2,+fp[1])); } // 演示/截图用
 renderTools(); bindDebug(); refreshHUD();
 if(location.search.indexOf("shop")>=0){ SIM.add(state,"小麦",3); SIM.add(state,"鸡蛋",2); openShop(); } // 验证/演示：直接开铺子
 if(location.search.indexOf("crops")>=0){ // 演示：首轮6作物成熟/中期各态
