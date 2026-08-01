@@ -255,11 +255,11 @@ preload(ASSET_W,["soil_empty","soil_tilled","crop_wheat_0","crop_wheat_1","crop_
  "crop_rice_0","crop_rice_1","crop_rice_2","crop_rice_3","coop_1","chicken_idle","chicken_ready",
  "vessel_empty","vessel_fermenting","vessel_done","building_shop"]);
 // hero_walk=4行(下上左右)×4列(0待机/1-3行走)每格64×96。★自动测"脚底行"→按脚锚地,防精灵留白导致脚离地漂浮(不假设脚在格底)
-let HERO_FOOT=88;
+let HERO_FOOT=88, HERO_ROWS=4; // HERO_ROWS 自动测:4行=只有基本方向(对角折到左右),8行=真8向(见 heroRow)
 function measureHeroFoot(im){ try{ const c2=document.createElement("canvas"); c2.width=64; c2.height=96; const cx=c2.getContext("2d");
   cx.drawImage(im,0,0,64,96,0,0,64,96); const d=cx.getImageData(0,0,64,96).data;
   for(let yy=95;yy>=0;yy--){ for(let xx=0;xx<64;xx++){ if(d[(yy*64+xx)*4+3]>30){ HERO_FOOT=yy; return; } } } }catch(e){} }
-{ const im=new Image(); im.onload=()=>{ IMG["hero_walk"]=im; measureHeroFoot(im); }; im.src=ASSET_C+"hero_walk.png"; }
+{ const im=new Image(); im.onload=()=>{ IMG["hero_walk"]=im; HERO_ROWS=Math.max(1,Math.round(im.height/96)); measureHeroFoot(im); }; im.src=ASSET_C+"hero_walk.png"; }
 { const im=new Image(); im.onload=()=>IMG["hero_idle"]=im; im.src=ASSET_C+"hero_idle.png"; }
 preload("../assets/icons/", CROP_DATA.map(c=>"icon_"+c[0])); // 通用作物渲染成熟显图标,需把作物图标也载进canvas
 preload(ASSET_W, CROP_DATA.flatMap(c=>["0","1","2","3"].map(i=>"crop_"+c[0]+"_"+i))); // 预接各作物精致4阶段田图: 马奈commit即自动替掉通用占位
@@ -423,13 +423,21 @@ function drawVats(){ VATS.forEach((pos,i)=>{ const v=state.vessels[i], x=pos.c*T
   ctx.fillStyle="#26201a"; ctx.font="11px sans-serif"; ctx.textAlign="center";
   let lab=v.state==="empty"?"空缸":(v.state==="fermenting"?(Math.floor(v.fer/CONFIG.recipes[v.input].ferMin*100)+"%"):"✔出窖");
   ctx.fillText(lab,x+TILE/2,y+TILE-2); }); }
-// 8方向移动 → 4方向精灵：对角线用左右侧身(横向优先),侧脸读感最好、朝向最明确。
-// 精灵表4行=下0/上1/左2/右3(马奈v3已修正朝向,pixel验)。脚锚由measureHeroFoot自动。
-// ★马奈补齐8向建模后:精灵表改8行,本函数换成按 dir8() 直接返回行号即可(见 DIR8 注释)。
-function heroRow(){ const p=state.player;
-  if(p.fx<0) return 2;              // 左 / 左上 / 左下 → 面朝左
-  if(p.fx>0) return 3;              // 右 / 右上 / 右下 → 面朝右
-  return p.fy<0 ? 1 : 0;           // 纯上 / 纯下(默认)
+// 精灵表朝向行号 (HERO_ROWS 自动决定用哪套):
+//  4行=下0/上1/左2/右3 (马奈v3,pixel验)。对角线折到左右侧身(横向优先)。
+//  8行=真8向:新增 右下4/左下5/右上6/左上7 (前4行与4行版一致,马奈只在下面追加4行对角3/4侧身走帧)。
+//    → 真对角素材面朝实际移动方向,消除"斜走时脚侧滑=漂移"的观感 (WalyCai 反馈)。
+// 脚锚由measureHeroFoot自动;走循环[1,2,3,2]与列不变。
+function heroRow(){ const p=state.player, fx=p.fx, fy=p.fy;
+  if(HERO_ROWS>=8){                 // 真8向
+    if(fx>0&&fy>0) return 4;        // 右下
+    if(fx<0&&fy>0) return 5;        // 左下
+    if(fx>0&&fy<0) return 6;        // 右上
+    if(fx<0&&fy<0) return 7;        // 左上
+    if(fy>0) return 0; if(fy<0) return 1; if(fx<0) return 2; return 3;
+  }
+  // 4行回退:对角折到左右侧身
+  if(fx<0) return 2; if(fx>0) return 3; return fy<0?1:0;
 }
 function drawPlayer(){ const x=state.player.x,y=state.player.y;
   const bob=(moving&&BOB.on)?-Math.round(BOB.px*Math.abs(Math.sin(animT*STEP.perSec*Math.PI))):0;
