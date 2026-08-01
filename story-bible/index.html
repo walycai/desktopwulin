@@ -56,6 +56,18 @@
   .tag{ display:inline-block; background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:11px; color:var(--dim); margin:0 3px 3px 0; }
   .del{ margin-top:18px; }
   small.hint{ color:var(--dim); }
+  /* 横向时间轴图 */
+  .tlwrap{ display:flex; flex-direction:column; width:100%; height:100%; }
+  .tlmain{ display:flex; flex:1; min-height:0; }
+  .axisband{ flex:none; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; overflow-y:hidden; }
+  .axisband .axhead{ display:flex; align-items:center; gap:10px; padding:6px 14px 0; color:var(--dim); font-size:12px; }
+  .axsvg{ display:block; }
+  .axsvg text.axt{ fill:var(--gold); font-size:12px; }
+  .axsvg text.axlbl{ fill:var(--ink); font-size:12px; }
+  .axsvg text.axlbl.bad{ fill:var(--bad); }
+  .axsvg .axnode:hover circle{ stroke:var(--gold); stroke-width:2; }
+  .axsvg .axnode:hover text.axlbl{ fill:var(--gold); }
+  .axempty{ padding:14px; color:var(--dim); font-size:13px; }
 </style>
 </head>
 <body>
@@ -172,6 +184,44 @@ function charEditor(c){
     <div class="del"><button class="btn" id="delChar" style="border-color:var(--bad);color:var(--bad)">删除此角色</button></div>`;
 }
 
+// 横向 X 轴时间轴图：真实时间比例定位，事件落成节点，可点、可悬停、矛盾红标
+function axisGraph(cs){
+  const evs=DB.events.slice().sort((a,b)=>a.time-b.time);
+  if(!evs.length) return `<div class="axempty">还没有事件——在下方左栏添加事件，它们会按世界时间落在这条轴上。</div>`;
+  const times=[...new Set(evs.map(e=>e.time))].sort((a,b)=>a-b);
+  const tmin=times[0], tmax=times[times.length-1];
+  const span=(tmax-tmin)||1;
+  let minGap=Infinity; for(let i=1;i<times.length;i++){ const d=times[i]-times[i-1]; if(d>0) minGap=Math.min(minGap,d); }
+  if(!isFinite(minGap)) minGap=span;
+  let pxPerUnit=Math.max(600/span, 74/minGap);
+  let innerW=span*pxPerUnit;
+  if(innerW>3200){ innerW=3200; pxPerUnit=innerW/span; } if(innerW<600) innerW=600;
+  const padL=54, padR=64;
+  const xOf=t=> (tmax===tmin) ? padL+innerW/2 : padL+(t-tmin)*pxPerUnit;
+  const groups={}; evs.forEach(e=>(groups[e.time]=groups[e.time]||[]).push(e));
+  let maxStack=1; times.forEach(t=>maxStack=Math.max(maxStack,groups[t].length));
+  const rowH=24, topPad=16, baseY=topPad+maxStack*rowH+8, H=baseY+40, W=innerW+padL+padR;
+  const cut=s=>{ s=s||"(无题)"; return s.length>9?s.slice(0,9)+"…":s; };
+  let ticks="", nodes="";
+  times.forEach(t=>{
+    const x=xOf(t);
+    ticks+=`<line x1="${x}" y1="${baseY}" x2="${x}" y2="${baseY+7}" stroke="#4a5568"/>`
+         + `<text x="${x}" y="${baseY+23}" text-anchor="middle" class="axt">${t}</text>`;
+    groups[t].forEach((e,i)=>{
+      const y=baseY-12-i*rowH, bad=cs.events.has(e.id), sel=e.id===selEvent;
+      const fill=bad?'var(--bad)':(sel?'var(--acc)':'#7c93b3');
+      nodes+=`<line x1="${x}" y1="${baseY}" x2="${x}" y2="${y+5}" stroke="#3a4556"/>`
+        + `<g class="axnode" data-ev="${e.id}" style="cursor:pointer">`
+        + `<title>${esc(e.title)||'(无题)'} · ${t}${esc(DB.meta.unit)}${e.place?' @'+esc(e.place):''}${e.type?' ['+esc(e.type)+']':''}${bad?' ⚠矛盾':''}</title>`
+        + `<circle cx="${x}" cy="${y}" r="${sel?7:5}" fill="${fill}" stroke="${sel?'#fff':'none'}" stroke-width="1.5"/>`
+        + `<text x="${x+9}" y="${y+4}" class="axlbl ${bad?'bad':''}">${esc(cut(e.title))}</text></g>`;
+    });
+  });
+  const axis=`<line x1="${padL-24}" y1="${baseY}" x2="${padL+innerW+24}" y2="${baseY}" stroke="#5a6b82" stroke-width="2"/>`
+    + `<polygon points="${padL+innerW+30},${baseY} ${padL+innerW+22},${baseY-4} ${padL+innerW+22},${baseY+4}" fill="#5a6b82"/>`
+    + `<text x="${padL+innerW+30}" y="${baseY+23}" text-anchor="end" class="axt">${esc(DB.meta.unit)}→</text>`;
+  return `<svg class="axsvg" width="${W}" height="${H}">${axis}${ticks}${nodes}</svg>`;
+}
 function renderTimeline(){
   const cs=conflictSet();
   const evs=DB.events.slice().sort((a,b)=>a.time-b.time);
@@ -183,8 +233,12 @@ function renderTimeline(){
         <div class="who">${(e.chars||[]).map(charName).join('、')||'无角色'}</div></div>`).join("")}</div>`).join("")
     || '<div class="empty">还没有事件</div>';
   const e=DB.events.find(x=>x.id===selEvent);
-  return `<div class="list"><div class="add"><input id="newEv" placeholder="+ 新事件标题，回车添加"></div><div style="padding:6px 10px">${tl}</div></div>
-    <div class="edit">${e?eventEditor(e):'<div class="empty">← 选一个事件，或在左侧添加</div>'}</div>`;
+  return `<div class="tlwrap">
+    <div class="axisband"><div class="axhead">📈 世界时间轴 · 点节点查看/编辑，悬停看详情，<span style="color:var(--bad)">红色</span>=有矛盾</div>${axisGraph(cs)}</div>
+    <div class="tlmain">
+      <div class="list"><div class="add"><input id="newEv" placeholder="+ 新事件标题，回车添加"></div><div style="padding:6px 10px">${tl}</div></div>
+      <div class="edit">${e?eventEditor(e):'<div class="empty">← 选一个事件，或在左侧/轴上点选</div>'}</div>
+    </div></div>`;
 }
 function eventEditor(e){
   const chips=DB.chars.map(c=>`<span class="chip ${(e.chars||[]).includes(c.id)?'on':''}" data-toggle="${c.id}">${esc(c.name)}</span>`).join("")||'<small class="hint">先去"角色"页加角色</small>';
