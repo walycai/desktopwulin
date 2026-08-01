@@ -330,6 +330,12 @@ function refreshHUD(){
 }
 function cropStage(p){ if(p.grown) return 3; if(p.grownMin<=0) return p.watered?1:0;
   const need=CONFIG.crops[p.seed]?CONFIG.crops[p.seed].growMin:120; return (p.grownMin/need)>=0.6?2:1; }
+// 日夜色调 ramp(马奈给的): [分钟, R,G,B, alpha], 相邻线性插值; 只盖世界(canvas), HUD是DOM不受影响
+const DN_RAMP=[[0,22,32,72,0.46],[300,64,54,92,0.36],[390,255,178,118,0.20],[480,255,236,205,0.06],[720,255,255,255,0.00],[960,255,240,212,0.05],[1080,255,150,78,0.22],[1170,116,88,132,0.34],[1260,30,46,92,0.42],[1440,22,32,72,0.46]];
+function dayNightTint(m){ for(let i=0;i<DN_RAMP.length-1;i++){ const a=DN_RAMP[i],b=DN_RAMP[i+1];
+  if(m>=a[0]&&m<=b[0]){ const t=(m-a[0])/(b[0]-a[0]);
+    return {r:Math.round(a[1]+(b[1]-a[1])*t), g:Math.round(a[2]+(b[2]-a[2])*t), b:Math.round(a[3]+(b[3]-a[3])*t), a:a[4]+(b[4]-a[4])*t}; } }
+  return {r:22,g:32,b:72,a:0.46}; }
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#5f8746"; ctx.fillRect(0,0,cv.width,cv.height); // void底色
   const cam=camera(); ctx.setTransform(cam.z,0,0,cam.z,-cam.camX*cam.z,-cam.camY*cam.z); // 相机变换(世界空间)
@@ -340,11 +346,9 @@ function draw(){
     else { ctx.fillStyle="#6b9450"; ctx.fillRect(x,y,TILE,TILE); } }
   drawCoop(); drawVats(); drawShop(); drawPlayer();
   const f=facedCell(); if(f.r>=0&&f.c>=0&&f.r<ROWS&&f.c<COLS){ ctx.strokeStyle="rgba(255,255,255,.7)"; ctx.lineWidth=2; ctx.strokeRect(f.c*TILE+2,f.r*TILE+2,TILE-4,TILE-4); }
-  ctx.setTransform(1,0,0,1,0,0); // 回屏幕空间(夜幕)
-  // 夜晚压暗
-  const tot=(CONFIG.settings.startHour*60+state.clock)%1440; let dark=0;
-  if(tot<300||tot>=1140) dark=0.35; else if(tot>=1020) dark=(tot-1020)/120*0.35;
-  if(dark>0){ ctx.fillStyle=`rgba(20,24,60,${dark})`; ctx.fillRect(0,0,cv.width,cv.height); }
+  ctx.setTransform(1,0,0,1,0,0); // 回屏幕空间(日夜tint,只盖世界canvas)
+  const tn=dayNightTint((CONFIG.settings.startHour*60+state.clock)%1440);
+  if(tn.a>0.001){ ctx.fillStyle=`rgba(${tn.r},${tn.g},${tn.b},${tn.a})`; ctx.fillRect(0,0,cv.width,cv.height); }
 }
 function drawSoil(r,c,x,y){
   const p=state.plots[r+"_"+c];
@@ -470,6 +474,7 @@ function bindDebug(){
 validateConfig();
 state = SAVE.load() || SIM.newSnapshot();
 { const fp=location.search.match(/fov=(\d)/); if(fp) fovIdx=Math.max(0,Math.min(2,+fp[1])); } // 演示/截图用
+{ const cp=location.search.match(/clock=(\d+)/); if(cp) state.clock=(+cp[1])%1440; } // 演示日夜tint(分钟since5:00)
 renderTools(); bindDebug(); refreshHUD();
 if(location.search.indexOf("shop")>=0){ SIM.add(state,"小麦",3); SIM.add(state,"鸡蛋",2); openShop(); } // 验证/演示：直接开铺子
 if(location.search.indexOf("crops")>=0){ // 演示：首轮6作物成熟/中期各态
