@@ -79,6 +79,7 @@
     <span class="lbl" id="fovinfo"></span>
     <span class="lbl">🖥 分辨率(只清晰不改比例):</span>
     <select id="resSel" style="font-family:inherit;font-size:12px;background:#31492a;color:#dcecd0;border:1px solid #6f8a5e;border-radius:6px;padding:3px 6px"><option>720p</option><option>1080p</option><option>1440p</option></select>
+    <button id="stepBtn" class="sel">👣 步伐位移:开</button>
   </div>
   <div id="help">操作：<b>WASD/方向键</b> 移动 ｜ <b>空格/E</b> 用工具 ｜ 数字键1-6换工具 ｜ 走到鸡舍/酒缸前用工具互动 ｜ 先耕地→播种→<b>每天浇水</b>→到成熟天数收割。<b>headless架构</b>：删掉画面逻辑照跑；调试面板可秒快进验数值。</div>
 </div>
@@ -273,6 +274,12 @@ function camera(){ const fov=FOV_LEVELS[fovIdx].tiles, z=cv.width/(fov*TILE);
   return {z,camX,camY}; }
 applyRes();
 const keys={}; let moveTarget=null, animT=0, moving=false;
+// ★步伐驱动位移(WalyCai要的真实脚步感): 落脚帧向前冲、其余帧慢; 平均速度不变→总用时不变。全部可调。
+const STEP={ on:true, perSec:4, low:0.30, sharp:2.6, phase:0.0 }; // 每秒几步(=2步/动画周期)/最慢档/冲的锐度/相位
+function avgPow(sh){ let s=0,N=120; for(let i=0;i<N;i++) s+=Math.pow(Math.sin((i+0.5)/N*Math.PI),sh); return s/N; }
+let STEP_AVG=avgPow(STEP.sharp);
+function stepMult(){ if(!STEP.on) return 1; const f=(animT*STEP.perSec+STEP.phase)%1; const s=Math.pow(Math.max(0,Math.sin(f*Math.PI)),STEP.sharp);
+  return STEP.low + (1-STEP.low)*(s/STEP_AVG); } // 归一化平均=1: 峰值冲、谷值慢
 const TOOLS=[{name:"锄头",act:"till",icon:"icon_hoe"},{name:"种子",act:"plant",icon:"icon_maizhong"},{name:"水壶",act:"water",icon:"icon_wateringcan"},
   {name:"肥料",act:"fert",icon:"icon_fertilizer"},{name:"镰刀",act:"harvest",icon:"icon_sickle"},{name:"手",act:"hand",icon:""}];
 const ITEM_ICON={"麦种":"icon_maizhong","稻种":"icon_daozhong","小麦":"icon_wheat","稻谷":"icon_rice","鸡蛋":"icon_egg","麦酒":"icon_maijiu","米酒":"icon_mijiu"};
@@ -348,14 +355,18 @@ function dayNightTint(m){ for(let i=0;i<DN_RAMP.length-1;i++){ const a=DN_RAMP[i
     return {r:Math.round(a[1]+(b[1]-a[1])*t), g:Math.round(a[2]+(b[2]-a[2])*t), b:Math.round(a[3]+(b[3]-a[3])*t), a:a[4]+(b[4]-a[4])*t}; } }
   return {r:22,g:32,b:72,a:0.46}; }
 // 夜态灯光(马奈方案: 锚点+运行时暖光晕, 不做每栋夜图; 入夜按tint强度渐亮)
-const SHOP_LIGHTS=[[0.72,0.52],[0.46,0.66],[0.09,0.42],[0.60,0.42]]; // 相对铺子192×187(x,y从左上): 右窗/柜台门/左灯笼/右灯笼
+// 各建筑一组锚点(马奈量的,相对各自绘制尺寸); 新建筑加一条即可
+const NIGHT_LIGHTS=[
+  {rect:()=>[SHOP.c*TILE,(SHOP.r*TILE)+TILE-187,192,187], pts:[[0.72,0.52],[0.46,0.66],[0.09,0.42],[0.60,0.42]], col:[255,190,110], r:20, str:0.85}, // 铺子:窗/柜台/双灯笼
+  {rect:()=>[COOP.c*TILE,(COOP.r*TILE)-32,128,96], pts:[[0.54,0.55]], col:[255,195,120], r:13, str:0.55},                                    // 鸡舍:入口内暖光(弱一档)
+];
 function drawNightLights(nightF){ if(nightF<=0.02) return;
   const cam=camera(); ctx.setTransform(cam.z,0,0,cam.z,-cam.camX*cam.z,-cam.camY*cam.z);
   ctx.globalCompositeOperation="lighter";
-  const bx=SHOP.c*TILE, by=(SHOP.r*TILE)+TILE-187; // 铺子绘制矩形左上
-  for(const [rx,ry] of SHOP_LIGHTS){ const x=bx+rx*192, y=by+ry*187, r=20, a=0.85*nightF;
-    const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(255,190,110,${a})`); g.addColorStop(1,"rgba(255,190,110,0)");
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+  for(const b of NIGHT_LIGHTS){ const rc=b.rect(), [R,G,B]=b.col;
+    for(const [rx,ry] of b.pts){ const x=rc[0]+rx*rc[2], y=rc[1]+ry*rc[3], a=b.str*nightF;
+      const g=ctx.createRadialGradient(x,y,0,x,y,b.r); g.addColorStop(0,`rgba(${R},${G},${B},${a})`); g.addColorStop(1,`rgba(${R},${G},${B},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,b.r,0,7); ctx.fill(); } }
   ctx.globalCompositeOperation="source-over"; ctx.setTransform(1,0,0,1,0,0); }
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#5f8746"; ctx.fillRect(0,0,cv.width,cv.height); // void底色
@@ -452,12 +463,12 @@ function loop(now){
   if(keys["a"]||keys["arrowleft"])mx-=1; if(keys["d"]||keys["arrowright"])mx+=1;
   if(mx||my) moveTarget=null;
   if(!mx&&!my&&moveTarget){ const dx=moveTarget.x-state.player.x,dy=moveTarget.y-state.player.y,d=Math.hypot(dx,dy); if(d>4){mx=dx/d;my=dy/d;} else moveTarget=null; }
+  moving=!!(mx||my); if(moving)animT+=dt; else animT=0; // 先更新动画计时,让步伐位移与当前帧同步
   if(mx||my){ const d=Math.hypot(mx,my)||1; mx/=d; my/=d;
     state.player.fx=Math.abs(mx)>Math.abs(my)?Math.sign(mx):0; state.player.fy=Math.abs(my)>=Math.abs(mx)?Math.sign(my):0;
-    const spd=150,nx=state.player.x+mx*spd*dt,ny=state.player.y+my*spd*dt;
+    const spd=150*stepMult(),nx=state.player.x+mx*spd*dt,ny=state.player.y+my*spd*dt; // ★步伐驱动位移:落脚帧冲/其余帧慢
     if(walkable(nx,state.player.y))state.player.x=nx; if(walkable(state.player.x,ny))state.player.y=ny;
     state.player.x=Math.max(10,Math.min(cv.width-10,state.player.x)); state.player.y=Math.max(10,Math.min(cv.height-10,state.player.y)); }
-  moving=!!(mx||my); if(moving)animT+=dt; else animT=0;
   // 时间推进（结算在 advanceTime 内）
   const before=state.day;
   const settled=SIM.advanceTime(state, dt*CONFIG.settings.gameMinPerRealSec);
@@ -489,6 +500,7 @@ function bindDebug(){
     const fov=FOV_LEVELS[fovIdx].tiles; document.getElementById("fovinfo").textContent=`一屏${fov}格 · 主角身宽≈${(40/(fov*TILE)*100).toFixed(1)}%屏宽`; }
   [0,1,2].forEach(i=>document.getElementById("fov"+i).onclick=()=>{ fovIdx=i; updFov(); });
   document.getElementById("resSel").onchange=e=>{ resIdx=e.target.selectedIndex; applyRes(); };
+  document.getElementById("stepBtn").onclick=e=>{ STEP.on=!STEP.on; e.target.textContent="👣 步伐位移:"+(STEP.on?"开":"关"); e.target.classList.toggle("sel",STEP.on); }; // A/B对比匀速vs步伐
   updFov();
 }
 
