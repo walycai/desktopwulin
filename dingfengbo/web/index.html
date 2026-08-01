@@ -276,7 +276,8 @@ applyRes();
 const keys={}; let moveTarget=null, animT=0, moving=false;
 // 位置前冲(实验,默认关): 马奈研究指出俯视走的真实感来自"腿循环+pass帧+bob、移动近匀速",不是位置前冲(前冲会变"卡着滑")。默认关=近匀速; 保留toggle做A/B。
 const STEP={ on:false, perSec:4, low:0.30, sharp:2.6, phase:0.0 };
-const BOB={ on:true, px:2, perCycle:2 }; // 走时身体1-2px上下起伏(pass帧上抬)——占位, 马奈把bob画进正式走帧后可关
+const BOB={ on:false, px:2, perCycle:2 }; // 马奈把bob画进正式走帧了→代码bob关闭(避免双重)
+let DEMO_WF=null; // ?wf=N 强制显示走帧N(截图用)
 function avgPow(sh){ let s=0,N=120; for(let i=0;i<N;i++) s+=Math.pow(Math.sin((i+0.5)/N*Math.PI),sh); return s/N; }
 let STEP_AVG=avgPow(STEP.sharp);
 function stepMult(){ if(!STEP.on) return 1; const f=(animT*STEP.perSec+STEP.phase)%1; const s=Math.pow(Math.max(0,Math.sin(f*Math.PI)),STEP.sharp);
@@ -420,7 +421,7 @@ function heroRow(){ if(state.player.fy>0)return 0; if(state.player.fy<0)return 1
 function drawPlayer(){ const x=state.player.x,y=state.player.y;
   const bob=(moving&&BOB.on)?-Math.round(BOB.px*Math.abs(Math.sin(animT*STEP.perSec*Math.PI))):0; // 走时身体上下起伏(pass帧上抬),影不动
   ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(x,y+16,13,6,0,0,7); ctx.fill();
-  if(IMG["hero_walk"]){ const row=heroRow(), col=moving?[1,2,3,2][Math.floor(animT*8)%4]:0; ctx.drawImage(IMG["hero_walk"],col*64,row*96,64,96,x-32,y-80+bob,64,96); }
+  if(IMG["hero_walk"]){ const row=heroRow(), col=(DEMO_WF!=null)?DEMO_WF:(moving?[1,2,3,2][Math.floor(animT*8)%4]:0); ctx.drawImage(IMG["hero_walk"],col*64,row*96,64,96,x-32,y-80+bob,64,96); }
   else if(IMG["hero_idle"]) ctx.drawImage(IMG["hero_idle"],x-32,y-80+bob,64,96);
   else { ctx.fillStyle="#4a7a4a"; ctx.fillRect(x-9,y-6+bob,18,22); ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(x,y-14+bob,9,0,7); ctx.fill(); } }
 
@@ -511,6 +512,7 @@ validateConfig();
 state = SAVE.load() || SIM.newSnapshot();
 { const fp=location.search.match(/fov=(\d)/); if(fp) fovIdx=Math.max(0,Math.min(2,+fp[1])); } // 演示/截图用
 { const cp=location.search.match(/clock=(\d+)/); if(cp) state.clock=(+cp[1])%1440; } // 演示日夜tint(分钟since5:00)
+{ const wp=location.search.match(/wf=(\d)/); if(wp){ DEMO_WF=+wp[1]; state.player.x=TILE*8; state.player.y=TILE*5; } } // 强制走帧截图
 renderTools(); bindDebug(); refreshHUD();
 if(location.search.indexOf("shop")>=0){ SIM.add(state,"小麦",3); SIM.add(state,"鸡蛋",2); openShop(); } // 验证/演示：直接开铺子
 if(location.search.indexOf("crops")>=0){ // 演示：首轮6作物成熟/中期各态
