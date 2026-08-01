@@ -117,8 +117,17 @@ const CONFIG = {
   crops:   { "麦种": {crop:"小麦", growMin:120, en:"wheat"}, "稻种": {crop:"稻谷", growMin:200, en:"rice"} },
   animals: { "鸡": {produces:"鸡蛋", produceMin:240} },      // 每4游戏时产一次
   recipes: { "小麦": {out:"麦酒", ferMin:180}, "稻谷": {out:"米酒", ferMin:240} }, // 酿造游戏分钟
-  shop: { buy: ["麦种","稻种"] }  // 铺子可买清单(价取items[id].buy); 可卖=任何 sell>0 的库存
+  shop: { buy: ["麦种","稻种"] },  // 铺子可买清单(价取items[id].buy); 可卖=任何 sell>0 的库存
+  // ★精力曲线(莱布尼茨定,按 t=醒着超出grace的游戏时数 查值插值; grace=settings.sleepGraceMin)
+  energy: {
+    maxTable:   [[0,100],[4,96],[8,88],[12,82],[16,75],[24,66],[32,62],[40,60]], // ①上限(逼近60底,递减不硬顶)
+    recovTable: [[0,1.0],[8,0.9],[16,0.8],[24,0.7],[32,0.65]],                    // ②非睡眠恢复倍率(睡觉永远回满,不受此限)
+    drainTable: [[0,0],[8,0.5],[16,1.0],[24,1.5],[32,2.0]]                        // ③闲时被动下降(点/游戏时)
+  }
 };
+function interp(tbl,x){ if(x<=tbl[0][0]) return tbl[0][1];
+  for(let i=0;i<tbl.length-1;i++){ if(x<=tbl[i+1][0]){ const a=tbl[i],b=tbl[i+1]; return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]); } }
+  return tbl[tbl.length-1][1]; }
 // ★数据驱动批量作物（莱布尼茨占位价）：加一行 = 多一种可买种/可种/可收/可卖的作物。田图缺则通用渲染(幼苗→成熟显图标)。growMin 占位公式,莱深平衡时再调。
 const CROP_DATA=[
  // [icon id, 中文, 卖价, 种子买价]
@@ -202,16 +211,18 @@ const SIM = {
     for(const a of s.animals){ if(!a.produce){ a.grow += gmin; if(a.grow>=CONFIG.animals["鸡"].produceMin) a.produce=true; } }
     // 酿造发酵
     for(const v of s.vessels){ if(v.state==="fermenting"){ v.fer += gmin; if(v.fer>=CONFIG.recipes[v.input].ferMin) v.state="done"; } }
-    // ★精力/软睡眠压力(WalyCai:不硬性入睡,靠精力衰减引导;占位数值待莱调)
+    // ★精力/软睡眠压力(莱布尼茨曲线): 醒越久→上限↓+闲时被动漏↑; 睡觉重置
     s.awake += gmin;                                       // 距上次睡眠的游戏分
-    const maxE = SIM.energyMax(s);                         // 醒越久上限越低
-    s.energy = Math.max(0, Math.min(maxE, s.energy - gmin*0.02)); // ①被动缓降 ③受降低的上限压顶
+    const t = Math.max(0, (s.awake - CONFIG.settings.sleepGraceMin)/60); // 超grace的游戏时数
+    const drainPerHr = t<=0 ? 0 : interp(CONFIG.energy.drainTable, t);   // ③闲时被动下降
+    s.energy = Math.max(0, Math.min(SIM.energyMax(s), s.energy - drainPerHr*(gmin/60)));
     // 时钟 + 日结算
     s.clock += gmin; let settled=0;
     while(s.clock>=CONFIG.settings.dayMinutes){ s.clock-=CONFIG.settings.dayMinutes; SIM.settle(s); settled++; }
     return settled;
   },
-  energyMax(s){ const g=CONFIG.settings.sleepGraceMin, fl=CONFIG.settings.sleepFloor; return 100 - Math.max(0, Math.min(100-fl, (s.awake-g)/30)); }, // 占位线性; 莱的正式曲线(grace+递减底~60%)锁死后换这一个函数
+  energyMax(s){ const t=(s.awake - CONFIG.settings.sleepGraceMin)/60; return t<=0 ? 100 : interp(CONFIG.energy.maxTable, t); }, // 莱曲线: t=超grace游戏时数→查maxTable
+  recoveryMult(s){ const t=Math.max(0,(s.awake - CONFIG.settings.sleepGraceMin)/60); return interp(CONFIG.energy.recovTable, t); }, // ②非睡眠恢复倍率(待食物/打坐恢复接入)
   // —— ★日结算(05:00鸡鸣)：每日批处理纯函数。生长已在advanceTime连续累积，这里只挂"每日一次"的批量事件 ——
   settle(s){
     s.day++;
