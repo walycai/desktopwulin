@@ -102,7 +102,7 @@
 // ===== CONFIG（说明书：静态常量。真实项目由导表管线从Excel/JSON生成；这里内嵌+validate演示）=====
 const CONFIG = {
   // 游戏钟＝星露谷比例(≈10游戏分/7真实秒=1.43)。成熟按"游戏时间"算：测试期用游戏小时(小麦2h)，正式版可换游戏天数(改growMin即可)。
-  settings: { gameMinPerRealSec: 1.43, dayMinutes: 1440, startHour: 5 },
+  settings: { gameMinPerRealSec: 1.43, dayMinutes: 1440, startHour: 5, sleepGraceMin: 720, sleepFloor: 50 }, // 精力:醒>graceMin(游戏分)起降,底sleepFloor —— 莱定的曲线参数,WalyCai调grace这一个数
   items: {
     "麦种": {cat:"seed", buy:3, sell:0, icon:"icon_maizhong"},
     "稻种": {cat:"seed", buy:1, sell:0, icon:"icon_daozhong"},
@@ -211,7 +211,7 @@ const SIM = {
     while(s.clock>=CONFIG.settings.dayMinutes){ s.clock-=CONFIG.settings.dayMinutes; SIM.settle(s); settled++; }
     return settled;
   },
-  energyMax(s){ return 100 - Math.max(0, Math.min(50, (s.awake-720)/30)); }, // 醒>12游戏时起,上限-1/30min,底50(占位)
+  energyMax(s){ const g=CONFIG.settings.sleepGraceMin, fl=CONFIG.settings.sleepFloor; return 100 - Math.max(0, Math.min(100-fl, (s.awake-g)/30)); }, // 占位线性; 莱的正式曲线(grace+递减底~60%)锁死后换这一个函数
   // —— ★日结算(05:00鸡鸣)：每日批处理纯函数。生长已在advanceTime连续累积，这里只挂"每日一次"的批量事件 ——
   settle(s){
     s.day++;
