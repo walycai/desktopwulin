@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>世界圣经 · 角色/剧情/时间线 一致性工具</title>
+<style>
+  :root{ --bg:#1b1e24; --panel:#242832; --panel2:#2c313d; --ink:#e7e3d8; --dim:#9aa0ac; --line:#39404e; --acc:#7fae5e; --warn:#e0813a; --bad:#d9534f; --gold:#c9a94a; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a{ color:var(--gold); }
+  header{ display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1{ font-size:17px; margin:0; font-weight:700; }
+  header input.title{ background:transparent; border:none; color:var(--ink); font-size:17px; font-weight:700; width:auto; min-width:120px; }
+  header .sp{ flex:1; }
+  .btn{ font-family:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--line); border-radius:7px; background:var(--panel2); color:var(--ink); cursor:pointer; }
+  .btn:hover{ border-color:var(--acc); }
+  .btn.acc{ background:var(--acc); border-color:var(--acc); color:#16200f; font-weight:700; }
+  .tabs{ display:flex; gap:4px; padding:8px 16px 0; background:var(--panel); }
+  .tab{ padding:8px 16px; border:1px solid var(--line); border-bottom:none; border-radius:8px 8px 0 0; background:var(--panel2); color:var(--dim); cursor:pointer; font-size:14px; }
+  .tab.sel{ background:var(--bg); color:var(--ink); font-weight:700; border-color:var(--line); }
+  .tab .badge{ background:var(--bad); color:#fff; border-radius:9px; padding:0 6px; font-size:11px; margin-left:6px; }
+  main{ display:flex; height:calc(100vh - 96px); }
+  .list{ width:300px; border-right:1px solid var(--line); overflow:auto; background:var(--panel); flex:none; }
+  .list .add{ position:sticky; top:0; padding:8px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .list .add input{ width:100%; padding:7px 9px; background:var(--panel2); border:1px solid var(--line); border-radius:7px; color:var(--ink); font-family:inherit; }
+  .row{ padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; font-size:14px; }
+  .row:hover{ background:var(--panel2); }
+  .row.sel{ background:var(--panel2); border-left:3px solid var(--gold); }
+  .row .meta{ color:var(--dim); font-size:12px; margin-top:2px; }
+  .row.conflict{ box-shadow:inset 3px 0 0 var(--bad); }
+  .edit{ flex:1; overflow:auto; padding:16px 22px; }
+  .edit .empty{ color:var(--dim); margin-top:40px; text-align:center; }
+  .fld{ margin-bottom:12px; }
+  .fld label{ display:block; font-size:12px; color:var(--dim); margin-bottom:4px; }
+  .fld input, .fld textarea, .fld select{ width:100%; padding:8px 10px; background:var(--panel2); border:1px solid var(--line); border-radius:7px; color:var(--ink); font-family:inherit; font-size:14px; }
+  .fld textarea{ min-height:70px; resize:vertical; }
+  .frow{ display:flex; gap:10px; } .frow .fld{ flex:1; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{ background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:13px; cursor:pointer; }
+  .chip.on{ background:var(--acc); color:#16200f; border-color:var(--acc); }
+  .sec{ margin:18px 0 8px; font-size:13px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .rel{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .rel select,.rel input{ padding:6px 8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--ink); font-family:inherit; }
+  .x{ color:var(--bad); cursor:pointer; padding:0 6px; }
+  .tl{ padding:8px 0; }
+  .tlgroup{ margin-bottom:6px; }
+  .tltime{ position:sticky; left:0; font-weight:700; color:var(--gold); font-size:13px; padding:6px 0 2px; }
+  .tlitem{ margin-left:14px; padding:8px 12px; border-left:2px solid var(--line); background:var(--panel); border-radius:0 8px 8px 0; margin-bottom:5px; cursor:pointer; }
+  .tlitem:hover{ background:var(--panel2); }
+  .tlitem .who{ color:var(--dim); font-size:12px; margin-top:3px; }
+  .conf{ padding:10px 12px; border:1px solid var(--bad); border-radius:8px; margin-bottom:8px; background:#2a1d1d; }
+  .conf .t{ color:var(--bad); font-weight:700; }
+  .conf .lk{ color:var(--gold); cursor:pointer; text-decoration:underline; }
+  .ok{ color:var(--acc); }
+  .tag{ display:inline-block; background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:11px; color:var(--dim); margin:0 3px 3px 0; }
+  .del{ margin-top:18px; }
+  small.hint{ color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  📖 <input class="title" id="dbTitle" value="世界圣经">
+  <span class="sp"></span>
+  <small class="hint">时间单位</small>
+  <input id="unit" style="width:70px;padding:5px 8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--ink)" value="年">
+  <button class="btn" id="expBtn">⬇ 导出</button>
+  <button class="btn" id="impBtn">⬆ 导入</button>
+  <input type="file" id="impFile" accept=".json" style="display:none">
+  <span id="saveState" class="hint" style="font-size:12px"></span>
+</header>
+<div class="tabs">
+  <div class="tab sel" data-t="chars">角色</div>
+  <div class="tab" data-t="timeline">世界时间线</div>
+  <div class="tab" data-t="check">一致性检查 <span class="badge" id="confBadge" style="display:none">0</span></div>
+</div>
+<main id="main"></main>
+
+<script>
+"use strict";
+const KEY="storybible_v1";
+let DB = load() || { meta:{title:"世界圣经", unit:"年"}, chars:[], events:[] };
+if(location.search.indexOf("demo")>=0){ DB={ meta:{title:"定风波·示例世界", unit:"年"}, chars:[
+  {id:"lin",name:"林苏",alias:"苏郎",role:"主角/落难皇子",faction:"青城",born:0,died:null,desc:"少年习农，后入江湖。",tags:["主角","农隐"],rels:[{to:"qin",type:"师徒"},{to:"li",type:"仇敌"}]},
+  {id:"qin",name:"秦戍",alias:"铁手",role:"铸剑师/师父",faction:"青城",born:-40,died:20,desc:"林苏之师，卒于年20。",tags:["长辈"],rels:[{to:"lin",type:"师徒"}]},
+  {id:"li",name:"厉九",role:"反派/血刀门",faction:"血刀门",born:-25,died:null,desc:"残酷，逼主角承担流血代价。",tags:["反派"],rels:[]}
+], events:[
+  {id:"e1",time:5,title:"拜师青城",place:"青城",type:"主线",chars:["lin","qin"],desc:"林苏拜秦戍为师。"},
+  {id:"e2",time:5,title:"洛阳惊变",place:"洛阳",type:"主线",chars:["lin"],desc:"（示例冲突：林苏同一年既在青城又在洛阳）"},
+  {id:"e3",time:20,title:"秦戍之死",place:"青城",type:"主线",chars:["qin","li"],desc:"秦戍死于厉九之手。"},
+  {id:"e4",time:30,title:"故人重逢",place:"江南",type:"支线",chars:["lin","qin"],desc:"（示例冲突：秦戍已卒于年20，却在年30出场）"},
+  {id:"e5",time:32,title:"血刀之约",place:"血刀门",type:"战斗",chars:["lin","li"],desc:"林苏与厉九决战。"}
+] }; }
+let tab="chars", selChar=null, selEvent=null;
+{ const tp=location.search.match(/tab=(\w+)/); if(tp) tab=tp[1]; } // 截图用
+
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
+function save(){ localStorage.setItem(KEY, JSON.stringify(DB)); const s=document.getElementById("saveState"); s.textContent="已保存 "+new Date().toLocaleTimeString(); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function charName(id){ const c=DB.chars.find(c=>c.id===id); return c?c.name:"⚠未知("+id+")"; }
+function esc(s){ return (s||"").replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m])); }
+
+// ---------- 一致性检查 ----------
+function checkConflicts(){
+  const cf=[]; const U=DB.meta.unit||"";
+  const cmap={}; DB.chars.forEach(c=>cmap[c.id]=c);
+  // 生晚于卒
+  DB.chars.forEach(c=>{ if(c.born!=null&&c.died!=null&&c.born>c.died) cf.push({type:"生卒矛盾", char:c.id, msg:`「${c.name}」生(${c.born})晚于卒(${c.died})`}); });
+  // 关系指向不存在
+  DB.chars.forEach(c=>(c.rels||[]).forEach(r=>{ if(r.to&&!cmap[r.to]) cf.push({type:"关系悬空", char:c.id, msg:`「${c.name}」的关系指向了不存在的角色`}); }));
+  // 出场早于出生 / 晚于死亡
+  DB.events.forEach(ev=>(ev.chars||[]).forEach(cid=>{ const c=cmap[cid]; if(!c) return;
+    if(c.born!=null&&ev.time<c.born) cf.push({type:"出生前登场", char:cid, event:ev.id, msg:`「${c.name}」在事件"${ev.title}"(${ev.time}${U})出场，但其出生于 ${c.born}${U}`});
+    if(c.died!=null&&ev.time>c.died) cf.push({type:"死后登场", char:cid, event:ev.id, msg:`「${c.name}」在事件"${ev.title}"(${ev.time}${U})出场，但其已卒于 ${c.died}${U}`});
+  }));
+  // 同一时间分身两地
+  const byCharTime={};
+  DB.events.forEach(ev=>(ev.chars||[]).forEach(cid=>{ const k=cid+"@"+ev.time; (byCharTime[k]=byCharTime[k]||[]).push(ev); }));
+  Object.values(byCharTime).forEach(list=>{ if(list.length>1){
+    const places=[...new Set(list.map(e=>(e.place||"").trim()).filter(Boolean))];
+    if(places.length>1){ const cid=list[0].chars.find(c=>true); const c=list[0];
+      const who=list[0].chars; // fallback
+      const cidReal=Object.keys(byCharTime).find(k=>byCharTime[k]===list).split("@")[0];
+      cf.push({type:"同时多地", char:cidReal, msg:`「${charName(cidReal)}」在同一时间(${list[0].time}${U})出现在多个地点：${places.join(" / ")}`, events:list.map(e=>e.id)});
+    }
+  }});
+  return cf;
+}
+function conflictSet(){ const s={chars:new Set(),events:new Set()}; checkConflicts().forEach(c=>{ if(c.char)s.chars.add(c.char); if(c.event)s.events.add(c.event); (c.events||[]).forEach(e=>s.events.add(e)); }); return s; }
+
+// ---------- 渲染 ----------
+function render(){
+  document.getElementById("dbTitle").value=DB.meta.title;
+  document.getElementById("unit").value=DB.meta.unit;
+  const conf=checkConflicts(); const badge=document.getElementById("confBadge");
+  badge.style.display=conf.length?"inline":"none"; badge.textContent=conf.length;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("sel",t.dataset.t===tab));
+  const m=document.getElementById("main");
+  if(tab==="chars") m.innerHTML=renderChars();
+  else if(tab==="timeline") m.innerHTML=renderTimeline();
+  else m.innerHTML=renderCheck(conf);
+  wire();
+}
+
+function renderChars(){
+  const cs=conflictSet();
+  const list=DB.chars.slice().sort((a,b)=>(a.born??1e9)-(b.born??1e9)).map(c=>
+    `<div class="row ${c.id===selChar?'sel':''} ${cs.chars.has(c.id)?'conflict':''}" data-char="${c.id}">
+       ${esc(c.name)||'(未命名)'} <div class="meta">${esc(c.role||'')} ${c.faction?'· '+esc(c.faction):''} ${c.born!=null?'· 生'+c.born:''}</div></div>`).join("");
+  const c=DB.chars.find(x=>x.id===selChar);
+  return `<div class="list"><div class="add"><input id="newChar" placeholder="+ 新角色名，回车添加"></div>${list||'<div class="row meta">还没有角色</div>'}</div>
+    <div class="edit">${c?charEditor(c):'<div class="empty">← 选一个角色，或在左侧添加</div>'}</div>`;
+}
+function charEditor(c){
+  const opts=DB.chars.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  const rels=(c.rels||[]).map((r,i)=>`<div class="rel"><select data-rel="${i}" data-k="to"><option value="">—对象—</option>${DB.chars.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}" ${x.id===r.to?'selected':''}>${esc(x.name)}</option>`).join("")}</select>
+      <input data-rel="${i}" data-k="type" value="${esc(r.type||'')}" placeholder="关系(如 师徒/夫妻/仇敌)" style="flex:1"><span class="x" data-relx="${i}">✕</span></div>`).join("");
+  // 角色弧: 该角色的事件按时间
+  const arc=DB.events.filter(e=>(e.chars||[]).includes(c.id)).sort((a,b)=>a.time-b.time)
+    .map(e=>`<div class="tlitem" data-goev="${e.id}"><b>${e.time}${DB.meta.unit}</b> · ${esc(e.title)} ${e.place?'<span class="meta">@'+esc(e.place)+'</span>':''}</div>`).join("")||'<small class="hint">该角色暂无事件</small>';
+  return `
+    <div class="frow"><div class="fld"><label>姓名</label><input data-c="name" value="${esc(c.name)}"></div>
+      <div class="fld"><label>别名/字号</label><input data-c="alias" value="${esc(c.alias||'')}"></div></div>
+    <div class="frow"><div class="fld"><label>身份</label><input data-c="role" value="${esc(c.role||'')}"></div>
+      <div class="fld"><label>势力/门派</label><input data-c="faction" value="${esc(c.faction||'')}"></div></div>
+    <div class="frow"><div class="fld"><label>生 (世界时间, ${DB.meta.unit})</label><input data-c="born" type="number" value="${c.born??''}"></div>
+      <div class="fld"><label>卒 (留空=在世)</label><input data-c="died" type="number" value="${c.died??''}"></div></div>
+    <div class="fld"><label>简介 / 人设</label><textarea data-c="desc">${esc(c.desc||'')}</textarea></div>
+    <div class="fld"><label>标签 (逗号分隔)</label><input data-c="tags" value="${esc((c.tags||[]).join(', '))}"></div>
+    <div class="sec">关系</div><div id="relwrap">${rels}</div><button class="btn" id="addRel">+ 加关系</button>
+    <div class="sec">角色弧 (TA参与的事件，按世界时间)</div><div class="tl">${arc}</div>
+    <div class="del"><button class="btn" id="delChar" style="border-color:var(--bad);color:var(--bad)">删除此角色</button></div>`;
+}
+
+function renderTimeline(){
+  const cs=conflictSet();
+  const evs=DB.events.slice().sort((a,b)=>a.time-b.time);
+  const groups={}; evs.forEach(e=>{ (groups[e.time]=groups[e.time]||[]).push(e); });
+  const tl=Object.keys(groups).map(Number).sort((a,b)=>a-b).map(t=>
+    `<div class="tlgroup"><div class="tltime">▸ ${t} ${DB.meta.unit}</div>${groups[t].map(e=>
+      `<div class="tlitem ${cs.events.has(e.id)?'conflict':''} ${e.id===selEvent?'sel':''}" data-ev="${e.id}" style="${cs.events.has(e.id)?'box-shadow:inset 3px 0 0 var(--bad)':''}">
+        <b>${esc(e.title)||'(无题)'}</b> ${e.place?'<span class="meta">@'+esc(e.place)+'</span>':''} ${e.type?'<span class="tag">'+esc(e.type)+'</span>':''}
+        <div class="who">${(e.chars||[]).map(charName).join('、')||'无角色'}</div></div>`).join("")}</div>`).join("")
+    || '<div class="empty">还没有事件</div>';
+  const e=DB.events.find(x=>x.id===selEvent);
+  return `<div class="list"><div class="add"><input id="newEv" placeholder="+ 新事件标题，回车添加"></div><div style="padding:6px 10px">${tl}</div></div>
+    <div class="edit">${e?eventEditor(e):'<div class="empty">← 选一个事件，或在左侧添加</div>'}</div>`;
+}
+function eventEditor(e){
+  const chips=DB.chars.map(c=>`<span class="chip ${(e.chars||[]).includes(c.id)?'on':''}" data-toggle="${c.id}">${esc(c.name)}</span>`).join("")||'<small class="hint">先去"角色"页加角色</small>';
+  return `
+    <div class="frow"><div class="fld"><label>世界时间 (${DB.meta.unit})</label><input data-e="time" type="number" value="${e.time??0}"></div>
+      <div class="fld"><label>标题</label><input data-e="title" value="${esc(e.title)}"></div></div>
+    <div class="frow"><div class="fld"><label>地点</label><input data-e="place" value="${esc(e.place||'')}"></div>
+      <div class="fld"><label>类型</label><input data-e="type" value="${esc(e.type||'')}" placeholder="主线/支线/战斗/情感/世界…"></div></div>
+    <div class="fld"><label>描述 / 发生了什么</label><textarea data-e="desc" style="min-height:120px">${esc(e.desc||'')}</textarea></div>
+    <div class="sec">参与角色 (点选)</div><div class="chips">${chips}</div>
+    <div class="del"><button class="btn" id="delEv" style="border-color:var(--bad);color:var(--bad)">删除此事件</button></div>`;
+}
+
+function renderCheck(conf){
+  const body = conf.length? conf.map(c=>`<div class="conf"><span class="t">⚠ ${c.type}</span><br>${esc(c.msg)}
+     ${c.char?`<span class="lk" data-goc="${c.char}">→ 看角色</span>`:''} ${c.event?`<span class="lk" data-goev="${c.event}">→ 看事件</span>`:''}</div>`).join("")
+    : `<div class="ok" style="font-size:16px;padding:20px 0">✓ 目前没检测到时间线矛盾。</div>`;
+  return `<div class="edit" style="width:100%">
+    <p class="hint">自动扫描：出生前登场 / 死后登场 / 同一时间分身两地 / 生晚于卒 / 关系指向不存在的人。改了角色的生卒或事件时间会实时更新。</p>
+    ${body}</div>`;
+}
+
+// ---------- 交互 ----------
+function wire(){
+  document.querySelectorAll("[data-char]").forEach(el=>el.onclick=()=>{ selChar=el.dataset.char; render(); });
+  const nc=document.getElementById("newChar"); if(nc) nc.onkeydown=e=>{ if(e.key==="Enter"&&nc.value.trim()){ const id=uid(); DB.chars.push({id,name:nc.value.trim(),rels:[],tags:[]}); selChar=id; save(); render(); } };
+  document.querySelectorAll("[data-c]").forEach(el=>el.oninput=()=>{ const c=DB.chars.find(x=>x.id===selChar); if(!c)return; const k=el.dataset.c;
+    if(k==="tags") c.tags=el.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+    else if(k==="born"||k==="died") c[k]=el.value===""?null:Number(el.value);
+    else c[k]=el.value; save(); document.getElementById("confBadge"); const conf=checkConflicts(); const b=document.getElementById("confBadge"); b.style.display=conf.length?"inline":"none"; b.textContent=conf.length; });
+  const ar=document.getElementById("addRel"); if(ar) ar.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.rels=c.rels||[]; c.rels.push({to:"",type:""}); save(); render(); };
+  document.querySelectorAll("[data-rel]").forEach(el=>el.onchange=el.oninput=()=>{ const c=DB.chars.find(x=>x.id===selChar); const i=+el.dataset.rel; c.rels[i][el.dataset.k]=el.value; save(); });
+  document.querySelectorAll("[data-relx]").forEach(el=>el.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.rels.splice(+el.dataset.relx,1); save(); render(); });
+  const dc=document.getElementById("delChar"); if(dc) dc.onclick=()=>{ if(confirm("删除这个角色？")){ DB.chars=DB.chars.filter(x=>x.id!==selChar); selChar=null; save(); render(); } };
+  // events
+  document.querySelectorAll("[data-ev]").forEach(el=>el.onclick=()=>{ selEvent=el.dataset.ev; render(); });
+  const ne=document.getElementById("newEv"); if(ne) ne.onkeydown=e=>{ if(e.key==="Enter"&&ne.value.trim()){ const id=uid(); const t=DB.events.length?Math.max(...DB.events.map(x=>x.time)):0; DB.events.push({id,title:ne.value.trim(),time:t,chars:[]}); selEvent=id; save(); render(); } };
+  document.querySelectorAll("[data-e]").forEach(el=>el.oninput=()=>{ const e=DB.events.find(x=>x.id===selEvent); if(!e)return; const k=el.dataset.e; e[k]= k==="time"?Number(el.value):el.value; save(); if(k==="time"){ render(); } });
+  document.querySelectorAll("[data-toggle]").forEach(el=>el.onclick=()=>{ const e=DB.events.find(x=>x.id===selEvent); const id=el.dataset.toggle; e.chars=e.chars||[]; const i=e.chars.indexOf(id); if(i<0)e.chars.push(id); else e.chars.splice(i,1); save(); render(); });
+  const de=document.getElementById("delEv"); if(de) de.onclick=()=>{ if(confirm("删除这个事件？")){ DB.events=DB.events.filter(x=>x.id!==selEvent); selEvent=null; save(); render(); } };
+  // jumps
+  document.querySelectorAll("[data-goc]").forEach(el=>el.onclick=()=>{ tab="chars"; selChar=el.dataset.goc; render(); });
+  document.querySelectorAll("[data-goev]").forEach(el=>el.onclick=()=>{ tab="timeline"; selEvent=el.dataset.goev; render(); });
+}
+
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ tab=t.dataset.t; render(); });
+document.getElementById("dbTitle").oninput=e=>{ DB.meta.title=e.target.value; save(); };
+document.getElementById("unit").oninput=e=>{ DB.meta.unit=e.target.value; save(); render(); };
+document.getElementById("expBtn").onclick=()=>{ const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(DB.meta.title||"世界圣经")+".json"; a.click(); };
+document.getElementById("impBtn").onclick=()=>document.getElementById("impFile").click();
+document.getElementById("impFile").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.chars&&d.events){ DB=d; selChar=selEvent=null; save(); render(); alert("导入成功"); } else alert("文件格式不对"); }catch(err){ alert("解析失败"); } }; r.readAsText(f); };
+render();
+</script>
+</body>
+</html>
