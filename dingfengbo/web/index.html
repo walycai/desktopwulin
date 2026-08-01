@@ -347,6 +347,16 @@ function dayNightTint(m){ for(let i=0;i<DN_RAMP.length-1;i++){ const a=DN_RAMP[i
   if(m>=a[0]&&m<=b[0]){ const t=(m-a[0])/(b[0]-a[0]);
     return {r:Math.round(a[1]+(b[1]-a[1])*t), g:Math.round(a[2]+(b[2]-a[2])*t), b:Math.round(a[3]+(b[3]-a[3])*t), a:a[4]+(b[4]-a[4])*t}; } }
   return {r:22,g:32,b:72,a:0.46}; }
+// 夜态灯光(马奈方案: 锚点+运行时暖光晕, 不做每栋夜图; 入夜按tint强度渐亮)
+const SHOP_LIGHTS=[[0.72,0.52],[0.46,0.66],[0.09,0.42],[0.60,0.42]]; // 相对铺子192×187(x,y从左上): 右窗/柜台门/左灯笼/右灯笼
+function drawNightLights(nightF){ if(nightF<=0.02) return;
+  const cam=camera(); ctx.setTransform(cam.z,0,0,cam.z,-cam.camX*cam.z,-cam.camY*cam.z);
+  ctx.globalCompositeOperation="lighter";
+  const bx=SHOP.c*TILE, by=(SHOP.r*TILE)+TILE-187; // 铺子绘制矩形左上
+  for(const [rx,ry] of SHOP_LIGHTS){ const x=bx+rx*192, y=by+ry*187, r=20, a=0.85*nightF;
+    const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(255,190,110,${a})`); g.addColorStop(1,"rgba(255,190,110,0)");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+  ctx.globalCompositeOperation="source-over"; ctx.setTransform(1,0,0,1,0,0); }
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#5f8746"; ctx.fillRect(0,0,cv.width,cv.height); // void底色
   const cam=camera(); ctx.setTransform(cam.z,0,0,cam.z,-cam.camX*cam.z,-cam.camY*cam.z); // 相机变换(世界空间)
@@ -360,6 +370,7 @@ function draw(){
   ctx.setTransform(1,0,0,1,0,0); // 回屏幕空间(日夜tint,只盖世界canvas)
   const tn=dayNightTint((CONFIG.settings.startHour*60+state.clock)%1440);
   if(tn.a>0.001){ ctx.fillStyle=`rgba(${tn.r},${tn.g},${tn.b},${tn.a})`; ctx.fillRect(0,0,cv.width,cv.height); }
+  drawNightLights(tn.a>0.15 ? Math.min(1,(tn.a-0.15)/0.3) : 0); // 夜灯打在tint之上,越夜越亮
 }
 function drawSoil(r,c,x,y){
   const p=state.plots[r+"_"+c];
