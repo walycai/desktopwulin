@@ -40,6 +40,12 @@
   .chip{ background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:3px 10px; font-size:13px; cursor:pointer; }
   .chip.on{ background:var(--acc); color:#16200f; border-color:var(--acc); }
   .sec{ margin:18px 0 8px; font-size:13px; color:var(--gold); border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .sec .npctog{ font-weight:400; font-size:12px; color:var(--dim); float:right; cursor:pointer; }
+  .sec2{ margin:12px 0 6px; font-size:12px; color:var(--dim); letter-spacing:.5px; }
+  .npcbox{ border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:0 8px 8px 0; padding:6px 12px 12px; background:rgba(127,174,94,.05); }
+  .gift label{ display:flex; align-items:center; gap:6px; }
+  .heart{ display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+  .heart input{ padding:6px 8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--ink); font-family:inherit; }
   .rel{ display:flex; gap:8px; align-items:center; margin-bottom:6px; }
   .rel select,.rel input{ padding:6px 8px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; color:var(--ink); font-family:inherit; }
   .x{ color:var(--bad); cursor:pointer; padding:0 6px; }
@@ -98,9 +104,10 @@
 const KEY="storybible_v1";
 let DB = load() || { meta:{title:"世界圣经", unit:"年"}, chars:[], events:[] };
 if(location.search.indexOf("demo")>=0){ DB={ meta:{title:"定风波·示例世界", unit:"年"}, chars:[
-  {id:"lin",name:"林苏",alias:"苏郎",role:"主角/落难皇子",faction:"青城",born:0,died:null,desc:"少年习农，后入江湖。",tags:["主角","农隐"],rels:[{to:"qin",type:"师徒"},{to:"li",type:"仇敌"}]},
-  {id:"qin",name:"秦戍",alias:"铁手",role:"铸剑师/师父",faction:"青城",born:-40,died:20,desc:"林苏之师，卒于年20。",tags:["长辈"],rels:[{to:"lin",type:"师徒"}]},
-  {id:"li",name:"厉九",role:"反派/血刀门",faction:"血刀门",born:-25,died:null,desc:"残酷，逼主角承担流血代价。",tags:["反派"],rels:[]}
+  {id:"lin",name:"林苏",alias:"苏郎",role:"主角/务农少年侠",faction:"青城",born:0,died:null,desc:"少年习农，后入江湖。",tags:["主角","农隐"],trope:"闷头种田的乡下少年",hiddenDepth:"外表与世无争，实则背负一桩不肯说破的血仇；越是温和，越怕自己动手那天。",voice:"话少、实在，偶尔一句戳心",rels:[{to:"qin",type:"师徒"},{to:"li",type:"仇敌"}]},
+  {id:"qin",name:"秦戍",alias:"铁手",role:"铸剑师/师父",faction:"青城",born:-40,died:20,desc:"林苏之师，卒于年20。",tags:["长辈"],trope:"沉默寡言的老铸剑师",hiddenDepth:"一生打的最好的一把剑从未出鞘——他怕的不是敌人，是徒弟走上和自己一样的路。",voice:"惜字如金，话里带铁",rels:[{to:"lin",type:"师徒"}]},
+  {id:"li",name:"厉九",role:"反派/血刀门",faction:"血刀门",born:-25,died:null,desc:"残酷，逼主角承担流血代价。",tags:["反派"],trope:"嗜血成性的血刀门凶徒",hiddenDepth:"他的残忍是一套自证哲学：只有先让别人流血，自己当年那笔血债才不算白欠。",voice:"轻佻、句句挑衅",rels:[]},
+  {id:"liu",name:"柳如烟",role:"醉仙楼掌柜",faction:"镇上",born:-22,died:null,desc:"无瑕镇醉仙楼掌柜，消息最灵通的人。",tags:["NPC","情报"],trope:"八面玲珑的酒楼老板娘",hiddenDepth:"笑迎八方客，账房暗格里却压着一张十年前的通缉画像——画上是她自己。",voice:"爽利、带三分打趣",isNPC:true,birthday:"夏·8",routeLinks:"商→打通行脚商路；人情→熟络后透露镇上暗线情报",schedule:{home:"醉仙楼后院",work:"醉仙楼柜台(午后~夜)",evening:"楼中待客"},gifts:{loved:["女儿红","并蒂莲簪"],liked:["新茶","话本"],disliked:["活鱼(嫌腥)","符纸"]},lines:{met:"客官面生，头回来醉仙楼？楼上请。",warm:"又是你呀——老位子给你留着呢。",close:"有些话我只跟自己人说……你算一个。"},hearts:[{h:2,place:"醉仙楼·雨夜",desc:"她替你挡下一桩找茬，顺口问起你的来历。"},{h:6,place:"后院账房",desc:"你撞见那张通缉画像，她第一次卸下笑脸。"}],rels:[{to:"lin",type:"熟客"}]}
 ], events:[
   {id:"e1",time:5,title:"拜师青城",place:"青城",type:"主线",chars:["lin","qin"],desc:"林苏拜秦戍为师。"},
   {id:"e2",time:5,title:"洛阳惊变",place:"洛阳",type:"主线",chars:["lin"],desc:"（示例冲突：林苏同一年既在青城又在洛阳）"},
@@ -178,7 +185,7 @@ function renderChars(){
   const cs=conflictSet();
   const list=DB.chars.slice().sort((a,b)=>(a.born??1e9)-(b.born??1e9)).map(c=>
     `<div class="row ${c.id===selChar?'sel':''} ${cs.chars.has(c.id)?'conflict':''}" data-char="${c.id}">
-       ${esc(c.name)||'(未命名)'} <div class="meta">${esc(c.role||'')} ${c.faction?'· '+esc(c.faction):''} ${c.born!=null?'· 生'+fmtTimeShort(c.born):''}</div></div>`).join("");
+       ${esc(c.name)||'(未命名)'} ${c.isNPC?'<span class="tag" style="color:var(--acc);border-color:var(--acc)">NPC</span>':''} <div class="meta">${esc(c.role||'')} ${c.faction?'· '+esc(c.faction):''} ${c.born!=null?'· 生'+fmtTimeShort(c.born):''}</div></div>`).join("");
   const c=DB.chars.find(x=>x.id===selChar);
   return `<div class="list"><div class="add"><input id="newChar" placeholder="+ 新角色名，回车添加"></div>${list||'<div class="row meta">还没有角色</div>'}</div>
     <div class="edit">${c?charEditor(c):'<div class="empty">← 选一个角色，或在左侧添加</div>'}</div>`;
@@ -197,11 +204,50 @@ function charEditor(c){
       <div class="fld"><label>势力/门派</label><input data-c="faction" value="${esc(c.faction||'')}"></div></div>
     <div class="frow"><div class="fld"><label>出生 (世界时间)</label>${timeInput("born", c.born, true)}</div>
       <div class="fld"><label>去世 (未设=在世)</label>${timeInput("died", c.died, true)}</div></div>
-    <div class="fld"><label>简介 / 人设</label><textarea data-c="desc">${esc(c.desc||'')}</textarea></div>
+    <div class="fld"><label>小传 / 背景 (可分段随好感揭示)</label><textarea data-c="desc">${esc(c.desc||'')}</textarea></div>
     <div class="fld"><label>标签 (逗号分隔)</label><input data-c="tags" value="${esc((c.tags||[]).join(', '))}"></div>
-    <div class="sec">关系</div><div id="relwrap">${rels}</div><button class="btn" id="addRel">+ 加关系</button>
+
+    <div class="sec">人设塑造</div>
+    <div class="fld"><label>一句话人设 (表面 trope · 第一印象钩子)</label><input data-c="trope" value="${esc(c.trope||'')}" placeholder="如：叛逆的杂货铺千金"></div>
+    <div class="fld"><label>隐藏深度 / 反转内里 (防写扁的关键)</label><textarea data-c="hiddenDepth" placeholder="表面之下真正的渴望/伤口/秘密…">${esc(c.hiddenDepth||'')}</textarea></div>
+    <div class="fld"><label>说话腔调</label><input data-c="voice" value="${esc(c.voice||'')}" placeholder="如：冷淡少语/爱掉书袋/市井油滑"></div>
+
+    <div class="sec">NPC / 社交设定 <label class="npctog"><input type="checkbox" data-npc ${c.isNPC?'checked':''}> 这是小镇 NPC（可社交）</label></div>
+    ${c.isNPC?npcBlock(c):'<small class="hint">勾选上面的框，展开好感度/礼物/作息/台词/心事件等社交字段。</small>'}
+
+    <div class="sec">关系网</div><div id="relwrap">${rels}</div><button class="btn" id="addRel">+ 加关系</button>
     <div class="sec">角色弧 (TA参与的事件，按世界时间)</div><div class="tl">${arc}</div>
     <div class="del"><button class="btn" id="delChar" style="border-color:var(--bad);color:var(--bad)">删除此角色</button></div>`;
+}
+function npcBlock(c){
+  const g=c.gifts||{}, s=c.schedule||{}, l=c.lines||{};
+  const hearts=(c.hearts||[]).map((h,i)=>`<div class="heart">
+    <input data-heart="${i}" data-k="h" type="number" min="0" value="${h.h??''}" placeholder="心" style="width:52px">
+    <input data-heart="${i}" data-k="place" value="${esc(h.place||'')}" placeholder="地点/时间/条件" style="width:150px">
+    <input data-heart="${i}" data-k="desc" value="${esc(h.desc||'')}" placeholder="剧情梗概" style="flex:1">
+    <span class="x" data-heartx="${i}">✕</span></div>`).join("")||'<small class="hint">还没有心事件</small>';
+  return `<div class="npcbox">
+    <div class="frow">
+      <div class="fld"><label>生日 (季节+日, 如 春·12)</label><input data-c="birthday" value="${esc(c.birthday||'')}"></div>
+      <div class="fld"><label>路线关联 (医/商/文/人情→解锁)</label><input data-c="routeLinks" value="${esc(c.routeLinks||'')}" placeholder="如：武→拜师学「XX剑」"></div>
+    </div>
+    <div class="sec2">作息 SCHEDULE</div>
+    <div class="frow">
+      <div class="fld"><label>白天 / 家</label><input data-c="sch_home" value="${esc(s.home||'')}"></div>
+      <div class="fld"><label>工作点</label><input data-c="sch_work" value="${esc(s.work||'')}"></div>
+      <div class="fld"><label>晚上</label><input data-c="sch_evening" value="${esc(s.evening||'')}"></div>
+    </div>
+    <div class="sec2">礼物偏好 (逗号分隔 · 送对＝懂 TA)</div>
+    <div class="fld gift"><label>❤ 爱 <input data-c="gift_loved" value="${esc((g.loved||[]).join(', '))}" style="flex:1"></label></div>
+    <div class="fld gift"><label>👍 喜欢 <input data-c="gift_liked" value="${esc((g.liked||[]).join(', '))}" style="flex:1"></label></div>
+    <div class="fld gift"><label>👎 讨厌 <input data-c="gift_disliked" value="${esc((g.disliked||[]).join(', '))}" style="flex:1"></label></div>
+    <div class="sec2">台词池 (随好感层级)</div>
+    <div class="fld"><label>初识</label><textarea data-c="line_met" style="min-height:48px">${esc(l.met||'')}</textarea></div>
+    <div class="fld"><label>熟络</label><textarea data-c="line_warm" style="min-height:48px">${esc(l.warm||'')}</textarea></div>
+    <div class="fld"><label>密友</label><textarea data-c="line_close" style="min-height:48px">${esc(l.close||'')}</textarea></div>
+    <div class="sec2">心事件 (L2 · 分心数触发的剧情演出)</div>
+    <div id="heartwrap">${hearts}</div><button class="btn" id="addHeart" style="margin-top:6px">+ 加心事件</button>
+  </div>`;
 }
 
 // 横向 X 轴时间轴图：真实时间比例定位，事件落成节点，可点、可悬停、矛盾红标
@@ -293,7 +339,14 @@ function wire(){
   document.querySelectorAll("[data-c]").forEach(el=>el.oninput=()=>{ const c=DB.chars.find(x=>x.id===selChar); if(!c)return; const k=el.dataset.c;
     if(k==="tags") c.tags=el.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
     else if(k==="born"||k==="died") c[k]=el.value===""?null:Number(el.value);
-    else c[k]=el.value; save(); document.getElementById("confBadge"); const conf=checkConflicts(); const b=document.getElementById("confBadge"); b.style.display=conf.length?"inline":"none"; b.textContent=conf.length; });
+    else if(k.startsWith("gift_")){ c.gifts=c.gifts||{}; c.gifts[k.slice(5)]=el.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean); }
+    else if(k.startsWith("sch_")){ c.schedule=c.schedule||{}; c.schedule[k.slice(4)]=el.value; }
+    else if(k.startsWith("line_")){ c.lines=c.lines||{}; c.lines[k.slice(5)]=el.value; }
+    else c[k]=el.value; save(); const conf=checkConflicts(); const b=document.getElementById("confBadge"); if(b){ b.style.display=conf.length?"inline":"none"; b.textContent=conf.length; } });
+  const npcCb=document.querySelector("[data-npc]"); if(npcCb) npcCb.onchange=()=>{ const c=DB.chars.find(x=>x.id===selChar); if(!c)return; c.isNPC=npcCb.checked; save(); render(); };
+  const ah=document.getElementById("addHeart"); if(ah) ah.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.hearts=c.hearts||[]; c.hearts.push({h:2,place:"",desc:""}); save(); render(); };
+  document.querySelectorAll("[data-heart]").forEach(el=>el.onchange=el.oninput=()=>{ const c=DB.chars.find(x=>x.id===selChar); const i=+el.dataset.heart; const k=el.dataset.k; c.hearts[i][k]= k==="h"?(el.value===""?null:Number(el.value)):el.value; save(); });
+  document.querySelectorAll("[data-heartx]").forEach(el=>el.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.hearts.splice(+el.dataset.heartx,1); save(); render(); });
   const ar=document.getElementById("addRel"); if(ar) ar.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.rels=c.rels||[]; c.rels.push({to:"",type:""}); save(); render(); };
   document.querySelectorAll("[data-rel]").forEach(el=>el.onchange=el.oninput=()=>{ const c=DB.chars.find(x=>x.id===selChar); const i=+el.dataset.rel; c.rels[i][el.dataset.k]=el.value; save(); });
   document.querySelectorAll("[data-relx]").forEach(el=>el.onclick=()=>{ const c=DB.chars.find(x=>x.id===selChar); c.rels.splice(+el.dataset.relx,1); save(); render(); });
