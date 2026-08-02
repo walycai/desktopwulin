@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>游戏构成维度 · 团队水平自评 · 定风波优先级</title>
+<style>
+  :root{ --bg:#15181e; --panel:#1e222b; --panel2:#262b36; --ink:#e9e5da; --dim:#9aa2b0; --line:#333b48; --acc:#7fae5e; --gold:#c9a94a; --warn:#e0813a; --bad:#d9534f; --good:#5aa469; --blue:#5aa0c9; --pink:#e0729a; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; -webkit-font-smoothing:antialiased; line-height:1.75; }
+  .wrap{ max-width:960px; margin:0 auto; padding:0 22px 90px; }
+  header.top{ background:linear-gradient(135deg,#232935,#1a1e26); border-bottom:1px solid var(--line); padding:40px 22px 30px; }
+  header.top .inner{ max-width:960px; margin:0 auto; }
+  header.top h1{ margin:0 0 8px; font-size:25px; }
+  header.top .sub{ color:var(--dim); font-size:14px; }
+  header.top .tag{ display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--gold); border-radius:20px; padding:3px 12px; font-size:12px; margin-top:12px; }
+  h2{ font-size:21px; margin:44px 0 8px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+  h2 .n{ color:var(--gold); margin-right:8px; }
+  .lead{ color:var(--dim); font-size:14px; background:var(--panel); border-left:3px solid var(--gold); padding:10px 14px; border-radius:0 8px 8px 0; margin:14px 0; }
+  .dim{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:16px 0; border-left:4px solid var(--acc); }
+  .dim h3{ margin:0 0 4px; font-size:18px; }
+  .dim .en{ color:var(--dim); font-size:13px; font-weight:400; }
+  .dim .cover{ color:var(--dim); font-size:13px; margin:2px 0 12px; }
+  .block{ margin:10px 0; }
+  .block .lbl{ display:inline-block; font-size:12px; font-weight:700; color:#1a1a1a; background:var(--gold); border-radius:4px; padding:1px 8px; margin-bottom:4px; }
+  .block.judge .lbl{ background:var(--blue); }
+  .block.learn .lbl{ background:var(--good); }
+  .block p{ margin:5px 0; }
+  .princ{ font-size:13px; color:var(--dim); border-left:2px solid var(--line); padding-left:10px; margin:6px 0; }
+  .princ b{ color:var(--warn); }
+  ul{ margin:6px 0; padding-left:22px; } li{ margin:4px 0; font-size:14px; }
+  .res b{ color:var(--ink); }
+  table{ width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+  th,td{ border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; }
+  th{ background:var(--panel2); color:var(--gold); }
+  .tierS{ color:var(--gold); font-weight:800; } .tierA{ color:var(--pink); font-weight:700; } .tierB{ color:var(--blue); font-weight:700; } .tierC{ color:var(--dim); font-weight:700; }
+  .bar{ height:8px; border-radius:4px; background:var(--panel2); overflow:hidden; }
+  .bar i{ display:block; height:100%; }
+  a{ color:var(--gold); }
+  .foot{ margin-top:40px; padding-top:16px; border-top:1px solid var(--line); color:var(--dim); font-size:13px; }
+  .note{ font-size:12px; color:var(--dim); font-style:italic; }
+</style>
+</head>
+<body>
+<header class="top"><div class="inner">
+  <h1>游戏的构成维度 · 团队如何自评水平 · 定风波优先级</h1>
+  <div class="sub">一款游戏由哪些体系构成 → 每个体系怎么判断自己的水平（含原理）→ 怎么快速进步（公认书/站）→ 落到定风波的侧重与权重</div>
+  <span class="tag">雅各布整理 · 2026-08</span>
+</div></header>
+
+<div class="wrap">
+<p class="lead">用途：给团队一张"能力地图"——知道游戏由哪些维度组成、每个维度用什么标准客观自评、往哪学，从而合理组织/扩充/调整团队与定学习方向。每个"如何判断"都附上背后的原理，而不是空口给结论。</p>
+
+<h2><span class="n">第一部分</span>游戏的构成维度（11 个）</h2>
+<p class="lead">分四层：<b>创意与设计层</b>（游戏是什么）→ <b>表现层</b>（怎么被感知）→ <b>技术层</b>（怎么被实现）→ <b>交付与商业层</b>（怎么被做完和被看见）。</p>
+
+<h3 style="color:var(--gold);margin-top:24px">▍创意与设计层</h3>
+
+<div class="dim">
+  <h3>1. 玩法 / 系统设计 <span class="en">Game Design</span></h3>
+  <div class="cover">核心循环、机制、系统交互、进程与成长、"有趣的选择"。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 能否<b>一句话</b>说清核心循环，以及它为什么让人"再来一次"？② 把玩法拆成玩家真正做的<b>动词</b>——动词是否"少而深、能相互组合产生涌现"？③ <b>灰盒测试</b>：删掉美术/音乐/剧情，纯色块原型是否仍然好玩？</p>
+    <p class="princ">原理：<b>玩法是游戏的第一因</b>。灰盒不好玩，加再多包装也救不回来。深度来自"少规则的组合涌现"，不是内容堆量（Sid Meier：游戏＝一系列有趣的选择）。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《The Art of Game Design: A Book of Lenses》</b>（Jesse Schell，透镜法，首选）</li>
+    <li><b>《A Theory of Fun》</b>（Raph Koster）·<b>《Game Design Workshop》</b>（Tracy Fullerton）·《Rules of Play》（Salen/Zimmerman）</li>
+    <li>网站：<b>GDC Vault</b>、<b>Game Maker's Toolkit</b>（Mark Brown,YouTube）、Machinations.io（系统建模）</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>2. 数值 / 经济平衡 <span class="en">Systems & Balance</span></h3>
+  <div class="cover">数值曲线、经济回路、难度平衡、掉落/产出、可调参数。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 能否建一个<b>离线可跑的数值模型</b>（表格/模拟），改一个参数能预测全局连锁影响？② 每条收益/难度曲线是否<b>有意为之且能解释</b>（而非拍脑袋）？③ 有没有一个明确的<b>目标函数</b>（如"净收益率收敛"）来反推平衡？</p>
+    <p class="princ">原理：<b>好数值是"可证明的设计"</b>。经济系统本质是正/负反馈回路，失衡就会通胀或死局。<b>能建模＝能控制</b>；不能建模就只能靠感觉赌。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《Game Balance》</b>（Ian Schreiber & Brenda Romero）</li>
+    <li>《Characteristics of Games》（Elias/Garfield/Gutschera）；熟练用<b>Excel/Sheets 建模</b> + <b>Machinations.io</b></li>
+    <li>拆解成熟游戏的数值表（社区常有逆向的平衡表）</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>3. 关卡 / 内容设计 <span class="en">Level & Content Design</span></h3>
+  <div class="cover">空间与动线、教学曲线、挑战递进、内容密度、模块化产出。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 关卡能否<b>无声地教学</b>（不靠文字教程就让玩家学会）？② 空间是否用地标/光线/动线<b>引导视线</b>？③ 内容密度恰当（不空不挤）、能否用<b>模块化组件</b>快速产出而不重复感？</p>
+    <p class="princ">原理：关卡是"<b>把系统翻译成体验节奏</b>"的地方。最高级的关卡设计是隐形的引导（Portal 的著名"无教程教学"）。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《An Architectural Approach to Level Design》</b>（Christopher Totten）</li>
+    <li>Mark Brown 的 <b>Boss Keys</b> 系列、World of Level Design</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>4. 叙事 / 文案 <span class="en">Narrative & Writing</span></h3>
+  <div class="cover">故事结构、世界观、人物、对白、任务/支线、环境叙事。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 角色是否"<b>表面 trope + 隐藏深度</b>"（防写扁）？② 世界观是否<b>自洽</b>（时间线/因果无矛盾——这正是"世界圣经"工具在查的）？③ 对白是否<b>推进人物或情节</b>（不注水）、给陌生人读一段能否记住这个角色？④ 是否用<b>环境叙事</b>分担信息（show, don't tell）？</p>
+    <p class="princ">原理：叙事的功能是<b>制造情感投入与记忆点</b>。角色靠"矛盾"立住；自洽是可信度的地基，一处硬矛盾就击穿沉浸。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《Save the Cat!》</b>（Blake Snyder,结构）·<b>《Story》</b>（Robert McKee）·《The Anatomy of Story》（John Truby）</li>
+    <li>世界观：《Wonderbook》（Jeff VanderMeer）；互动叙事：<b>Emily Short 的博客</b>、Inkle/Failbetter 的设计文、GDC 叙事专场</li></ul></div>
+</div>
+
+<h3 style="color:var(--gold);margin-top:24px">▍表现层</h3>
+
+<div class="dim">
+  <h3>5. 美术 / 美术指导 <span class="en">Art & Art Direction</span></h3>
+  <div class="cover">概念、2D/像素/3D、动画、特效、UI 美术、统一的美术风格。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 有没有统一的 <b>art bible/风格指南</b>——任取两张素材放一起，像不像出自同一个世界（<b>一致性 &gt; 单张精度</b>）？② <b>剪影可读性</b>（silhouette test）过关吗？③ 色彩层级是否服务可玩性（重要信息跳出来）？④ 是否在<b>目标分辨率/游戏尺寸</b>里看效果，而不是在 PS 里放大看？</p>
+    <p class="princ">原理：游戏美术首要是<b>传达功能</b>（可读性、一致性、情绪），不是插画精度。风格统一压过单件惊艳。（这也是我们上次踩坑后立的"在场景/游戏尺寸验"纪律。）</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《Color and Light》</b>（James Gurney）·《Framed Ink》（构图,Mateu-Mestre）·<b>《The Animator's Survival Kit》</b>（Richard Williams,动画圣经）</li>
+    <li>像素：<b>saint11(Pedro Medeiros)</b>、SLYNYRD 教程；ArtStation、80.lv</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>6. 音频 / 音乐 <span class="en">Music & Sound</span></h3>
+  <div class="cover">BGM、音效、配音、打击/反馈音、动态自适应音频。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① <b>闭眼只听</b>，能否分辨场景/情绪/操作反馈？② 音效有没有给动作"<b>手感反馈</b>"（打击感一半来自音）？③ 音乐有没有<b>记忆主题(motif)</b> 且长时间不腻？④ 是否<b>动态自适应</b>（随战斗/昼夜/紧张度变）？</p>
+    <p class="princ">原理：音频是<b>情感与反馈的隐形放大器</b>——玩家意识不到，但强烈左右体感。反馈音效是 game feel 的另一半。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《The Game Audio Tutorial》</b>（Stevens/Raybould）·《A Composer's Guide to Game Music》（Winifred Phillips）</li>
+    <li>工具：<b>Wwise / FMOD 官方课</b>；YouTube：Power Up Audio、GDC audio track</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>7. UX/UI 与 Game Feel <span class="en">Interface & Juice</span></h3>
+  <div class="cover">界面、可用性、新手引导、即时反馈"juice"、操作手感。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 新玩家<b>前 5 分钟</b>能否零挫折上手？② 每个操作是否有<b>即时反馈</b>（视觉+音效+震动=juice）？③ 信息层级是否让人一眼找到该看的（<b>3 秒规则</b>：新界面 3 秒内知道能干嘛）？</p>
+    <p class="princ">原理：UX 是"<b>降低认知摩擦</b>"；Game Feel（juice）是把机械输入变成愉悦的即时因果反馈（Swink）。反馈是玩家学习循环的核心——没反馈就学不会、也不爽。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《Game Feel》</b>（Steve Swink,经典）·《The Design of Everyday Things》（Norman）·《Don't Make Me Think》（Krug）</li>
+    <li>talk：<b>"Juice it or lose it"</b>、Vlambeer 的 juice；Nielsen Norman Group（NN/g）</li></ul></div>
+</div>
+
+<h3 style="color:var(--gold);margin-top:24px">▍技术层</h3>
+
+<div class="dim">
+  <h3>8. 程序 / 工程 <span class="en">Programming & Architecture</span></h3>
+  <div class="cover">引擎、架构、工具链、性能、可维护性、内容规模化。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 改一个需求要动<b>几处</b>代码（耦合度）？② 能否"<b>删掉画面跑一年</b>"（逻辑与表现分离——即我们的 headless 架构）？③ 有无<b>自动化</b>（测试/构建/热替换）？④ 加一个内容（作物/NPC）是<b>加数据</b>还是<b>改代码</b>？⑤ 性能在目标设备达标且<b>可 profile</b>？</p>
+    <p class="princ">原理：好架构＝<b>可改性 + 可测性</b>。数据驱动 + 关注点分离让内容规模化；技术债的"利息"就是迭代速度，越拖越慢。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《Game Programming Patterns》</b>（Robert Nystrom,<b>免费在线</b>,必读）·《Refactoring》（Fowler）·《Code Complete》</li>
+    <li>《Game Engine Architecture》（Jason Gregory）；引擎官方文档、Godot/Unity 社区、Casey Muratori（Handmade Hero）</li></ul></div>
+</div>
+
+<h3 style="color:var(--gold);margin-top:24px">▍交付与商业层</h3>
+
+<div class="dim">
+  <h3>9. 制作管理 / 生产 <span class="en">Production</span></h3>
+  <div class="cover">范围控制、排期、pipeline、里程碑、团队协作与决策。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① <b>估期准不准</b>（过去"估 vs 实际"的偏差）？② 范围<b>可控</b>吗（有没有"砍功能"的机制和勇气）？③ pipeline 顺不顺（素材/代码/内容流转有没有堵点）？④ 团队是否清楚"<b>下一步做什么、为什么</b>"、里程碑<b>可验收</b>吗？</p>
+    <p class="princ">原理：生产的本质是<b>管理不确定性与范围</b>。独立游戏最大死因是 scope creep；可预测性＝可交付性。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>《A Playful Production Process》</b>（Richard Lemarchand,专为游戏,强推）·《The Mythical Man-Month》（Brooks）</li>
+    <li>案例：<b>《Blood, Sweat, and Pixels》</b>（Jason Schreier）；敏捷/Scrum 基础</li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>10. 商业 / 发行 / 营销 <span class="en">Business & Marketing</span></h3>
+  <div class="cover">受众、渠道、愿望单、capsule/CTR、社群、定价、Steam 算法。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 能否说清<b>目标受众 + 可触达渠道</b>？② <b>愿望单增速</b>（发售前体温计）、capsule 点击率、Next Fest 转化知道吗？③ 有没有<b>社群资产</b>（Discord/关注者）？④ 懂不懂 <b>Steam 算法飞轮</b>（首发势能→曝光）？</p>
+    <p class="princ">原理：幂律市场里，<b>发行力决定异类能否被看见</b>。好游戏 + 没曝光 = 沉没。（详见我另发的《Steam 商业趋势与方法论》文档。）</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li><b>How To Market A Game</b>（Chris Zukowski）·<b>GameDiscoverCo</b>（Simon Carless）</li>
+    <li>VG Insights、Steamworks 文档；我方已整理：<a href="https://walycai.github.io/desktopwulin/market-analysis/">market-analysis</a></li></ul></div>
+</div>
+
+<div class="dim">
+  <h3>11. QA / 测试 / Playtesting <span class="en">Quality Assurance</span></h3>
+  <div class="cover">功能测试、回归、玩家盲测、数据埋点（留存/卡点）。</div>
+  <div class="block judge"><span class="lbl">如何判断水平</span>
+    <p>① 是否定期让<b>目标玩家（非团队）盲测</b>并<b>观察行为</b>（不解释、不引导）？② bug 有没有<b>回归流程</b>？③ 是否<b>量化</b>（完成率、卡点、留存）？④ 客观验证纪律（如我们的"逐向验+像素差分"）在不在？</p>
+    <p class="princ">原理：<b>你不是你的玩家</b>。开发者盲区只能靠外部 playtest 暴露；<b>观察行为 &gt; 听意见</b>（玩家说的和做的常常两样）。</p></div>
+  <div class="block learn res"><span class="lbl">快速进步</span>
+    <ul><li>《Games User Research》；Valve/Steam Playtest 方法；《The Art of Game Design》的 playtest 章</li></ul></div>
+</div>
+
+<h2><span class="n">第二部分</span>落到《定风波》：侧重 · 优先级 · 权重</h2>
+<p class="lead">定风波定位＝<b>武侠背景、带深度战斗系统的"类星露谷"生活模拟经营 RPG</b>。三支柱：①武学 build-craft 战斗（差异化脊柱）②人物剧情（灵魂）③生活经营（底色）。护城河＝<b>系统+数值的执行力</b>；头号风险＝<b>范围失控</b>；团队特点＝<b>agent 工作室（美术产能高、多线并行）</b>。据此排权重：</p>
+
+<table>
+<tr><th>维度</th><th>档</th><th>权重</th><th>为什么（对定风波）</th></tr>
+<tr><td>玩法/系统设计 + 数值平衡</td><td class="tierS">S</td><td><div class="bar"><i style="width:100%;background:var(--gold)"></i></div></td><td>战斗 build-craft 的深度＝我们的<b>脊柱和差异化</b>，也是"数值是解题输入"的核心。这里赢，游戏就立住。</td></tr>
+<tr><td>叙事/文案</td><td class="tierS">S</td><td><div class="bar"><i style="width:92%;background:var(--gold)"></i></div></td><td>人物剧情＝<b>灵魂</b>；武侠/东方叙事又是当前市场顺风（叙事类登顶、中国团队起量）。世界圣经工具已在为它兜底自洽。</td></tr>
+<tr><td>程序/工程</td><td class="tierA">A</td><td><div class="bar"><i style="width:82%;background:var(--pink)"></i></div></td><td>headless 数据驱动架构＝把系统深度落地 + 内容规模化的底盘，是我们<b>执行力护城河</b>的技术侧。</td></tr>
+<tr><td>制作管理/生产</td><td class="tierA">A</td><td><div class="bar"><i style="width:80%;background:var(--pink)"></i></div></td><td>直接对治<b>头号风险（scope）</b>。三支柱×五路线×多结局必须靠"垂直切片先行"的生产纪律压住。</td></tr>
+<tr><td>美术/美术指导</td><td class="tierB">B+</td><td><div class="bar"><i style="width:70%;background:var(--blue)"></i></div></td><td>产能是我们优势，但重点从"堆量"转向<b>一致性/art direction</b>；抓风格统一与游戏尺寸可读性，而非单张精度。</td></tr>
+<tr><td>UX/UI 与 Game Feel</td><td class="tierB">B+</td><td><div class="bar"><i style="width:68%;background:var(--blue)"></i></div></td><td>cozy 体验要顺手；<b>战斗手感（打击感反馈）要专门拉高</b>——build 解题的爽感一半靠 feel。</td></tr>
+<tr><td>音频/音乐</td><td class="tierB">B</td><td><div class="bar"><i style="width:58%;background:var(--blue)"></i></div></td><td>武侠意境 + 战斗打击反馈很加分，但可<b>后置/外包</b>，先占位、后精修。</td></tr>
+<tr><td>商业/发行/营销</td><td class="tierB">B</td><td><div class="bar"><i style="width:56%;background:var(--blue)"></i></div></td><td>单机买断靠愿望单——<b>时机性</b>强：现在打底（方法论已备），发售前 6–12 月重仓 store page/社群/Next Fest。</td></tr>
+<tr><td>关卡/内容设计</td><td class="tierB">B</td><td><div class="bar"><i style="width:54%;background:var(--blue)"></i></div></td><td>小镇场景 + 生活内容重要，但可<b>模块化迭代</b>，不在首要攻坚线上。</td></tr>
+<tr><td>QA/测试</td><td class="tierC">C（持续）</td><td><div class="bar"><i style="width:45%;background:var(--dim)"></i></div></td><td>不必专设岗，但<b>纪律要常在</b>（我们已立"客观验+盲测"流程）；越到后期越关键。</td></tr>
+</table>
+
+<p class="lead" style="border-left-color:var(--good)"><b>一句话策略：</b>把资源集中在 <b>S 档（战斗系统+数值、叙事）</b> 拉出差异化，用 <b>A 档（工程架构+生产纪律）</b> 保证做得完、可迭代；表现层（美术/音/UX）借 agent 产能达到"够好且一致"，商业按时机在后段发力。<b>不追求每个维度都顶尖，只追求"差异化维度顶尖 + 其余不拖后腿"</b>——这正是幂律市场的正确打法。</p>
+
+<div class="foot">
+  <p>整理：雅各布（定风波工作室 · 游戏工程）。配套阅读：<a href="https://walycai.github.io/desktopwulin/market-analysis/">Steam 商业趋势与方法论</a>。</p>
+  <p class="note">书单为业内长期公认的基础读物；维度划分与权重为我方研判，可随项目推进调整。</p>
+</div>
+
+</div>
+</body>
+</html>
