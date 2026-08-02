@@ -46,6 +46,8 @@
   .catbtn{ font-family:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--line); border-radius:7px; background:transparent; cursor:pointer; }
   .catbtn.on{ font-weight:700; }
   .catdot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .catgroup{ padding:8px 12px 4px; font-size:12px; font-weight:700; letter-spacing:.5px; background:var(--bg); border-bottom:1px solid var(--line); }
+  .catgroup .cnt{ color:var(--dim); font-weight:400; margin-left:4px; }
   .npcbox{ border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:0 8px 8px 0; padding:6px 12px 12px; background:rgba(127,174,94,.05); }
   .gift label{ display:flex; align-items:center; gap:6px; }
   .heart{ display:flex; gap:6px; align-items:center; margin-bottom:6px; }
@@ -195,9 +197,15 @@ function render(){
 
 function renderChars(){
   const cs=conflictSet();
-  const list=DB.chars.slice().sort((a,b)=>(a.born??1e9)-(b.born??1e9)).map(c=>
-    (ct=>`<div class="row ${c.id===selChar?'sel':''} ${cs.chars.has(c.id)?'conflict':''}" data-char="${c.id}" style="${ct?`border-left:5px solid ${ct.color}`:''}">
-       ${ct?`<span class="catdot" style="background:${ct.color}"></span>`:''}${esc(c.name)||'(未命名)'} ${c.isNPC?'<span class="tag" style="color:var(--acc);border-color:var(--acc)">NPC</span>':''} <div class="meta">${ct?'<span style="color:'+ct.color+'">'+ct.label+'</span> · ':''}${esc(c.role||'')} ${c.faction?'· '+esc(c.faction):''} ${c.born!=null?'· 生'+fmtTimeShort(c.born):''}</div></div>`)(catOf(c))).join("");
+  const rowHtml=(c)=>{ const ct=catOf(c); return `<div class="row ${c.id===selChar?'sel':''} ${cs.chars.has(c.id)?'conflict':''}" data-char="${c.id}" style="${ct?`border-left:5px solid ${ct.color}`:''}">
+       ${ct?`<span class="catdot" style="background:${ct.color}"></span>`:''}${esc(c.name)||'(未命名)'} ${c.isNPC?'<span class="tag" style="color:var(--acc);border-color:var(--acc)">NPC</span>':''} <div class="meta">${ct?'<span style="color:'+ct.color+'">'+ct.label+'</span> · ':''}${esc(c.role||'')} ${c.faction?'· '+esc(c.faction):''} ${c.born!=null?'· 生'+fmtTimeShort(c.born):''}</div></div>`; };
+  // 按 1主角→2可攻略→3不可攻略→4次要功能 顺序分区，未分类殿后
+  let list="";
+  [...CATS, null].forEach(ct=>{ const k=ct?ct.k:null;
+    const members=DB.chars.filter(x=>(x.category||null)===k).sort((a,b)=>(a.born??1e9)-(b.born??1e9));
+    if(!members.length) return;
+    list += `<div class="catgroup" style="color:${ct?ct.color:'var(--dim)'}">${ct?ct.label:'未分类'}<span class="cnt">${members.length}</span></div>` + members.map(rowHtml).join("");
+  });
   const c=DB.chars.find(x=>x.id===selChar);
   return `<div class="list"><div class="add"><input id="newChar" placeholder="+ 新角色名，回车添加"></div>${list||'<div class="row meta">还没有角色</div>'}</div>
     <div class="edit">${c?charEditor(c):'<div class="empty">← 选一个角色，或在左侧添加</div>'}</div>`;
