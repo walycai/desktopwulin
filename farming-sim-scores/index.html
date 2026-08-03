@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星露谷同类游戏 · 设计维度评分 vs 商业结果</title>
+<style>
+  :root{ --bg:#15181e; --panel:#1e222b; --panel2:#262b36; --ink:#e9e5da; --dim:#9aa2b0; --line:#333b48; --acc:#7fae5e; --gold:#c9a94a; --warn:#e0813a; --bad:#d9534f; --good:#5aa469; --blue:#5aa0c9; --pink:#e0729a; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; -webkit-font-smoothing:antialiased; line-height:1.7; }
+  .wrap{ max-width:1040px; margin:0 auto; padding:0 20px 90px; }
+  header.top{ background:linear-gradient(135deg,#232935,#1a1e26); border-bottom:1px solid var(--line); padding:38px 20px 28px; }
+  header.top .inner{ max-width:1040px; margin:0 auto; }
+  header.top h1{ margin:0 0 8px; font-size:24px; }
+  header.top .sub{ color:var(--dim); font-size:14px; }
+  header.top .tag{ display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--gold); border-radius:20px; padding:3px 12px; font-size:12px; margin-top:12px; }
+  h2{ font-size:20px; margin:40px 0 8px; padding-bottom:8px; border-bottom:2px solid var(--line); }
+  h2 .n{ color:var(--gold); margin-right:8px; }
+  .lead{ color:var(--dim); font-size:13.5px; background:var(--panel); border-left:3px solid var(--gold); padding:10px 14px; border-radius:0 8px 8px 0; margin:14px 0; }
+  table{ width:100%; border-collapse:collapse; margin:16px 0; font-size:13px; }
+  th,td{ border:1px solid var(--line); padding:8px 9px; text-align:center; vertical-align:middle; }
+  th{ background:var(--panel2); color:var(--gold); font-size:12px; }
+  td.name{ text-align:left; font-weight:700; }
+  td.name small{ display:block; color:var(--dim); font-weight:400; font-size:11px; }
+  td.res{ text-align:left; font-size:12px; }
+  .sc{ font-weight:800; border-radius:5px; padding:2px 7px; display:inline-block; min-width:34px; }
+  .s5{ background:#2b3d22; color:#a7e07a; } .s4{ background:#2f3a2a; color:#9cc77a; } .s3{ background:#3a3626; color:#d8c06a; } .s2{ background:#3a2a26; color:#e0956a; } .s1{ background:#3a2323; color:#e07a7a; }
+  .comm{ font-weight:800; }
+  .cA{ color:var(--gold); } .cB{ color:var(--good); } .cC{ color:var(--blue); } .cD{ color:var(--warn); } .cE{ color:var(--bad); }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin:14px 0; }
+  .card h3{ margin:0 0 6px; color:var(--gold); font-size:16px; }
+  ul{ margin:6px 0; padding-left:20px; } li{ margin:5px 0; font-size:14px; }
+  .verdict{ background:linear-gradient(135deg,#20301f,#1b2419); border:1px solid var(--good); border-radius:10px; padding:16px 20px; margin:18px 0; }
+  .verdict b{ color:var(--good); }
+  b.hi{ color:var(--warn); }
+  .foot{ margin-top:36px; padding-top:16px; border-top:1px solid var(--line); color:var(--dim); font-size:12.5px; }
+  a{ color:var(--gold); }
+  .note{ font-style:italic; color:var(--dim); font-size:12px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="inner">
+  <h1>星露谷同类游戏：设计维度评分 vs 商业结果</h1>
+  <div class="sub">按我们定的 S 档维度（玩法·系统 / 数值·经济 / 叙事·人物）给同类游戏打分，再看设计分和商业结果是否挂钩</div>
+  <span class="tag">雅各布整理 · 2026-08 · 评分为专家研判(1–5)，销量为公开数据/估算</span>
+</div></header>
+
+<div class="wrap">
+<p class="lead">方法：选取 9 款"类星露谷"生活/经营模拟（<b>抛开战斗</b>），每款在三个核心设计维度打 1–5 分，另附"表现/手感"作参照。<b>综合分</b>按我们的权重（玩法系统 ×0.4、数值 ×0.25、叙事 ×0.35）加权。右侧列商业结果与评级，最后分析"设计分 ↔ 商业结果"是否挂钩。</p>
+
+<h2><span class="n">一</span>评分总表</h2>
+<table>
+<tr><th>游戏</th><th>玩法·系统<br><small>深度/涌现</small></th><th>数值·经济<br><small>平衡/曲线</small></th><th>叙事·人物<br><small>情感/自洽</small></th><th>表现·手感<br><small>参照</small></th><th>综合<br><small>加权</small></th><th>商业结果</th><th>评级</th></tr>
+
+<tr><td class="name">Stardew Valley<small>2016 · 单人开发</small></td>
+<td><span class="sc s5">5.0</span></td><td><span class="sc s5">5.0</span></td><td><span class="sc s4">4.5</span></td><td><span class="sc s4">4.0</span></td><td><span class="sc s5">4.8</span></td>
+<td class="res">30M+ 份（业内估更高）<br>史诗级 outlier</td><td><span class="comm cA">S</span></td></tr>
+
+<tr><td class="name">My Time at Sandrock<small>2023 · Pathea</small></td>
+<td><span class="sc s4">4.0</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s4">4.0</span></td><td><span class="sc s4">4.0</span></td><td><span class="sc s4">3.9</span></td>
+<td class="res">~1.6M 份 / ~$37.9M<br>强</td><td><span class="comm cB">A</span></td></tr>
+
+<tr><td class="name">Coral Island<small>2023 · Stairway</small></td>
+<td><span class="sc s4">4.0</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s5">4.5</span></td><td><span class="sc s4">3.8</span></td>
+<td class="res">~1M 份 / ~$23.9M<br>强</td><td><span class="comm cB">A</span></td></tr>
+
+<tr><td class="name">Sun Haven<small>2023 · Pixel Sprout</small></td>
+<td><span class="sc s4">4.0</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s4">3.7</span></td>
+<td class="res">稳健独立成功<br>（估 ~1M+）</td><td><span class="comm cB">A–</span></td></tr>
+
+<tr><td class="name">Spiritfarer<small>2020 · Thunder Lotus</small></td>
+<td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s5">5.0</span></td><td><span class="sc s5">5.0</span></td><td><span class="sc s4">4.0</span></td>
+<td class="res">1M+ 份（口碑封神）<br>叫好、销量中上</td><td><span class="comm cB">A–</span></td></tr>
+
+<tr><td class="name">Story of Seasons: 橄榄镇<small>2021 · Marvelous</small></td>
+<td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.2</span></td>
+<td class="res">中等（吃系列情怀）<br>系列累计 10M+</td><td><span class="comm cC">B</span></td></tr>
+
+<tr><td class="name">Dinkum<small>2022 · James Bendon(单人)</small></td>
+<td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s2">2.5</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.2</span></td>
+<td class="res">EA 强势（单人）<br>题材新鲜带动</td><td><span class="comm cB">A–</span></td></tr>
+
+<tr><td class="name">Roots of Pacha<small>2023 · Soda Den</small></td>
+<td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.5</span></td><td><span class="sc s3">3.4</span></td>
+<td class="res"><b class="hi">后被下架</b>（发行纠纷）<br>设计尚可，商业受挫</td><td><span class="comm cE">D</span></td></tr>
+
+<tr><td class="name">Fae Farm<small>2023 · Phoenix Labs</small></td>
+<td><span class="sc s3">3.0</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s3">3.0</span></td><td><span class="sc s4">4.0</span></td><td><span class="sc s3">3.1</span></td>
+<td class="res">Steam 弱（10 天 ~3 万份/~$1M）<br>重营销/主机；工作室后大裁员</td><td><span class="comm cD">C–</span></td></tr>
+
+</table>
+<p class="note">评分＝我方专家研判（1 差 – 5 顶尖），非官方；销量为公开数据或行业估算，跨平台口径不完全一致，仅供横向对比趋势用。</p>
+
+<h2><span class="n">二</span>设计分 ↔ 商业结果，挂钩吗？</h2>
+<p class="lead">结论：<b>正相关，但很"噪"——设计分是"必要不充分条件"</b>。设计好会让你"有资格"卖得好，但真正的商业结果 = 设计分 × 时机/先发 × 营销/愿望单 × 价格/价值 × 运营更新 × 商业执行。逐条看：</p>
+
+<div class="card"><h3>① 顶部靠"全维度都强 + 先发/独占时机"，不是靠单项</h3>
+<p>Stardew 的 30M+ 不只是设计满分——它是 <b>2016 年"定义品类的先发者" + 单人开发的极致性价比（$15）+ 多年免费更新 + 当时几乎无竞品</b>。设计分给了它资格，时机与运营把它推成 outlier。<b class="hi">后 2020 年设计相当的作品只卖到 1–2M，差一个数量级</b>——差的不是设计，是时机与"在位者"效应。</p></div>
+
+<div class="card"><h3>② 系统深度 → 留存与口碑，是"卖得久"的引擎</h3>
+<p>系统越深、越涌现（Stardew、Sandrock、Sun Haven），<b>长尾越长、口碑发酵越久</b>。数值/系统是驱动"再来一天"和自来水传播的核心——这与销量的相关性最强。</p></div>
+
+<div class="card"><h3>③ 叙事拉"口碑与情感附着"，但不是本品类的原始销量引擎</h3>
+<p>Spiritfarer 叙事封神（5 分），却停在 1M+ —— <b>叫好、卖得中上，但非 blockbuster</b>。叙事放大评价、情感黏性与"意义感"，可它单独不驱动种田品类的爆量；<b>系统+循环才是量的发动机，叙事是灵魂与差评护盾</b>。</p></div>
+
+<div class="card"><h3>④ 高制作/高营销 ≠ 好设计能补的窟窿</h3>
+<p>Fae Farm 表现精美、主机营销猛（登顶 eShop），但<b class="hi">设计深度平庸，Steam 端很弱（10 天仅 ~3 万份）</b>，Phoenix Labs 随后大裁员。<b>产能与营销撑不起设计的空心</b>——尤其在核心玩家聚集的 Steam。</p></div>
+
+<div class="card"><h3>⑤ 商业执行能一票否决设计</h3>
+<p>Roots of Pacha 设计中上，却因<b class="hi">发行纠纷被下架</b>，商业直接归零。<b>发行/法务/运营的执行是设计之外的独立乘数，可以把好设计清零。</b></p></div>
+
+<div class="verdict">
+<p style="margin-top:0"><b>一句话：</b>设计分（尤其系统深度）和商业结果<b>正相关但不线性</b>——它决定你有没有资格、卖不卖得久；但爆量靠"设计 × 时机 × 营销 × 价格 × 运营 × 商业执行"的<b>乘积</b>，任一项为零都能拖垮全局。Stardew 是把所有乘数都拉满的孤例，<b>不可复制</b>。</p></div>
+
+<h2><span class="n">三</span>对《定风波》的启示</h2>
+<div class="card">
+<ul>
+<li><b>验证了我们的 S 档押注</b>：系统深度 + 数值是"卖得久"的引擎，叙事是灵魂——这两块顶尖，我们才有资格。</li>
+<li><b class="hi">但"比星露谷做得更好一点"是死路</b>：后来者设计相当却只卖 1–2M，输在时机/在位者效应。我们赢不了"更好的星露谷"这个位置。</li>
+<li><b>我们的正解＝差异化维度</b>：表里这 9 款在"战斗/build-craft"上基本都是 1–2 分（几乎没有真战斗）。<b>我们在一个在位者结构性薄弱的维度上做到顶尖</b>（深战斗 × 生活模拟），才是绕开在位者的唯一门。这也和之前的市场分析一致（供需缺口）。</li>
+<li><b>别只盯设计</b>：Fae Farm/Roots of Pacha 提醒——同时要把非设计乘数做对：愿望单/发售时机、价格价值、上线后持续更新、干净的发行/法务。设计满分也救不了这些为零。</li>
+</ul></div>
+
+<div class="foot">
+  <p>数据来源：<a href="https://en.wikipedia.org/wiki/Coral_Island_(video_game)">Coral Island (Wikipedia)</a>、<a href="https://en.wikipedia.org/wiki/My_Time_at_Sandrock">My Time at Sandrock (Wikipedia)</a>、<a href="https://thunderlotusgames.com/spiritfarer-farewell-edition-press/">Thunder Lotus (Spiritfarer)</a>、<a href="https://gamesensor.info/news/fae_farm_sales_first_ten_days_on_steam">GameSensor (Fae Farm)</a>、<a href="https://gamalytic.com/game/1158160">Gamalytic</a> 等。配套：<a href="https://walycai.github.io/desktopwulin/market-analysis/">Steam 商业趋势</a> · <a href="https://walycai.github.io/desktopwulin/game-dimensions/">游戏构成维度</a>。</p>
+  <p class="note">评分为主观研判，用于横向对比与决策参考，非精确测量。</p>
+</div>
+
+</div>
+</body>
+</html>
